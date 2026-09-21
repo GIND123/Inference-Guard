@@ -89,7 +89,7 @@ north_star:
     - Set up repo workflow: labels, the Session 04 milestone, and issues #8, #9, #10; created retroactive issues #2–#7 for Anna's work and linked them to PR #1.
     - Fixed live-test logging for user sessions: one clean CSV row per interaction with participant/scenario IDs, util_sim, latency, and accept/edit/reject decision (PR #11, closes #8).
     - Made the profile-split and taxonomy artifacts reproducible (`scripts/make_artifacts.py`, verified 300 profiles, 210/45/45, no overlap) and committed them (PR #11, closes #9).
-    - This report PR: Engineering sections, hat roster, dead-link fixes, evidence flags (PR #__PR2__, closes #10).
+    - This report PR: Engineering sections, hat roster, dead-link fixes, evidence flags (PR #12, closes #10).
 
 -  <add_name> (Product | Engineering): 
 -  <add_name> (Users&Research): 
