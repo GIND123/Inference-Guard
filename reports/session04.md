@@ -12,6 +12,9 @@ members:
   - name: Govind
     github: GIND123
     hat: Product
+  - name: Bingqi Lian
+    github: lianbingqi
+    hat: Operation
   # Users&Research and Operations are unassigned. See Challenges / blockers.
 north_star:
   metric: >-
