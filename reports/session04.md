@@ -12,7 +12,9 @@ members:
   - name: Govind
     github: GIND123
     hat: Product
-  # Users&Research and Operations are unassigned. See Challenges / blockers.
+  - name: Yiwei Jin
+    github: runyoucleverdr-beep
+    hat: User&Research
 north_star:
   metric: >-
     Target: attribute leakage rate under a held-out adversary. Not yet
