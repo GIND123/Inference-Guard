@@ -67,16 +67,20 @@ def filter_train_records(
     rejected_count = 0
 
     for rec in records:
-        prof_id = (
-            rec.get("profile_id")
-            or rec.get("profile")
-            or rec.get("user_id")
-            or rec.get("author")
-        )
+        prof_id = rec.get("author")
+        if not prof_id:
+            prof_id = rec.get("profile")
+            
         if prof_id is not None:
+            if isinstance(prof_id, str) and prof_id.startswith("{"):
+                try:
+                    import json
+                    prof_id = json.loads(prof_id)
+                except Exception:
+                    pass
             # Handle potential dictionary profile object
             if isinstance(prof_id, dict):
-                prof_id = prof_id.get("id") or prof_id.get("username")
+                prof_id = prof_id.get("id") or prof_id.get("username") or prof_id.get("author")
 
             str_id = str(prof_id).strip()
             if str_id in train_profiles:
