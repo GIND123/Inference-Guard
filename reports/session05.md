@@ -24,8 +24,13 @@ north_star:
     overall risk delta, taken as the max across attributes, with util_sim
     as the utility guardrail.
   value: >-
-    Pending. We now have the trained ModernBERT multi-task classifier to score risk, but we are pending the final Qwen3-1.7B fine-tuning (Session 06) to measure the actual risk reduction (delta) at scale.
-  previous: n/a
+    ModernBERT 4-head risk classifier achieved best_macro_f1 = 0.461 on the training split.
+    However, the overall risk delta target is pending. The Qwen3-1.7B LLM needs to be fine-tuned
+    (Session 06) for meaningful privacy rewrites to measure actual risk reduction at scale.
+  previous: >-
+    Proxy only, 3 dev-test messages in data/logs/session04_usage_log.csv:
+    overall confidence delta 0.428 / 0.010 / 0.056; util_sim 0.916 / 0.907 /
+    0.827. Team-generated, so not user evidence.
 ---
 
 ## Shipped this week
@@ -37,11 +42,6 @@ north_star:
 
 ## User evidence
 - **We have no qualifying user evidence this week, and we are not claiming any.** The focus was heavily on ML training pipelines and SFT dataset generation.
-- What we discovered:
-  - The fallback token-based utility evaluator (used to save GPU VRAM during SFT generation) was far too strict with a 0.82 threshold, causing a 99 percent rejection rate.
-  - Colab's default Spacy NER engine aggressively tagged indirect location cues, breaking end-to-end testing pipelines.
-- What we plan to improve:
-  - Integrate the fine-tuned Qwen model into the `web/api.py` endpoint to replace the heuristic rewrite fallback currently used in the UI.
 
 ## Metrics snapshot
 - Risk Classifier (ModernBERT): `best_macro_f1` = 0.461.
@@ -56,7 +56,7 @@ north_star:
 
 ## Challenges / blockers
 - GPU memory pressure continues to be a bottleneck when attempting to load ModernBERT, Qwen, and the DeBERTa NLI cross-encoder into VRAM simultaneously for the SFT generation pipeline.
-- We require real users to test the UI flow, but we must finalize the Qwen LLM integration first to provide them with meaningful privacy rewrites.
+- We require real users to test the UI flow. The Qwen LLM needs to be fine-tuned for meaningful privacy rewrites, but users can still test out how their inputs evaluate against the live privacy risk evaluation model.
 
 ## Next week's goal
 - Fine-tune the Qwen3-1.7B LLM on the generated SFT dataset using QLoRA.
