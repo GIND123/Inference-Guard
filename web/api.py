@@ -29,6 +29,9 @@ from src.rewriter.generate_training_data import (
     pareto_rejection_sample,
 )
 
+import torch
+from src.risk_model.model import ModernBertRiskClassifier
+
 logger = logging.getLogger(__name__)
 
 app = FastAPI(title="InferenceGuard API", version="1.0.0")
@@ -41,8 +44,33 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Load trained ModernBERT if available
+risk_model = None
+model_path = Path("artifacts/risk_model")
+if model_path.exists():
+    try:
+        from transformers import AutoTokenizer
+        logger.info("Loading trained ModernBERT risk classifier...")
+        device = "cuda" if torch.cuda.is_available() else "cpu"
+        tokenizer = AutoTokenizer.from_pretrained("answerdotai/ModernBERT-base")
+        model = ModernBertRiskClassifier.from_pretrained(str(model_path)).to(device)
+        model.eval()
+
+        def ml_risk_estimator(text: str) -> Dict[str, float]:
+            inputs = tokenizer(text, return_tensors="pt", max_length=512, truncation=True).to(device)
+            with torch.no_grad():
+                logits = model(**inputs)
+                scores = {attr: torch.sigmoid(logits[i]).item() for i, attr in enumerate(["age", "location", "occupation", "education"])}
+            scores["overall"] = max(scores.values()) if scores else 0.0
+            return scores
+            
+        risk_model = ml_risk_estimator
+        logger.info("ModernBERT loaded successfully!")
+    except Exception as e:
+        logger.warning(f"Failed to load ModernBERT: {e}")
+
 # Global persistent services
-conversation_tracker = ConversationTracker()
+conversation_tracker = ConversationTracker(risk_estimator_fn=risk_model)
 presidio_baseline = PresidioBaseline()
 utility_evaluator = UtilityEvaluator()
 
@@ -146,6 +174,7 @@ def rewrite_text(request: RewriteRequest) -> RewriteResponse:
     selected = pareto_rejection_sample(
         original=text,
         candidates=candidates,
+        risk_model_fn=risk_model,
         max_risk_threshold=request.max_risk,
         min_cosine_threshold=0.30,
     )
