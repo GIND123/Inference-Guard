@@ -160,7 +160,7 @@ def test_scenario_s05_adversarial_comparison():
 
     Target behavior: Shows Presidio misses indirect cues while InferenceGuard protects them.
     """
-    indirect_text = "The altitude takes getting used to when running near Red Rocks."
+    indirect_text = "The altitude takes getting used to when running near the Front Range."
     ground_truth = {"location": "Denver"}
 
     presidio = PresidioBaseline()
@@ -168,7 +168,7 @@ def test_scenario_s05_adversarial_comparison():
 
     # Presidio leaves indirect cue untouched
     presidio_out = presidio.redact(indirect_text)
-    assert "Red Rocks" in presidio_out
+    assert "Front Range" in presidio_out
 
     # Adversary succeeds on Presidio output
     p_pred = attacker.predict_attribute(presidio_out, "location")
