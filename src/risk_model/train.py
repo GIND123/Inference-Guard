@@ -16,7 +16,7 @@ import torch
 import torch.nn as nn
 from torch.utils.data import DataLoader, Dataset
 from transformers import AutoTokenizer, get_linear_schedule_with_warmup
-from tqdm.auto import tqdm
+from tqdm import tqdm
 
 from src.risk_model.model import ATTRIBUTES, ModernBertRiskClassifier
 
