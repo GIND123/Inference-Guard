@@ -1,0 +1,70 @@
+{
+  "device": "cpu",
+  "results": {
+    "answerdotai/ModernBERT-base": {
+      "macro_f1": 0.15526315789473683,
+      "macro_pr_auc": 0.365371816428686,
+      "mean_latency_ms": 0.35,
+      "p95_latency_ms": 0.4,
+      "peak_vram_gb": 0.28,
+      "per_attribute_f1": {
+        "age": 0.0,
+        "location": 0.0,
+        "occupation": 0.4211,
+        "education": 0.2
+      },
+      "per_attribute_pr_auc": {
+        "age": 0.4073,
+        "location": 0.3845,
+        "occupation": 0.3546,
+        "education": 0.3151
+      }
+    },
+    "microsoft/deberta-v3-base": {
+      "macro_f1": 0.13651315789473684,
+      "macro_pr_auc": 0.365371816428686,
+      "mean_latency_ms": 1.76,
+      "p95_latency_ms": 2.2,
+      "peak_vram_gb": 0.46,
+      "per_attribute_f1": {
+        "age": 0.125,
+        "location": 0.0,
+        "occupation": 0.4211,
+        "education": 0.0
+      },
+      "per_attribute_pr_auc": {
+        "age": 0.4073,
+        "location": 0.3845,
+        "occupation": 0.3546,
+        "education": 0.3151
+      }
+    },
+    "roberta-base": {
+      "macro_f1": 0.16776315789473684,
+      "macro_pr_auc": 0.365371816428686,
+      "mean_latency_ms": 0.86,
+      "p95_latency_ms": 1.03,
+      "peak_vram_gb": 0.35,
+      "per_attribute_f1": {
+        "age": 0.125,
+        "location": 0.125,
+        "occupation": 0.4211,
+        "education": 0.0
+      },
+      "per_attribute_pr_auc": {
+        "age": 0.4073,
+        "location": 0.3845,
+        "occupation": 0.3546,
+        "education": 0.3151
+      }
+    }
+  },
+  "gates": {
+    "f1_competitive": true,
+    "pr_auc_competitive": true,
+    "latency_compliant": true,
+    "vram_compliant": true,
+    "overall_decision_passed": true
+  },
+  "recommendation": "PROCEED_WITH_MODERNBERT"
+}

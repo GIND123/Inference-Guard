@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>InferenceGuard - Inferential Privacy Defense</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="app-layout">
+        <header class="navbar">
+            <div class="brand">
+                <span class="brand-title">InferenceGuard</span>
+                <span class="brand-subtitle">Inferential Privacy and Multi-Task Risk Protection</span>
+            </div>
+            <div class="system-status">
+                <span class="status-indicator"></span>
+                <span class="status-text">Backend Active</span>
+            </div>
+        </header>
+
+        <main class="main-content">
+            <section class="card input-section">
+                <div class="card-header">
+                    <h2>Input Message</h2>
+                    <div class="session-controls">
+                        <label for="session-id">Session:</label>
+                        <input type="text" id="session-id" value="session_01" placeholder="session_id">
+                    </div>
+                </div>
+                <textarea id="text-input" rows="5" placeholder="Enter text to analyze for inferential leakage..."></textarea>
+                <div class="action-bar">
+                    <button id="analyze-btn" class="primary-btn">Analyze and Protect</button>
+                    <button id="sample-btn" class="secondary-btn">Load Benchmark Sample</button>
+                </div>
+            </section>
+
+            <div style="background-color: #eef2ff; border-left: 4px solid #4f46e5; padding: 15px; margin-bottom: 20px; border-radius: 4px;">
+                <h4 style="margin-top: 0; margin-bottom: 10px; color: #3730a3; font-family: sans-serif;">Milestone 5 Architecture Status</h4>
+                <ul style="margin: 0; padding-left: 20px; font-size: 0.9rem; color: #4338ca; font-family: sans-serif; line-height: 1.4;">
+                    <li style="margin-bottom: 5px;"><strong>Privacy Risk Evaluation:</strong> Live. Powered by the ModernBERT 4-Head Classifier trained on the A100.</li>
+                    <li><strong>InferenceGuard Rewrite:</strong> Heuristic Fallback Mode. The Qwen3-1.7B LLM will be fine-tuned and integrated next week.</li>
+                </ul>
+            </div>
+
+            <section class="card risk-summary-section" id="risk-summary-card">
+                <div class="card-header">
+                    <h2>Privacy Risk Evaluation</h2>
+                    <div id="overall-badge" class="badge badge-low">BAND: LOW</div>
+                </div>
+                <div class="risk-metrics-grid">
+                    <div class="metric-box">
+                        <span class="metric-label">Overall Risk</span>
+                        <span class="metric-value" id="overall-score">0.00</span>
+                    </div>
+                    <div class="metric-box">
+                        <span class="metric-label">Primary Risk</span>
+                        <span class="metric-value" id="primary-attr">None</span>
+                    </div>
+                    <div class="metric-box">
+                        <span class="metric-label">Joint Entropy</span>
+                        <span class="metric-value" id="joint-entropy">4.00 bits</span>
+                    </div>
+                    <div class="metric-box">
+                        <span class="metric-label">Leakage Delta</span>
+                        <span class="metric-value" id="leakage-delta">0.00</span>
+                    </div>
+                </div>
+
+                <div class="attribute-bars">
+                    <div class="attr-row">
+                        <span class="attr-name">Age</span>
+                        <div class="bar-container"><div class="bar-fill" id="bar-age" style="width: 0%"></div></div>
+                        <span class="attr-val" id="val-age">0.00</span>
+                    </div>
+                    <div class="attr-row">
+                        <span class="attr-name">Location</span>
+                        <div class="bar-container"><div class="bar-fill" id="bar-location" style="width: 0%"></div></div>
+                        <span class="attr-val" id="val-location">0.00</span>
+                    </div>
+                    <div class="attr-row">
+                        <span class="attr-name">Occupation</span>
+                        <div class="bar-container"><div class="bar-fill" id="bar-occupation" style="width: 0%"></div></div>
+                        <span class="attr-val" id="val-occupation">0.00</span>
+                    </div>
+                    <div class="attr-row">
+                        <span class="attr-name">Education</span>
+                        <div class="bar-container"><div class="bar-fill" id="bar-education" style="width: 0%"></div></div>
+                        <span class="attr-val" id="val-education">0.00</span>
+                    </div>
+                </div>
+            </section>
+
+            <section class="card comparison-section">
+                <div class="card-header">
+                    <h2>Side-by-Side Protection Comparison</h2>
+                </div>
+                <div class="comparison-grid">
+                    <div class="comparison-column">
+                        <div class="column-title">Original (Cues Highlighted)</div>
+                        <div class="text-pane" id="original-display">No input submitted.</div>
+                    </div>
+                    <div class="comparison-column">
+                        <div class="column-title">InferenceGuard Rewrite</div>
+                        <div class="text-pane" id="rewrite-display">Sanitized rewrite will appear here.</div>
+                    </div>
+                    <div class="comparison-column">
+                        <div class="column-title">Presidio Explicit Baseline</div>
+                        <div class="text-pane" id="presidio-display">Presidio output will appear here.</div>
+                    </div>
+                </div>
+
+                <div class="utility-panel">
+                    <h3>Utility and Semantic Preservation</h3>
+                    <div class="utility-grid">
+                        <div class="util-item">
+                            <span class="util-label">Cosine Similarity (MiniLM):</span>
+                            <span class="util-val" id="util-cosine">0.00</span>
+                        </div>
+                        <div class="util-item">
+                            <span class="util-label">Forward NLI (DeBERTa):</span>
+                            <span class="util-val" id="util-nli-fwd">0.00</span>
+                        </div>
+                        <div class="util-item">
+                            <span class="util-label">Backward NLI:</span>
+                            <span class="util-val" id="util-nli-bwd">0.00</span>
+                        </div>
+                        <div class="util-item">
+                            <span class="util-label">Composite Utility:</span>
+                            <span class="util-val" id="util-composite">0.00</span>
+                        </div>
+                    </div>
+                </div>
+            </section>
+        </main>
+    </div>
+    <script src="app.js"></script>
+</body>
+</html>
