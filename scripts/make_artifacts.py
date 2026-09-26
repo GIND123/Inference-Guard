@@ -23,9 +23,8 @@ SEED = 42
 # Identical to the notebook's taxonomy dict
 taxonomy = {
     "age": ["18-24","25-34","35-44","45-54","55+","unknown"],
-    "education": ["high_school","undergraduate","graduate_professional","other_unknown"],
-    "occupation": ["student","technology","healthcare","education","business_finance","service","other"],
-    "location": ["USA_Northeast","USA_South","USA_Midwest","USA_West","Europe","Other","unknown"]
+    "education": ["high school", "college", "master", "PhD"],
+    "occupation": ["student","technology","healthcare","education","business_finance","service","other"]
 }
 
 

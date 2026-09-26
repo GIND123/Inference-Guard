@@ -4,7 +4,7 @@
 
 Every scenario below is invented. No persona corresponds to a real person, and no
 participant is ever asked to supply their own personal information. This is both an
-ethics requirement and a practical one — we cannot commit raw evidence to a public repo
+ethics requirement and a practical one  --  we cannot commit raw evidence to a public repo
 if that evidence contains somebody's real address.
 
 ## Why this file exists
@@ -13,7 +13,7 @@ The course's evidence standard is narrow, and it is worth restating before anyon
 a session:
 
 **Counts.** A real user, not on this team, using the running product, captured while it
-happens — screen recording, timestamped usage log, or a task test with completion and
+happens  --  screen recording, timestamped usage log, or a task test with completion and
 timing, plus dated notes.
 
 **Does not count.** Interviews about the idea. Reactions to mockups or slides. Feedback
@@ -31,13 +31,13 @@ as no evidence.
 ## How to run a session (~20 minutes)
 
 1. Start the pipeline and share your screen, or have the participant drive.
-2. Give them the **Situation** only. Do not read them the prompt text — hand it over as
+2. Give them the **Situation** only. Do not read them the prompt text  --  hand it over as
    something they are about to send, and let them read it themselves.
 3. Ask them to send it and stop. **Before** they request a rewrite: *"What is this
    telling you?"* This measures whether the risk panel is legible on its own, which is
    the thing we most need to know and the thing we will be most tempted to coach.
 4. Let them request the rewrite. Ask whether they would send the rewritten version
-   as-is, with edits, or not at all — and why.
+   as-is, with edits, or not at all  --  and why.
 5. Record the outcome. Do not defend the product mid-session; note the objection and
    move on.
 
@@ -48,10 +48,10 @@ session we cannot cite.
 
 ## Scenarios
 
-Each is written so the leak is inferential — remove the obvious identifiers and the
+Each is written so the leak is inferential  --  remove the obvious identifiers and the
 attributes are still recoverable.
 
-### S-01 · University advice — `education`, `location`, `age`
+### S-01 · University advice  --  `education`, `location`, `age`
 
 **Situation.** You are asking an AI whether to move apartments before your next work
 placement starts.
@@ -61,10 +61,10 @@ brutal. Is it worth moving closer before the spring semester, or should I stick 
 until I graduate?"*
 
 **Expected leak.** "co-op" + "semester" + "graduate" → current undergraduate; "second
-co-op" → mid-degree, so roughly 20–22; "Green Line" → one metro area.
+co-op" → mid-degree, so roughly 20 - 22; "Green Line" → one metro area.
 **Watch for.** Whether they notice location risk at all. There is no city named here.
 
-### S-02 · Workplace conflict — `occupation`, `age`, `education`
+### S-02 · Workplace conflict  --  `occupation`, `age`, `education`
 
 **Situation.** You want advice on a disagreement with a colleague.
 
@@ -73,12 +73,12 @@ only one on the team without a PhD. I've been doing ML infra for about eight yea
 do I raise this without it sounding like I'm complaining about workload?"*
 
 **Expected leak.** Occupation to a narrow specialism; eight years' experience → roughly
-30–35; education inferable by negation.
+30 - 35; education inferable by negation.
 **Watch for.** Whether the rewrite keeps the *grievance* intact. If it generalises away
-the PhD detail the advice becomes useless — this is the clearest utility-failure
+the PhD detail the advice becomes useless  --  this is the clearest utility-failure
 scenario we have, and it should be run every week as a regression.
 
-### S-03 · Health question — `age`, `location`, out-of-scope attribute
+### S-03 · Health question  --  `age`, `location`, out-of-scope attribute
 
 **Situation.** You are asking about a medication interaction.
 
@@ -91,7 +91,7 @@ UK. A health condition is also inferable, which v1 does **not** protect.
 do, that is the over-trust failure the canvas calls our highest-cost risk, and it is a
 finding worth more than a quality complaint.
 
-### S-04 · Travel planning — `occupation`, `location`, `age`
+### S-04 · Travel planning  --  `occupation`, `location`, `age`
 
 **Situation.** You are planning time off.
 
@@ -105,12 +105,12 @@ not handle.
 **Watch for.** Reaction to a rewrite that removes the constraints the request depends
 on. "Somewhere warm" with no dates and no airport is unanswerable.
 
-### S-05 · Writing assistance — explicit PII, as a control
+### S-05 · Writing assistance  --  explicit PII, as a control
 
 **Situation.** You want help tightening a paragraph of your CV.
 
 **Prompt.** *"Fix this: John Doe | 123 Oak Ave, Denver CO | jdoe@example.com | (303)
-555-0192 | Born 1991 — Senior analyst, six years in healthcare claims."*
+555-0192 | Born 1991  --  Senior analyst, six years in healthcare claims."*
 
 **Expected leak.** Explicit identifiers, which redaction should already handle.
 **Watch for.** This is the control, and it is currently a **known failure**. On the
@@ -118,7 +118,7 @@ Session 04 dev log the rewrite scrubbed the city and left the name, email and ph
 intact. Run it anyway. If a participant spots it before we tell them, that is the
 strongest possible evidence for prioritising the fix.
 
-### S-06 · Multi-turn accumulation — cumulative leakage
+### S-06 · Multi-turn accumulation  --  cumulative leakage
 
 **Situation.** A four-message conversation. Send them one at a time and watch the
 leakage number after each.
@@ -129,10 +129,10 @@ leakage number after each.
 4. *"My professor mentioned the Canvas deadline moved, so I've got more time to look."*
 
 **Expected leak.** No single turn identifies anyone. By turn 4: undergraduate, one
-metro area, current co-op, 18–24.
+metro area, current co-op, 18 - 24.
 **Watch for.** Whether the participant is surprised by the total. This scenario is the
 one the whole project's differentiation rests on, and it needs a working conversation
-view before it can be run properly — Session 08.
+view before it can be run properly  --  Session 08.
 
 ---
 
@@ -162,7 +162,7 @@ One JSON object per participant per scenario, in `user_studies/sessionNN/`:
 `warning_in_their_words` is the field that matters most. A participant clicking "yes, I
 understood" tells us nothing; a participant paraphrasing the warning back wrong tells us
 exactly what to change. `would_use_before_sending` is the distribution risk from the
-canvas — it needs to be asked every session, even when the answer is discouraging.
+canvas  --  it needs to be asked every session, even when the answer is discouraging.
 
 Record rejections in full. A rejected rewrite with a stated reason is more useful than an
 accepted one with none, and "what did not work" is a scored section of every report.

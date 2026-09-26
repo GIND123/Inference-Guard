@@ -8,10 +8,10 @@
     "unknown"
   ],
   "education": [
-    "high_school",
-    "undergraduate",
-    "graduate_professional",
-    "other_unknown"
+    "high school",
+    "college",
+    "master",
+    "PhD"
   ],
   "occupation": [
     "student",
@@ -21,14 +21,5 @@
     "business_finance",
     "service",
     "other"
-  ],
-  "location": [
-    "USA_Northeast",
-    "USA_South",
-    "USA_Midwest",
-    "USA_West",
-    "Europe",
-    "Other",
-    "unknown"
   ]
 }
