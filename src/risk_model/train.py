@@ -16,6 +16,7 @@ import torch
 import torch.nn as nn
 from torch.utils.data import DataLoader, Dataset
 from transformers import AutoTokenizer, get_linear_schedule_with_warmup
+from tqdm.auto import tqdm
 
 from src.risk_model.model import ATTRIBUTES, ModernBertRiskClassifier
 
@@ -374,7 +375,7 @@ def train_risk_model(
         model.train()
         epoch_loss = 0.0
 
-        for batch in train_loader:
+        for batch in tqdm(train_loader, desc=f"Epoch {epoch}/{epochs}"):
             optimizer.zero_grad()
             input_ids = batch["input_ids"].to(selected_device)
             attention_mask = batch["attention_mask"].to(selected_device)
