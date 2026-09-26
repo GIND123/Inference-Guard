@@ -51,9 +51,9 @@ def test_filter_train_records_isolation():
     """Verify profile isolation strictly retains only train profiles and drops val/test."""
     train_profiles = {"pers1", "pers2", "pers3"}
     records = [
-        {"profile_id": "pers1", "text": "I am in Denver."},
-        {"profile_id": "pers2", "text": "I work in tech."},
-        {"profile_id": "pers99", "text": "I live in Austin."},  # Not in train
+        {"author": "pers1", "text": "I am in Denver."},
+        {"author": "pers2", "text": "I work in tech."},
+        {"author": "pers99", "text": "I live in Austin."},  # Not in train
         {"profile": "pers3", "text": "I graduated college."},
         {"profile": "pers104", "text": "I like biking."},  # Val profile
         {"text": "Anonymous comment with no profile."},      # Missing profile
@@ -62,7 +62,7 @@ def test_filter_train_records_isolation():
     retained, rejected = filter_train_records(records, train_profiles)
     assert len(retained) == 3
     assert rejected == 3
-    retained_ids = [r.get("profile_id") or r.get("profile") for r in retained]
+    retained_ids = [r.get("author") or r.get("profile") for r in retained]
     assert set(retained_ids) == {"pers1", "pers2", "pers3"}
 
 
@@ -192,10 +192,10 @@ def test_full_generate_sft_dataset_pipeline():
 
         synth_path = tmp_path / "synthpai.jsonl"
         items = [
-            {"profile_id": "pers1", "text": "I am 25 years old and work as a software engineer in Austin."},
-            {"profile_id": "pers2", "text": "I moved to Seattle to join a tech startup as a designer."},
-            {"profile_id": "pers3", "text": "Val profile record - should be excluded."},
-            {"profile_id": "pers4", "text": "Test profile record - should be excluded."},
+            {"author": "pers1", "text": "I am 25 years old and work as a software engineer in Austin."},
+            {"author": "pers2", "text": "I moved to Seattle to join a tech startup as a designer."},
+            {"author": "pers3", "text": "Val profile record - should be excluded."},
+            {"author": "pers4", "text": "Test profile record - should be excluded."},
         ]
         with open(synth_path, "w", encoding="utf-8") as f:
             for item in items:
