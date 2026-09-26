@@ -295,8 +295,23 @@ def train_risk_model(
         with open(dp, "r", encoding="utf-8") as f:
             all_rows = [json.loads(line) for line in f if line.strip()]
 
-    train_rows = [r for r in all_rows if r.get("author") in train_profiles]
-    val_rows = [r for r in all_rows if r.get("author") in val_profiles]
+    train_rows = []
+    val_rows = []
+    for r in all_rows:
+        prof_id = r.get("author") or r.get("profile")
+        if prof_id:
+            if isinstance(prof_id, str) and prof_id.startswith("{"):
+                try:
+                    prof_id = json.loads(prof_id)
+                except Exception:
+                    pass
+            if isinstance(prof_id, dict):
+                prof_id = prof_id.get("id") or prof_id.get("username") or prof_id.get("author")
+            str_id = str(prof_id).strip()
+            if str_id in train_profiles:
+                train_rows.append(r)
+            elif str_id in val_profiles:
+                val_rows.append(r)
 
     if not train_rows:
         # Fallback synthetic training data for offline/test environments
