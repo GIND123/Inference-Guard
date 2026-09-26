@@ -46,7 +46,7 @@ app.add_middleware(
 
 # Load trained ModernBERT if available
 risk_model = None
-model_path = Path("artifacts/risk_model")
+model_path = Path("artifacts/risk_model/best_model")
 if model_path.exists():
     try:
         from transformers import AutoTokenizer
