@@ -1,4 +1,4 @@
-# Verified model stack -- base research, Session 04
+# Verified model stack — base research, Session 04
 #
 # Every id below was checked against the Hugging Face API on 2026-09-21:
 # it exists, and the architecture / parameter count / dtype recorded here
@@ -45,7 +45,7 @@ risk_estimator:
   verified: encoder, ModernBertForMaskedLM, vocab 50368
   why: >-
     Right size and right shape for the job, and cheap enough to train
-    repeatedly. Fine-tune it -- do not use it zero-shot. See
+    repeatedly. Fine-tune it — do not use it zero-shot. See
     docs/methodology-review.md finding 2.
   t4_notes: >-
     ModernBERT is designed around FlashAttention-2, which a T4 cannot run.
@@ -66,7 +66,7 @@ rewriter:
   why: >-
     Text-only causal LM, QLoRA-trainable inside a T4, and a real instruct
     model. Replaces the Qwen3.5-0.8B / 2B in the design doc, which are
-    vision-language models -- see finding 1.
+    vision-language models — see finding 1.
   gotcha: >-
     Qwen3 has hybrid thinking. The chat template accepts enable_thinking;
     leave it on and the model emits a <think> block before the rewrite,
@@ -89,7 +89,7 @@ held_out_adversary:
   verified: Phi3ForCausalLM, vocab 200064, context 131072
   why: >-
     Different vendor, different pretraining, different tokenizer from the
-    rewriter. That independence is the whole point -- it must never be used
+    rewriter. That independence is the whole point — it must never be used
     to select rewrites, tune thresholds, or filter SFT data.
   t4_notes: fits in fp16 for inference, but only with nothing else resident
 
@@ -97,7 +97,7 @@ utility:
   semantic_similarity:
     id: sentence-transformers/all-MiniLM-L6-v2
     note: >-
-      Already in use. Insufficient on its own -- it scored 0.907 on a rewrite
+      Already in use. Insufficient on its own — it scored 0.907 on a rewrite
       that produced "123 an area, an area an area". See finding 6.
   entailment:
     id: cross-encoder/nli-deberta-v3-large
@@ -114,6 +114,6 @@ explicit_pii_baseline:
 dataset:
   id: RobinSta/SynthPAI
   revision: b572595f543a51db789caddbb81a9fc4edc6c32f   # pin this; see issue #21
-  license: CC-BY-NC-SA-4.0        # non-commercial -- fine for coursework
+  license: CC-BY-NC-SA-4.0        # non-commercial — fine for coursework
   paper: https://arxiv.org/abs/2406.07217
   size: 7823 comments / 300 profiles / 103 threads / single synthpai.jsonl

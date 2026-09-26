@@ -1,4 +1,4 @@
-# InferenceGuard  --  Lean Canvas
+# InferenceGuard — Lean Canvas
 
 **Owner:** Govind (Product) · **Last revised:** 2026-09-21 (Session 04) · **Status:** v1, first version
 
@@ -9,7 +9,7 @@ week's report rather than tracked here, so this file always reads as current.
 
 ## 1. User and problem
 
-**User.** Someone who pastes personal context into a general-purpose LLM  --  a student
+**User.** Someone who pastes personal context into a general-purpose LLM — a student
 asking for advice on a co-op, someone drafting a message about a workplace conflict,
 someone asking a health or immigration question. They are not privacy experts. They
 are aware enough to strip their name and email, and they assume that is sufficient.
@@ -17,8 +17,8 @@ are aware enough to strip their name and email, and they assume that is sufficie
 **Problem.** It is not sufficient. A capable model recovers age, location, occupation
 and education from ordinary detail that contains no identifier at all. Our own Session
 04 baseline shows the shape of it: Presidio finds explicit spans in *"My co-op ends in
-December, and I take the Green Line to campus"*  --  it tags the date and the transit line
- --  but nothing in its output addresses that "co-op" plus "campus" implies an
+December, and I take the Green Line to campus"* — it tags the date and the transit line
+— but nothing in its output addresses that "co-op" plus "campus" implies an
 undergraduate, and that a Green Line commute narrows location to one metro area. The
 user removed what looked identifying and left the inference intact.
 
@@ -46,12 +46,12 @@ does it locally.
 ## 3. Value proposition
 
 > **We help people who paste personal context into an LLM reduce what a model can infer
-> about them  --  not just what they explicitly wrote  --  before the text leaves their device,
+> about them — not just what they explicitly wrote — before the text leaves their device,
 > and without losing the detail their question depends on.**
 
 The honest version of the pitch is the tradeoff, not the protection. Deleting everything
 is perfect privacy and a useless product. What we are actually claiming is a better
-privacy - utility curve than redaction, measured rather than asserted.
+privacy–utility curve than redaction, measured rather than asserted.
 
 ## 4. Distribution
 
@@ -60,20 +60,20 @@ Not solved, and we should stop describing it as if it were.
 Today the only surface is a Colab notebook, which reaches nobody outside the team. The
 plausible progression:
 
-1. **Now**  --  web UI in the repo, paste-in / paste-out. Enough to run user sessions against.
-2. **Realistic for this semester**  --  browser extension that intercepts the text box on
+1. **Now** — web UI in the repo, paste-in / paste-out. Enough to run user sessions against.
+2. **Realistic for this semester** — browser extension that intercepts the text box on
    the major chat UIs and offers a rewrite before send. This is where the product
    actually belongs: the protection has to sit in the moment of sending, not in a second
    tab the user has to remember.
-3. **Beyond scope**  --  OS-level clipboard or keyboard integration.
+3. **Beyond scope** — OS-level clipboard or keyboard integration.
 
 **Open question for Session 05:** whether anyone will accept a second step before hitting
-send. That is the distribution risk and it is cheaper to test than to build  --  the user
+send. That is the distribution risk and it is cheaper to test than to build — the user
 sessions should measure abandonment, not just rewrite quality.
 
 ## 5. Cost per user request
 
-Local-first, so there is no per-request API cost  --  the cost is the user's own compute
+Local-first, so there is no per-request API cost — the cost is the user's own compute
 and the patience it consumes. Current stack per request: ModernBERT-base zero-shot,
 Qwen2.5-0.5B-Instruct for the rewrite (up to 3 attempts under `rewrite_until_safe`), and
 all-MiniLM-L6-v2 for the similarity check.
@@ -87,7 +87,7 @@ marginal cost, there is no usage cap to enforce and no reason to retain user tex
 
 ## 6. North-star metric
 
-**Held-out attribute leakage rate**  --  the share of protected target attributes that an
+**Held-out attribute leakage rate** — the share of protected target attributes that an
 independent attacker, never used during training or tuning, still infers correctly.
 Lower is better.
 
@@ -96,7 +96,7 @@ is not progress, so the metric is only reported alongside rewrite acceptance and
 semantic similarity.
 
 *Session 04 status, stated honestly:* we cannot compute this yet. The held-out adversary
-(Phi-4-mini-instruct) is not implemented, so the report uses a proxy  --  before/after risk
+(Phi-4-mini-instruct) is not implemented, so the report uses a proxy — before/after risk
 delta from the same estimator that guided the rewrite, which is a weaker claim and
 should be labelled as one every week until the real attacker exists.
 
@@ -112,10 +112,10 @@ best one. `src/product/risk_bands.py` enforces this in code.
   Non-commercial terms suit a course project and would need revisiting for anything else.
 - **No real personal data in user testing.** Participants work from synthetic scenarios
   in `docs/product/user_test_scenarios.md`. If a participant volunteers their own text
-  anyway, it is processed and discarded  --  never committed, never in a report.
+  anyway, it is processed and discarded — never committed, never in a report.
 - **Bias.** Attribute inference is stereotype-shaped by construction: a model guessing
   occupation from phrasing is reproducing a correlation from its training data. Two
-  consequences we accept as obligations  --  per-attribute error analysis rather than one
+  consequences we accept as obligations — per-attribute error analysis rather than one
   averaged score, and output phrased as *"an attacker could infer"* and never *"you are"*.
   The second is enforced in `describe()` and tested.
 - **The claim we must not make.** "Inference risk reduced", never "you are anonymous".
@@ -129,7 +129,7 @@ best one. `src/product/risk_bands.py` enforces this in code.
 
 **Biggest threat to viability:** that the protection does not survive contact with an
 attacker we did not optimise against. Everything measured so far uses the same estimator
-that drives the rewrite  --  a closed loop that can only flatter us. If leakage under
+that drives the rewrite — a closed loop that can only flatter us. If leakage under
 Phi-4-mini-instruct is close to the unprotected baseline, the core claim fails.
 
 **Cheapest way to find out:** run the held-out attacker against the *existing* Session 04
