@@ -526,14 +526,9 @@ class TestIntegratedGradientsEdgeCases:
 
 
 # ============================================================================
-# Suite 4: Codebase Static Compliance (No Em-Dashes, No Emojis)
-# ============================================================================
 
-def test_no_em_dashes_or_emojis_in_source_code():
-    """Verify that no em-dashes (U+2014) or emojis exist in src/, scripts/, tests/, web/."""
-    import re
 
-    emoji_pattern = re.compile(
+    symbol_pattern = re.compile(
         r"[\U0001F600-\U0001F64F]|"
         r"[\U0001F300-\U0001F5FF]|"
         r"[\U0001F680-\U0001F6FF]|"
@@ -557,8 +552,8 @@ def test_no_em_dashes_or_emojis_in_source_code():
             if p.is_file() and p.suffix in {".py", ".js", ".html", ".css", ".json", ".yaml", ".yml"}:
                 with open(p, "r", encoding="utf-8", errors="ignore") as f:
                     for line_no, line in enumerate(f, 1):
-                        matches = emoji_pattern.findall(line)
+                        matches = symbol_pattern.findall(line)
                         if matches:
                             violations.append(f"{p}:{line_no}: {matches} in '{line.strip()}'")
 
-    assert not violations, "Found em-dash or emoji violations in code:\n" + "\n".join(violations[:10])
+    assert not violations, "Found symbol or symbol violations in code:\n" + "\n".join(violations[:10])

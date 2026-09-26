@@ -1,4 +1,4 @@
-// InferenceGuard Frontend Controller - Zero em-dashes and Zero emojis
+// InferenceGuard Frontend Controller
 
 document.addEventListener("DOMContentLoaded", () => {
     const textInput = document.getElementById("text-input");

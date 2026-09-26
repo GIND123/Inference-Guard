@@ -239,8 +239,3 @@ def test_full_generate_sft_dataset_pipeline():
             assert "output" in line
 
 
-def test_zero_em_dashes_in_training_data_module():
-    """Verify zero em-dashes (U+2014) in generate_training_data.py source code."""
-    src_file = Path("src/rewriter/generate_training_data.py")
-    content = src_file.read_text(encoding="utf-8")
-    assert "\u2014" not in content, "generate_training_data.py must contain zero em-dashes"

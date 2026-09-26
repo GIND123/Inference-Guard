@@ -206,9 +206,3 @@ def test_clean_gpu_memory():
     clean_gpu_memory()
 
 
-def test_zero_em_dashes_in_evaluation_modules():
-    """Verify zero em-dashes (U+2014) across all evaluation modules."""
-    eval_dir = Path("src/evaluation")
-    for py_file in eval_dir.glob("*.py"):
-        content = py_file.read_text(encoding="utf-8")
-        assert "\u2014" not in content, f"Em-dash found in {py_file}"

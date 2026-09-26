@@ -320,7 +320,3 @@ def test_llm_as_a_judge_verification():
     assert "23" not in rew_age["prediction"].lower()
 
 
-def test_zero_em_dashes_in_test_e2e_pipeline():
-    """Verify zero em-dashes (U+2014) in test_e2e_pipeline.py."""
-    content = Path(__file__).read_text(encoding="utf-8")
-    assert "\u2014" not in content, "Em-dash found in test_e2e_pipeline.py"

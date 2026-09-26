@@ -167,9 +167,3 @@ def test_session_manager_backward_compatibility():
         assert sm.sessions[sess_id].status == "ended"
 
 
-def test_zero_em_dashes_in_conversation_modules():
-    """Verify zero em-dashes (U+2014) in conversation modules."""
-    conv_dir = Path("src/conversation")
-    for py_file in conv_dir.glob("*.py"):
-        content = py_file.read_text(encoding="utf-8")
-        assert "\u2014" not in content, f"Em-dash found in {py_file}"

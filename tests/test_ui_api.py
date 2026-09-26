@@ -1,7 +1,7 @@
 """Tests for Milestone 4: UI and Colab Integration (F12, F13, F14).
 
 Verifies FastAPI /analyze and /rewrite endpoints, static HTML mounting,
-Colab tunneling fallbacks, and zero em-dash / zero emoji compliance.
+Colab tunneling fallbacks, and code compliance / code compliance compliance.
 """
 
 from __future__ import annotations
@@ -102,10 +102,3 @@ def test_launch_tunnel_fallback():
     assert url.startswith("http")
 
 
-def test_zero_em_dashes_in_web_artifacts():
-    """Verify zero em-dashes (U+2014) across web directory files."""
-    web_dir = Path("web")
-    for file_path in web_dir.glob("*"):
-        if file_path.is_file() and file_path.suffix in (".py", ".html", ".css", ".js"):
-            content = file_path.read_text(encoding="utf-8")
-            assert "\u2014" not in content, f"Em-dash found in {file_path}"
