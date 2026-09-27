@@ -130,3 +130,31 @@ The canvas now exists as a file — `docs/lean-canvas.md`, PR #18. From Session 
 - Problem and value proposition: Problem is refined. Explicit PII redaction is not enough because inferential leakage happens through ordinary clues that Presidio misses, for example Green Line implies Boston location even when explicit PII is scrubbed. Value proposition is now clearer as a local-first system that runs ModernBERT and Qwen 0.5B on device, highlights risk cues, rewrites text, and quantifies the privacy utility tradeoff with risk delta and utility similarity.
 - Risks and mitigation: Two new risks added. First, SynthPAI is synthetic so results may not transfer to real populations. Second, Qwen 0.5B has quality limits and leaks entities, requiring our _hard_scrub fallback. Mitigation is to consider a 2B fallback model if quality remains low.
 
+
+---
+
+## Addendum — 2026-09-27
+
+Added after this report was submitted at the Session 04 deadline (2026-09-22,
+17:00 ET). **Everything above is unchanged** and records what was true at
+submission. This note exists only so that someone following the links later is
+not misled by a status that has since moved. No claim in the body has been
+added, removed or strengthened.
+
+- **PRs #18, #19, #22 and #26 have since merged.** At submission they were
+  open, which is why Shipped this week says the lean canvas, risk banding and
+  scenario bank were "not yet merged" and Individual contributions marks PR #22
+  as open. Both were accurate on 22 September and are not now.
+- **The taxonomy quoted under Shipped this week has been superseded.** It is
+  the version frozen in Session 04. PR #28 replaced it in Session 05: education
+  moved to the SynthPAI paper's four-way scale (`high school / college / master
+  / PhD`), and the US-region location classes were dropped, because only 21 of
+  300 profiles are in the USA and 74 countries are represented. Both changes
+  follow the audit in `docs/methodology-review.md`. `artifacts/taxonomy.json`
+  now holds the newer version.
+- **Issue #21** (`make_artifacts.py` splits are not reproducible across
+  environments despite the seed) was open at submission and is still open. It
+  matters more now that the risk model trains on those splits.
+- **The user-evidence gap named above was closed in Session 05**, not this one.
+  See `reports/session05.md`. This report's statement that it had no qualifying
+  user evidence stands as written.
