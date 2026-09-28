@@ -1,0 +1,162 @@
+{
+  "participant_id": "P01",
+  "participant_age":"26",
+  "scenario_id": "S-04",
+  "date": "2026-09-27",
+  "facilitator": "Yiwei Jin",
+  "artifact": "user_studies/session05/anonymous-01.mp4",
+  "understood_warning": true,
+  "warning_in_their_words": "I am a security guard at an area for an organization. Could you please provide me with the quickest route to reach 8811 an area Towers from my home located at 32 an area in an area?",
+  "requested_rewrite": true,
+  "rewrite_decision": true,
+  "edit_made": N/A,
+  "usefulness(1-10)": 4,
+  "would_use_before_sending": false,
+  "comments": N/A,
+  "time_to_decision_seconds": 4
+}
+
+{
+  "participant_id": "P02",
+  "participant_age":"21",
+  "scenario_id": "S-04",
+  "date": "2026-09-27",
+  "facilitator": "Yiwei Jin",
+  "artifact": "user_studies/session05/anonymous-02.mp4",
+  "understood_warning": true,
+  "warning_in_their_words": N/A,
+  "requested_rewrite": true,
+  "rewrite_decision": true,
+  "edit_made": N/A,
+  "usefulness(1-10)": 6,
+  "would_use_before_sending": false,
+  "comments": "It changed some of the question",
+  "time_to_decision_seconds": 3
+}
+
+{
+  "participant_id": "P03",
+  "scenario_id": "S-02",
+  "participant_age":"22",
+  "date": "2026-09-27",
+  "facilitator": "Yiwei Jin",
+  "artifact": "user_studies/session05/anonymous-03.mp4",
+  "understood_warning": true,
+  "warning_in_their_words": N/A,
+  "requested_rewrite": true,
+  "rewrite_decision": true,
+  "edit_made": N/A,
+  "usefulness": 4,
+  "would_use_before_sending": true,
+  "comments":"The more complicated it gets its not gonna work",
+  "time_to_decision_seconds": 74
+}
+
+{
+  "participant_id": "P04",
+  "scenario_id": "S-02",
+  "participant_age":"30",
+  "date": "2026-09-27",
+  "facilitator": "Yiwei Jin",
+  "artifact": "user_studies/session05/anonymous-04.mp4",
+  "understood_warning": true,
+  "warning_in_their_words": N/A,
+  "requested_rewrite": true,
+  "rewrite_decision": "",
+  "edit_made": N/A,
+  "usefulness":2 ,
+  "would_use_before_sending": true,
+  "comments": N/A,
+  "time_to_decision_seconds": 74
+}
+
+{
+  "participant_id": "P05",
+  "scenario_id": "S-04",
+  "participant_age":"30",
+  "date": "2026-09-27",
+  "facilitator": "Yiwei Jin",
+  "artifact": "user_studies/session05/anonymous-05.mp4",
+  "understood_warning": true,
+  "warning_in_their_words": "what would be the fastest way for me to get to dca airport from Colesville Tower without a car",
+  "requested_rewrite": true,
+  "rewrite_decision": true,
+  "edit_made": N/A,
+  "usefulness":1,
+  "would_use_before_sending": false,
+  "comments": "I didn't like it.",
+  "time_to_decision_seconds": 3
+}
+
+{
+  "participant_id": "P06",
+  "scenario_id": "S-02",
+  "participant_age":"21",
+  "date": "2026-09-27",
+  "facilitator": "Yiwei Jin",
+  "artifact": "user_studies/session05/anonymous-06.mp4",
+  "understood_warning": true,
+  "warning_in_their_words": "My boss wants me to arrive at an organization at 20 minutes, but I have to pick up my child from an area elementary school. How can I resolve this issue",
+  "requested_rewrite": true,
+  "rewrite_decision": true,
+  "edit_made": N/A,
+  "usefulness":5,
+  "would_use_before_sending": true,
+  "comments": "Make sense",
+  "time_to_decision_seconds": 2
+}
+
+{
+  "participant_id": "P07",
+  "scenario_id": "S20",
+  "participant_age":"22",
+  "date": "2026-09-27",
+  "facilitator": "Yiwei Jin",
+  "artifact": "user_studies/session05/anonymous-07.mp4",
+  "understood_warning": true,
+  "warning_in_their_words": "What is the best way to remove homeless people from the building. If they get aggressive, can I beat them up? Would it be against the law?",
+  "requested_rewrite": true,
+  "rewrite_decision": true,
+  "edit_made": N/A,
+  "usefulness":3,
+  "would_use_before_sending": true,
+  "comments": N/A,
+  "time_to_decision_seconds": 4
+}
+
+{
+  "participant_id": "P08",
+  "scenario_id": "S01",
+  "participant_age":"26",
+  "date": "2026-09-22",
+  "facilitator": "Yiwei Jin",
+  "artifact": "user_studies/session05/anonymous-08.mp4",
+  "understood_warning": true,
+  "warning_in_their_words": "I am enrolled for an organization (an organization), but I also need credits in an entity. How can I manage my time effectively to ensure I can concentrate on my major while obtaining the necessary credits from an organization?",
+  "requested_rewrite": true,
+  "rewrite_decision": false,
+  "edit_made": N/A,
+  "usefulness":2,
+  "would_use_before_sending": false,
+  "comments": "It would have been good but it made up on its own.",
+  "time_to_decision_seconds": 4
+}
+
+{
+  "participant_id": "P09",
+  "scenario_id": "S03",
+  "participant_age":N/A,
+  "date": "2026-09-27",
+  "facilitator": "Yiwei Jin",
+  "artifact": "user_studies/session05/anonymous-09.mp4",
+  "understood_warning": true,
+  "warning_in_their_words": "Does fluoxitine and Bupropine has an interaction",
+  "requested_rewrite": true,
+  "rewrite_decision": true,
+  "edit_made": N/A,
+  "usefulness":6,
+  "would_use_before_sending": true,
+  "comments": N/A,
+  "time_to_decision_seconds": 5
+}
+
