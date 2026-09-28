@@ -142,3 +142,21 @@
   "time_to_decision_seconds": 4
 }
 
+{
+  "participant_id": "P09",
+  "scenario_id": "S03",
+  "participant_age":N/A,
+  "date": "2026-09-27",
+  "facilitator": "Yiwei Jin",
+  "artifact": "user_studies/session05/anonymous-09.mp4",
+  "understood_warning": true,
+  "warning_in_their_words": "Does fluoxitine and Bupropine has an interaction",
+  "requested_rewrite": true,
+  "rewrite_decision": true,
+  "edit_made": N/A,
+  "usefulness":6,
+  "would_use_before_sending": true,
+  "comments": N/A,
+  "time_to_decision_seconds": 5
+}
+
