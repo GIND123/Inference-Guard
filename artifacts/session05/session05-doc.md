@@ -1,7 +1,10 @@
-### Artifact Integrity and Modality Limitations (P01–P08)
+### Artifact Archival & Modality Note (Session 05 Evidence)
 
-To comply with the course standard for empirical user evidence, external participant evaluation sessions ($N=8$, P01–P08) were conducted and recorded under the synthetic scenario protocol defined in `docs/product/user_test_scenarios.md`. 
+Due to Git file size constraints, raw audiovisual trial recordings ($N=8$) are archived externally on Google Drive rather than directly committed to the repository:
 
-Due to a display failure and capture profile misconfiguration during the initial execution window, visual streams were corrupted or dropped for participants **P01 through P04**, yielding audio-only recordings alongside synchronized, timestamped interaction logs (`data/logs/session05_user_test_P*.csv`). The underlying capture pipeline was subsequently reconfigured and verified prior to running **P05 through P08**, which successfully capture synchronized multi-modal artifacts (full video screen recordings and system audio). 
+* **Session 05 Evidence Drive Archive**: [Google Drive Folder Link](https://drive.google.com/drive/folders/1hAbehRKe_Hth8rQSXcctlg_6ccu3bVrw?usp=sharing)
 
-While the absence of visual telemetry for P01–P04 restricts micro-level gaze and UI fixation analysis, task completion veracity, wall-clock latencies, decision timestamps, and qualitative verbal justifications remain fully auditable via the surviving audio tracks and immutable CSV records.
+**Modality Availability & Integrity:**
+
+* **P01–P04 (Audio Only)**: A capture compositor failure during initial trials dropped the display stream, leaving synchronized system audio tracks. 
+* **P05–P08 (Full Video & Audio)**: Conducted after reconfiguring; fully intact screen recordings synchronized with participant audio.
