@@ -104,8 +104,12 @@ north_star:
     - Note: PR #32 is not merged, and its logs have not been audited by the team, so the User evidence section above still claims nothing from them. If it merges before submission, that section needs rewriting and this north star's "previous" line needs revisiting.
 
 - Bingqi Lian (Operations):
-    - No Session 05 work is visible in the repo as of 2026-09-27: no commits, issues, pull requests or reviews since PR #23 (a roster edit opened 2026-09-22 and closed unmerged). `src/conversation/state.py` and `tests/test_operations_state.py` in this PR were written by Data&Eval, not by Operations.
-    - This entry needs Bingqi's own account of the session before submission; Engineering has not written one on their behalf.
+    - Designed and implemented the Experiment Operations framework in PR #38, establishing a standardized protocol for reproducible, auditable, and comparable user and model evaluations across sessions.
+    - Added `docs/experiment_protocol.md` and `configs/experiments/session06.yaml` to define experiment IDs, configuration requirements, user-study procedures, metric categories, failure taxonomy, raw-evidence handling, and held-out evaluation rules.
+    - Implemented `scripts/validate_experiment.py` to validate experiment metadata, participant/scenario IDs, score ranges, session consistency, latency values, and possible PII before analysis.
+    - Implemented `scripts/summarize_experiment.py` to aggregate privacy, utility, usability, reliability, per-scenario, and failure-mode metrics into report-ready outputs.
+    - Added automated regression tests for the Experiment Operations pipeline; all 9 tests passed before merge.
+    - PR #38 was reviewed and merged into `main` on 2026-09-29.
 
 ## Lean canvas changes (if any)
 - No changes to the Lean Canvas this session. The product vision and distribution strategy established in Session 04 remain accurate.
