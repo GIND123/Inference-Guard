@@ -1,0 +1,104 @@
+experiment_id: session06_user_eval_v1
+session: 6
+experiment_type: user_evaluation
+
+dataset:
+  name: RobinSta/SynthPAI
+  revision: TBD
+  split: validation
+
+random_seed: 42
+
+risk_model:
+  name: ModernBERT-base
+  checkpoint: artifacts/risk_model/best_model
+
+rewriter:
+  name: Qwen3-1.7B
+  checkpoint: TBD
+
+attacker:
+  name: microsoft/Phi-4-mini-instruct
+
+utility_evaluator:
+  semantic_similarity_model: sentence-transformers/all-MiniLM-L6-v2
+  nli_model: cross-encoder/nli-deberta-v3-large
+
+user_study:
+  participant_id_format: P##
+  external_participants_only: true
+  synthetic_scenarios_only: true
+
+  core_scenarios:
+    - S-01
+    - S-02
+    - S-05
+
+  optional_scenarios:
+    - S-03
+    - S-04
+    - S-06
+
+  required_fields:
+    - participant_id
+    - scenario_id
+    - experiment_id
+    - session
+    - timestamp
+    - risk_understanding_correct
+    - risk_explanation
+    - requested_rewrite
+    - rewrite_decision
+    - usefulness
+    - would_use_before_sending
+    - time_to_decision_seconds
+    - qualitative_comment
+
+metrics:
+  privacy:
+    - risk_before
+    - risk_after
+    - privacy_risk_delta
+    - attacker_success_rate
+
+  utility:
+    - cosine_similarity
+    - nli_forward
+    - nli_backward
+    - contradiction
+
+  usability:
+    - comprehension_rate
+    - acceptance_rate
+    - edit_rate
+    - rejection_rate
+    - time_to_decision_seconds
+
+  reliability:
+    - explicit_pii_failure_rate
+    - risk_inversion_rate
+    - rewrite_failure_rate
+    - unnecessary_rewrite_rate
+
+failure_taxonomy:
+  F01: explicit_pii_remains
+  F02: inferential_risk_increases
+  F03: utility_destroyed
+  F04: hallucinated_content
+  F05: false_negative
+  F06: unnecessary_rewrite
+  F07: user_misunderstood_warning
+
+output:
+  root: experiments/session06_user_eval_v1
+  raw_dir: experiments/session06_user_eval_v1/raw
+  derived_dir: experiments/session06_user_eval_v1/derived
+
+validation:
+  fail_on_missing_required_fields: true
+  fail_on_invalid_scenario_id: true
+  fail_on_invalid_score_range: true
+  fail_on_negative_latency: true
+  fail_on_session_mismatch: true
+  fail_on_experiment_id_mismatch: true
+  scan_for_possible_pii: true
