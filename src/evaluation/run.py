@@ -225,18 +225,22 @@ def main() -> None:
     evaluator = StagedEvaluator(output_dir=args.output_dir)
 
     # Benchmark test set
-    demo_samples = [
-        {
-            "profile_id": "pers1",
-            "text": "I am 24 years old and work as a software engineer in Denver near Red Rocks.",
-            "ground_truth": {"age": "24", "location": "Denver", "occupation": "Software Engineer"},
-        },
-        {
-            "profile_id": "pers2",
-            "text": "Taking sound transit to Pike Place after my clinical shift at the hospital.",
-            "ground_truth": {"location": "Seattle", "occupation": "Nurse"},
-        },
-    ]
+    if args.input_file and Path(args.input_file).exists():
+        with open(args.input_file, "r", encoding="utf-8-sig") as f:
+            demo_samples = [json.loads(line) for line in f]
+    else:
+        demo_samples = [
+            {
+                "profile_id": "pers1",
+                "text": "I am 24 years old and work as a software engineer in Denver near Red Rocks.",
+                "ground_truth": {"age": "24", "location": "Denver", "occupation": "Software Engineer"},
+            },
+            {
+                "profile_id": "pers2",
+                "text": "Taking sound transit to Pike Place after my clinical shift at the hospital.",
+                "ground_truth": {"location": "Seattle", "occupation": "Nurse"},
+            },
+        ]
 
     report = evaluator.run_pipeline(demo_samples)
     print(json.dumps(report["adversary_evaluation"], indent=2))
