@@ -27,7 +27,7 @@ def parse_args():
     parser.add_argument("--batch_size", type=int, default=4, help="Per device train batch size")
     parser.add_argument("--learning_rate", type=float, default=2e-4, help="Learning rate")
     parser.add_argument("--epochs", type=int, default=3, help="Number of training epochs")
-    parser.add_argument("--max_seq_length", type=int, default=1024, help="Maximum sequence length")
+    parser.add_argument("--max_length", type=int, default=1024, help="Maximum sequence length")
     return parser.parse_args()
 
 def format_prompt(example):
@@ -52,24 +52,33 @@ def main():
     if "text" not in dataset.column_names:
         dataset = dataset.map(format_prompt)
 
-    logger.info("Configuring 4-bit quantization")
-    bnb_config = BitsAndBytesConfig(
-        load_in_4bit=True,
-        bnb_4bit_use_double_quant=True,
-        bnb_4bit_quant_type="nf4",
-        bnb_4bit_compute_dtype=torch.float16
-    )
-
-    logger.info("Loading base model")
-    model = AutoModelForCausalLM.from_pretrained(
-        args.model_name,
-        quantization_config=bnb_config,
-        device_map="auto",
-        trust_remote_code=True
-    )
-    model.config.use_cache = False
+    device_map = "auto" if torch.cuda.is_available() else "cpu"
     
-    model = prepare_model_for_kbit_training(model)
+    if torch.cuda.is_available():
+        logger.info("Configuring 4-bit quantization")
+        bnb_config = BitsAndBytesConfig(
+            load_in_4bit=True,
+            bnb_4bit_use_double_quant=True,
+            bnb_4bit_quant_type="nf4",
+            bnb_4bit_compute_dtype=torch.float16
+        )
+        logger.info("Loading base model with quantization")
+        model = AutoModelForCausalLM.from_pretrained(
+            args.model_name,
+            quantization_config=bnb_config,
+            device_map=device_map,
+            trust_remote_code=True
+        )
+        model = prepare_model_for_kbit_training(model)
+    else:
+        logger.info("CUDA not available, loading model without quantization")
+        model = AutoModelForCausalLM.from_pretrained(
+            args.model_name,
+            device_map=device_map,
+            trust_remote_code=True
+        )
+        
+    model.config.use_cache = False
 
     peft_config = LoraConfig(
         r=16,
@@ -95,14 +104,13 @@ def main():
             save_strategy="epoch",
             optim="paged_adamw_32bit",
             fp16=True,
-            max_seq_length=args.max_seq_length,
+            max_length=args.max_length,
             dataset_text_field="text"
         )
         trainer = SFTTrainer(
             model=model,
             train_dataset=dataset,
-            peft_config=peft_config,
-            tokenizer=tokenizer,
+            processing_class=tokenizer,
             args=training_args
         )
     except ImportError:
@@ -120,7 +128,6 @@ def main():
         trainer = SFTTrainer(
             model=model,
             train_dataset=dataset,
-            peft_config=peft_config,
             tokenizer=tokenizer,
             args=training_args,
             dataset_text_field="text"
