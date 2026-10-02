@@ -82,28 +82,50 @@ def main():
     model = get_peft_model(model, peft_config)
     model.print_trainable_parameters()
 
-    training_args = TrainingArguments(
-        output_dir=args.output_dir,
-        per_device_train_batch_size=args.batch_size,
-        gradient_accumulation_steps=4,
-        learning_rate=args.learning_rate,
-        num_train_epochs=args.epochs,
-        logging_steps=10,
-        save_strategy="epoch",
-        optim="paged_adamw_32bit",
-        fp16=True,
-    )
-
-    # Note: Using standard SFTTrainer format for ease of instruction tuning
-    trainer = SFTTrainer(
-        model=model,
-        train_dataset=dataset,
-        peft_config=peft_config,
-        max_seq_length=args.max_seq_length,
-        tokenizer=tokenizer,
-        args=training_args,
-        dataset_text_field="text"
-    )
+    # Handle cross-version compatibility for TRL
+    try:
+        from trl import SFTConfig
+        training_args = SFTConfig(
+            output_dir=args.output_dir,
+            per_device_train_batch_size=args.batch_size,
+            gradient_accumulation_steps=4,
+            learning_rate=args.learning_rate,
+            num_train_epochs=args.epochs,
+            logging_steps=10,
+            save_strategy="epoch",
+            optim="paged_adamw_32bit",
+            fp16=True,
+            max_seq_length=args.max_seq_length,
+            dataset_text_field="text"
+        )
+        trainer = SFTTrainer(
+            model=model,
+            train_dataset=dataset,
+            peft_config=peft_config,
+            tokenizer=tokenizer,
+            args=training_args
+        )
+    except ImportError:
+        training_args = TrainingArguments(
+            output_dir=args.output_dir,
+            per_device_train_batch_size=args.batch_size,
+            gradient_accumulation_steps=4,
+            learning_rate=args.learning_rate,
+            num_train_epochs=args.epochs,
+            logging_steps=10,
+            save_strategy="epoch",
+            optim="paged_adamw_32bit",
+            fp16=True,
+        )
+        trainer = SFTTrainer(
+            model=model,
+            train_dataset=dataset,
+            peft_config=peft_config,
+            max_seq_length=args.max_seq_length,
+            tokenizer=tokenizer,
+            args=training_args,
+            dataset_text_field="text"
+        )
 
     logger.info("Starting QLoRA fine-tuning")
     trainer.train()
