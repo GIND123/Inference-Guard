@@ -61,7 +61,7 @@ def main():
             load_in_4bit=True,
             bnb_4bit_use_double_quant=True,
             bnb_4bit_quant_type="nf4",
-            bnb_4bit_compute_dtype=torch.float16
+            bnb_4bit_compute_dtype=torch.bfloat16
         )
         logger.info("Loading base model with quantization")
         model = AutoModelForCausalLM.from_pretrained(
@@ -69,7 +69,7 @@ def main():
             quantization_config=bnb_config,
             device_map=device_map,
             trust_remote_code=True,
-            torch_dtype=torch.float16
+            torch_dtype=torch.bfloat16
         )
         model = prepare_model_for_kbit_training(model)
     else:
@@ -78,7 +78,7 @@ def main():
             args.model_name,
             device_map=device_map,
             trust_remote_code=True,
-            torch_dtype=torch.float16
+            torch_dtype=torch.bfloat16
         )
         
     model.config.use_cache = False
@@ -106,7 +106,7 @@ def main():
             logging_steps=10,
             save_strategy="epoch",
             optim="paged_adamw_32bit",
-            fp16=True,
+            bf16=True,
             gradient_checkpointing=True,
             max_length=args.max_length,
             dataset_text_field="text"
@@ -127,7 +127,7 @@ def main():
             logging_steps=10,
             save_strategy="epoch",
             optim="paged_adamw_32bit",
-            fp16=True,
+            bf16=True,
             gradient_checkpointing=True,
         )
         trainer = SFTTrainer(
