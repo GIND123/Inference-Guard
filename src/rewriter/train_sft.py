@@ -92,9 +92,6 @@ def main():
         save_strategy="epoch",
         optim="paged_adamw_32bit",
         fp16=True,
-        max_grad_norm=0.3,
-        group_by_length=True,
-        lr_scheduler_type="constant"
     )
 
     # Note: Using standard SFTTrainer format for ease of instruction tuning
