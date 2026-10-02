@@ -121,7 +121,6 @@ def main():
             model=model,
             train_dataset=dataset,
             peft_config=peft_config,
-            max_seq_length=args.max_seq_length,
             tokenizer=tokenizer,
             args=training_args,
             dataset_text_field="text"
