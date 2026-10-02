@@ -30,14 +30,14 @@ def parse_args():
     parser.add_argument("--max_length", type=int, default=1024, help="Maximum sequence length")
     return parser.parse_args()
 
-def format_prompt(example):
-    """Format Alpaca schema to text."""
-    instruction = example.get("instruction", "")
-    input_text = example.get("input", "")
-    output = example.get("output", "")
-    
-    prompt = f"Instruction:\n{instruction}\n\nInput:\n{input_text}\n\nOutput:\n{output}"
-    return {"text": prompt}
+def get_formatting_func(tokenizer):
+    def format_prompt(example):
+        instruction = example.get("instruction", "")
+        input_text = example.get("input", "")
+        output = example.get("output", "")
+        prompt = f"Instruction:\n{instruction}\n\nInput:\n{input_text}\n\nOutput:\n{output}{tokenizer.eos_token}"
+        return {"text": prompt}
+    return format_prompt
 
 def main():
     logging.basicConfig(level=logging.INFO)
@@ -46,13 +46,14 @@ def main():
     logger.info(f"Loading tokenizer for {args.model_name}")
     tokenizer = AutoTokenizer.from_pretrained(args.model_name, trust_remote_code=True)
     tokenizer.pad_token = tokenizer.eos_token
+    tokenizer.pad_token_id = tokenizer.eos_token_id
 
     logger.info(f"Loading dataset from {args.dataset_path}")
     dataset = load_dataset("json", data_files=args.dataset_path, split="train")
     if "text" not in dataset.column_names:
-        dataset = dataset.map(format_prompt)
+        dataset = dataset.map(get_formatting_func(tokenizer))
 
-    device_map = "auto" if torch.cuda.is_available() else "cpu"
+    device_map = {"": 0} if torch.cuda.is_available() else "cpu"
     
     if torch.cuda.is_available():
         logger.info("Configuring 4-bit quantization")
@@ -86,7 +87,7 @@ def main():
         lora_dropout=0.05,
         bias="none",
         task_type="CAUSAL_LM",
-        target_modules=["q_proj", "k_proj", "v_proj", "o_proj"]
+        target_modules=["q_proj", "k_proj", "v_proj", "o_proj", "gate_proj", "up_proj", "down_proj"]
     )
     model = get_peft_model(model, peft_config)
     model.print_trainable_parameters()
@@ -104,6 +105,7 @@ def main():
             save_strategy="epoch",
             optim="paged_adamw_32bit",
             fp16=True,
+            gradient_checkpointing=True,
             max_length=args.max_length,
             dataset_text_field="text"
         )
@@ -124,6 +126,7 @@ def main():
             save_strategy="epoch",
             optim="paged_adamw_32bit",
             fp16=True,
+            gradient_checkpointing=True,
         )
         trainer = SFTTrainer(
             model=model,
