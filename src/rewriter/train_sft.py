@@ -68,7 +68,8 @@ def main():
             args.model_name,
             quantization_config=bnb_config,
             device_map=device_map,
-            trust_remote_code=True
+            trust_remote_code=True,
+            torch_dtype=torch.float16
         )
         model = prepare_model_for_kbit_training(model)
     else:
@@ -76,7 +77,8 @@ def main():
         model = AutoModelForCausalLM.from_pretrained(
             args.model_name,
             device_map=device_map,
-            trust_remote_code=True
+            trust_remote_code=True,
+            torch_dtype=torch.float16
         )
         
     model.config.use_cache = False
