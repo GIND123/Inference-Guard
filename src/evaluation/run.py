@@ -20,6 +20,7 @@ from src.evaluation.attacker import Phi4MiniAttacker
 from src.evaluation.presidio_baseline import PresidioBaseline
 from src.evaluation.utility import UtilityEvaluator
 from src.rewriter.generate_training_data import generate_candidate_rewrites_heuristic, scrub_hard_pii
+from src.rewriter.inference import QwenRewriterInference
 
 logger = logging.getLogger(__name__)
 
@@ -55,6 +56,13 @@ class StagedEvaluator:
         """Stage 1: Generate Presidio baseline and Privacy rewrites for all samples."""
         logger.info("Executing Stage 1: Baseline redaction and rewriter generation.")
         presidio = PresidioBaseline()
+        
+        logger.info("Loading Qwen Rewriter model...")
+        qwen_rewriter = QwenRewriterInference(
+            model_name_or_path="Qwen/Qwen2.5-1.5B-Instruct",
+            adapter_path="artifacts/rewriter_qlora"
+        )
+        
         processed: List[Dict[str, Any]] = []
 
         for sample in samples:
@@ -65,9 +73,8 @@ class StagedEvaluator:
             # Presidio explicit baseline
             redaction_res = presidio.analyze_sample(text)
 
-            # Rewriter candidate generation
-            candidates = generate_candidate_rewrites_heuristic(text)
-            rewrite_text = candidates[0] if candidates else text
+            # Qwen Rewriter generation
+            rewrite_text = qwen_rewriter.rewrite(text)
 
             processed.append({
                 "profile_id": prof_id,
