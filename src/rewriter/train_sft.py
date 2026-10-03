@@ -32,6 +32,10 @@ def parse_args():
 
 def get_formatting_func(tokenizer):
     def format_prompt(example):
+        if "messages" in example:
+            prompt = tokenizer.apply_chat_template(example["messages"], tokenize=False)
+            return {"text": prompt}
+            
         instruction = example.get("instruction", "")
         input_text = example.get("input", "")
         output = example.get("output", "")
