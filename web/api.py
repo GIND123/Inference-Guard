@@ -150,7 +150,7 @@ def analyze_text(request: AnalyzeRequest) -> AnalyzeResponse:
     presidio_text = presidio_baseline.redact(text)
 
     # 4. Rewriter candidate generation and rejection sampling
-    if qwen_rewriter is not None and qwen_rewriter.is_adapter_loaded():
+    if qwen_rewriter is not None and qwen_rewriter.is_adapter_loaded:
         candidates = [qwen_rewriter.rewrite(text)]
     else:
         candidates = generate_candidate_rewrites_heuristic(text)
@@ -186,7 +186,7 @@ def rewrite_text(request: RewriteRequest) -> RewriteResponse:
     if not text:
         raise HTTPException(status_code=400, detail="Text cannot be empty.")
 
-    if qwen_rewriter is not None and qwen_rewriter.is_adapter_loaded():
+    if qwen_rewriter is not None and qwen_rewriter.is_adapter_loaded:
         candidates = [qwen_rewriter.rewrite(text)]
     else:
         candidates = generate_candidate_rewrites_heuristic(text)
