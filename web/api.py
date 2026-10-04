@@ -28,6 +28,7 @@ from src.rewriter.generate_training_data import (
     generate_candidate_rewrites_heuristic,
     pareto_rejection_sample,
 )
+from src.rewriter.inference import QwenRewriterInference
 
 import torch
 from src.risk_model.model import ModernBertRiskClassifier
@@ -73,6 +74,17 @@ if model_path.exists():
 conversation_tracker = ConversationTracker(risk_estimator_fn=risk_model)
 presidio_baseline = PresidioBaseline()
 utility_evaluator = UtilityEvaluator()
+
+logger.info("Initializing Qwen Rewriter Inference Engine...")
+try:
+    qwen_rewriter = QwenRewriterInference(
+        model_name_or_path="Qwen/Qwen2.5-1.5B-Instruct",
+        adapter_path="artifacts/rewriter_qlora"
+    )
+    logger.info("Qwen Rewriter successfully initialized!")
+except Exception as e:
+    logger.warning(f"Failed to initialize Qwen Rewriter: {e}")
+    qwen_rewriter = None
 
 
 class AnalyzeRequest(BaseModel):
@@ -138,18 +150,25 @@ def analyze_text(request: AnalyzeRequest) -> AnalyzeResponse:
     presidio_text = presidio_baseline.redact(text)
 
     # 4. Rewriter candidate generation and rejection sampling
-    candidates = generate_candidate_rewrites_heuristic(text)
-    selected = pareto_rejection_sample(
-        original=text,
-        candidates=candidates,
-        max_risk_threshold=0.30,
-        min_cosine_threshold=0.30,
-    )
-
-    if selected is not None:
-        rewritten_text, _ = selected
+    if risk_summary.get("overall_band") == "LOW":
+        rewritten_text = text
     else:
-        rewritten_text = candidates[0] if candidates else presidio_text
+        if qwen_rewriter is not None and qwen_rewriter.is_adapter_loaded:
+            candidates = [qwen_rewriter.rewrite(text)]
+        else:
+            candidates = generate_candidate_rewrites_heuristic(text)
+            
+        selected = pareto_rejection_sample(
+            original=text,
+            candidates=candidates,
+            max_risk_threshold=0.30,
+            min_cosine_threshold=0.30,
+        )
+
+        if selected is not None:
+            rewritten_text, _ = selected
+        else:
+            rewritten_text = candidates[0] if candidates else presidio_text
 
     # 5. Utility metrics
     utility_metrics = utility_evaluator.compute_metrics(text, rewritten_text)
@@ -170,7 +189,11 @@ def rewrite_text(request: RewriteRequest) -> RewriteResponse:
     if not text:
         raise HTTPException(status_code=400, detail="Text cannot be empty.")
 
-    candidates = generate_candidate_rewrites_heuristic(text)
+    if qwen_rewriter is not None and qwen_rewriter.is_adapter_loaded:
+        candidates = [qwen_rewriter.rewrite(text)]
+    else:
+        candidates = generate_candidate_rewrites_heuristic(text)
+        
     selected = pareto_rejection_sample(
         original=text,
         candidates=candidates,

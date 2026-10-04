@@ -53,6 +53,20 @@ def test_api_analyze_endpoint_conformance(client):
     assert "age" in risk["scores"]
     assert "location" in risk["scores"]
 
+def test_api_analyze_endpoint_passthrough(client):
+    """Verify /analyze endpoint bypasses rewrite when risk is LOW (State C)."""
+    payload = {
+        "text": "This is a completely safe and generic sentence.",
+        "session_id": "test_passthrough",
+    }
+    resp = client.post("/analyze", json=payload)
+    assert resp.status_code == 200
+
+    data = resp.json()
+    assert data["risk_summary"]["overall_band"] == "LOW"
+    assert data["rewritten_text"] == payload["text"]
+    assert data["utility_metrics"]["cosine_similarity"] == 1.0
+
     # Verify utility metrics
     util = data["utility_metrics"]
     assert "cosine_similarity" in util

@@ -167,7 +167,11 @@ document.addEventListener("DOMContentLoaded", () => {
         originalDisplay.innerHTML = highlighted;
 
         // Rewritten text and Presidio text
-        rewriteDisplay.textContent = data.rewritten_text || "No rewrite generated.";
+        if (risk.overall_band === "LOW") {
+            rewriteDisplay.innerHTML = "<em>No inferential markers detected. Original text preserved.</em><br/><br/>" + data.original_text;
+        } else {
+            rewriteDisplay.textContent = data.rewritten_text || "No rewrite generated.";
+        }
         presidioDisplay.textContent = data.presidio_text || "No baseline generated.";
 
         // Utility metrics

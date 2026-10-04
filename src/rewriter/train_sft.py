@@ -1,0 +1,154 @@
+"""
+Fine-tune the Qwen LLM on the generated SFT dataset using QLoRA.
+"""
+
+import argparse
+import logging
+from pathlib import Path
+
+import torch
+from datasets import load_dataset
+from peft import LoraConfig, get_peft_model, prepare_model_for_kbit_training
+from transformers import (
+    AutoModelForCausalLM,
+    AutoTokenizer,
+    BitsAndBytesConfig,
+    TrainingArguments,
+)
+from trl import SFTTrainer
+
+logger = logging.getLogger(__name__)
+
+def parse_args():
+    parser = argparse.ArgumentParser(description="QLoRA Fine-tuning for InferenceGuard Rewriter")
+    parser.add_argument("--model_name", type=str, default="Qwen/Qwen3-1.7B", help="Base model name")
+    parser.add_argument("--dataset_path", type=str, required=True, help="Path to the JSONL dataset (ChatML or Alpaca format)")
+    parser.add_argument("--output_dir", type=str, default="artifacts/rewriter_qlora", help="Output directory for adapters")
+    parser.add_argument("--batch_size", type=int, default=4, help="Per device train batch size")
+    parser.add_argument("--learning_rate", type=float, default=2e-4, help="Learning rate")
+    parser.add_argument("--epochs", type=int, default=3, help="Number of training epochs")
+    parser.add_argument("--max_length", type=int, default=1024, help="Maximum sequence length")
+    return parser.parse_args()
+
+def get_formatting_func(tokenizer):
+    def format_prompt(example):
+        if "messages" in example:
+            prompt = tokenizer.apply_chat_template(example["messages"], tokenize=False)
+            return {"text": prompt}
+            
+        instruction = example.get("instruction", "")
+        input_text = example.get("input", "")
+        output = example.get("output", "")
+        prompt = f"Instruction:\n{instruction}\n\nInput:\n{input_text}\n\nOutput:\n{output}{tokenizer.eos_token}"
+        return {"text": prompt}
+    return format_prompt
+
+def main():
+    logging.basicConfig(level=logging.INFO)
+    args = parse_args()
+
+    logger.info(f"Loading tokenizer for {args.model_name}")
+    tokenizer = AutoTokenizer.from_pretrained(args.model_name, trust_remote_code=True)
+    tokenizer.pad_token = tokenizer.eos_token
+    tokenizer.pad_token_id = tokenizer.eos_token_id
+
+    logger.info(f"Loading dataset from {args.dataset_path}")
+    dataset = load_dataset("json", data_files=args.dataset_path, split="train")
+    if "text" not in dataset.column_names:
+        dataset = dataset.map(get_formatting_func(tokenizer))
+
+    device_map = {"": 0} if torch.cuda.is_available() else "cpu"
+    
+    if torch.cuda.is_available():
+        logger.info("Configuring 4-bit quantization")
+        bnb_config = BitsAndBytesConfig(
+            load_in_4bit=True,
+            bnb_4bit_use_double_quant=True,
+            bnb_4bit_quant_type="nf4",
+            bnb_4bit_compute_dtype=torch.bfloat16
+        )
+        logger.info("Loading base model with quantization")
+        model = AutoModelForCausalLM.from_pretrained(
+            args.model_name,
+            quantization_config=bnb_config,
+            device_map=device_map,
+            trust_remote_code=True,
+            torch_dtype=torch.bfloat16
+        )
+        model = prepare_model_for_kbit_training(model)
+    else:
+        logger.info("CUDA not available, loading model without quantization")
+        model = AutoModelForCausalLM.from_pretrained(
+            args.model_name,
+            device_map=device_map,
+            trust_remote_code=True,
+            torch_dtype=torch.bfloat16
+        )
+        
+    model.config.use_cache = False
+
+    peft_config = LoraConfig(
+        r=16,
+        lora_alpha=32,
+        lora_dropout=0.05,
+        bias="none",
+        task_type="CAUSAL_LM",
+        target_modules=["q_proj", "k_proj", "v_proj", "o_proj", "gate_proj", "up_proj", "down_proj"]
+    )
+    model = get_peft_model(model, peft_config)
+    model.print_trainable_parameters()
+
+    # Handle cross-version compatibility for TRL
+    try:
+        from trl import SFTConfig
+        training_args = SFTConfig(
+            output_dir=args.output_dir,
+            per_device_train_batch_size=args.batch_size,
+            gradient_accumulation_steps=4,
+            learning_rate=args.learning_rate,
+            num_train_epochs=args.epochs,
+            logging_steps=10,
+            save_strategy="epoch",
+            optim="paged_adamw_32bit",
+            bf16=True,
+            gradient_checkpointing=True,
+            max_length=args.max_length,
+            dataset_text_field="text"
+        )
+        trainer = SFTTrainer(
+            model=model,
+            train_dataset=dataset,
+            processing_class=tokenizer,
+            args=training_args
+        )
+    except ImportError:
+        training_args = TrainingArguments(
+            output_dir=args.output_dir,
+            per_device_train_batch_size=args.batch_size,
+            gradient_accumulation_steps=4,
+            learning_rate=args.learning_rate,
+            num_train_epochs=args.epochs,
+            logging_steps=10,
+            save_strategy="epoch",
+            optim="paged_adamw_32bit",
+            bf16=True,
+            gradient_checkpointing=True,
+        )
+        trainer = SFTTrainer(
+            model=model,
+            train_dataset=dataset,
+            tokenizer=tokenizer,
+            args=training_args,
+            dataset_text_field="text"
+        )
+
+    logger.info("Starting QLoRA fine-tuning")
+    trainer.train()
+
+    logger.info(f"Saving final adapter to {args.output_dir}")
+    trainer.model.save_pretrained(args.output_dir)
+    tokenizer.save_pretrained(args.output_dir)
+    logger.info("Training complete.")
+
+if __name__ == "__main__":
+    main()

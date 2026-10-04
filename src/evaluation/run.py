@@ -20,6 +20,7 @@ from src.evaluation.attacker import Phi4MiniAttacker
 from src.evaluation.presidio_baseline import PresidioBaseline
 from src.evaluation.utility import UtilityEvaluator
 from src.rewriter.generate_training_data import generate_candidate_rewrites_heuristic, scrub_hard_pii
+from src.rewriter.inference import QwenRewriterInference
 
 logger = logging.getLogger(__name__)
 
@@ -55,6 +56,13 @@ class StagedEvaluator:
         """Stage 1: Generate Presidio baseline and Privacy rewrites for all samples."""
         logger.info("Executing Stage 1: Baseline redaction and rewriter generation.")
         presidio = PresidioBaseline()
+        
+        logger.info("Loading Qwen Rewriter model...")
+        qwen_rewriter = QwenRewriterInference(
+            model_name_or_path="Qwen/Qwen2.5-1.5B-Instruct",
+            adapter_path="artifacts/rewriter_qlora"
+        )
+        
         processed: List[Dict[str, Any]] = []
 
         for sample in samples:
@@ -65,9 +73,8 @@ class StagedEvaluator:
             # Presidio explicit baseline
             redaction_res = presidio.analyze_sample(text)
 
-            # Rewriter candidate generation
-            candidates = generate_candidate_rewrites_heuristic(text)
-            rewrite_text = candidates[0] if candidates else text
+            # Qwen Rewriter generation
+            rewrite_text = qwen_rewriter.rewrite(text)
 
             processed.append({
                 "profile_id": prof_id,
@@ -225,18 +232,22 @@ def main() -> None:
     evaluator = StagedEvaluator(output_dir=args.output_dir)
 
     # Benchmark test set
-    demo_samples = [
-        {
-            "profile_id": "pers1",
-            "text": "I am 24 years old and work as a software engineer in Denver near Red Rocks.",
-            "ground_truth": {"age": "24", "location": "Denver", "occupation": "Software Engineer"},
-        },
-        {
-            "profile_id": "pers2",
-            "text": "Taking sound transit to Pike Place after my clinical shift at the hospital.",
-            "ground_truth": {"location": "Seattle", "occupation": "Nurse"},
-        },
-    ]
+    if args.input_file and Path(args.input_file).exists():
+        with open(args.input_file, "r", encoding="utf-8-sig") as f:
+            demo_samples = [json.loads(line) for line in f]
+    else:
+        demo_samples = [
+            {
+                "profile_id": "pers1",
+                "text": "I am 24 years old and work as a software engineer in Denver near Red Rocks.",
+                "ground_truth": {"age": "24", "location": "Denver", "occupation": "Software Engineer"},
+            },
+            {
+                "profile_id": "pers2",
+                "text": "Taking sound transit to Pike Place after my clinical shift at the hospital.",
+                "ground_truth": {"location": "Seattle", "occupation": "Nurse"},
+            },
+        ]
 
     report = evaluator.run_pipeline(demo_samples)
     print(json.dumps(report["adversary_evaluation"], indent=2))
