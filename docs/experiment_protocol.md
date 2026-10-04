@@ -496,49 +496,101 @@ Record one JSON object per participant per scenario.
 
 ```json id="ijrc21"
 {
-  "participant_id": "anonymous-01",
-  "scenario_id": "S-03",
-  "scenario_mode": "generative",
-  "date": "2026-10-XX",
-  "facilitator": "<github handle>",
-  "artifact": "user_studies/session06/anonymous-01.mp4",
+  "participant_id": "",
+  "scenario_id": "",
+  "scenario_mode": "",
+  "session_id": "",
+  "date": "",
+  "facilitator": "",
 
-  "anchors_available": [
-    "age",
-    "neighborhood",
-    "medication",
-    "provider_context"
-  ],
+  "task_context": {
+    "anchors_available": [],
+    "anchors_used": [],
+    "anchor_disclosure_ratio": null,
+    "query_formulation_seconds": null,
+    "evaluator_intervention_pre_submit": false
+  },
 
-  "initial_query": "Are metformin and statins generally safe together?",
-  "query_formulation_seconds": 18,
+  "participant_observation": {
+    "warning_in_their_words": "",
+    "warning_comprehension": "",
+    "surprising_or_unclear": "",
 
-  "anchors_used": [
-    "medication"
-  ],
+    "rewrite_decision": "",
+    "edit_made": null,
+    "edited_query": "",
 
-  "evaluator_intervention_pre_submit": false,
+    "usefulness": null,
+    "would_use_before_sending": null,
+    "adoption_reason": "",
+    "time_to_decision_seconds": null
+  },
 
-  "detected_risk": false,
-  "risk_score": 0.001,
-  "system_state": "risk_negative_passthrough",
+  "system_log": {
+    "exported_at": "",
+    "client_latency_seconds": null,
+    "input_text": "",
 
-  "warning_in_their_words":
-    "It doesn't think this question reveals anything about me.",
-  "warning_comprehension": "correct",
+    "risk_summary": {
+      "overall": null,
+      "overall_band": "",
+      "primary": "",
+      "secondary": [],
+      "bands": {
+        "age": "",
+        "location": "",
+        "occupation": "",
+        "education": ""
+      },
+      "scores": {
+        "age": null,
+        "location": null,
+        "occupation": null,
+        "education": null
+      },
+      "cues": [],
+      "leakage_delta": null
+    },
 
-  "requested_rewrite": false,
-  "rewrite_changed_text": false,
-  "rewrite_decision": "not_applicable",
-  "edit_made": null,
+    "rewrite": {
+      "rewritten_text": "",
+      "presidio_text": "",
+      "utility_metrics": {
+        "cosine_similarity": null,
+        "nli_forward": null,
+        "nli_backward": null,
+        "contradiction": null,
+        "utility_score": null
+      }
+    },
 
-  "usefulness": 6,
-  "would_use_before_sending": true,
-  "adoption_reason":
-    "I like knowing when nothing needs to be changed.",
+    "turn_record": {
+      "turn_number": null,
+      "turn_scores": {},
+      "cumulative_scores": {},
+      "overall_turn_risk": null,
+      "overall_cumulative_risk": null,
+      "joint_entropy": null,
+      "leakage_delta": null,
+      "is_breached": null,
+      "risk_band": ""
+    }
+  },
 
-  "time_to_decision_seconds": 41,
-  "comments": ""
+  "researcher_coding": {
+    "expected_inference_attributes": [],
+    "observed_disclosure_attributes": [],
+    "detection_outcome": {},
+    "rewrite_preserved_task_intent": null,
+    "notable_model_behavior": "",
+    "comments": ""
+  },
+
+  "protocol": {
+    "protocol_deviation": false,
+    "deviation_type": null,
+    "deviation_description": null
+  }
 }
 ```
 
