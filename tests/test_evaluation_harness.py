@@ -165,6 +165,11 @@ def test_utility_evaluator_acceptance():
 
 def test_staged_evaluator_pipeline():
     """Verify multi-stage evaluation pipeline runs sequentially and outputs structured report."""
+    # Stage 1 loads the Qwen rewriter, so this one needs the GPU stack even
+    # though the rest of this module does not. Skipping rather than failing
+    # keeps the suite green for teammates working without torch installed.
+    pytest.importorskip("torch", reason="StagedEvaluator stage 1 loads Qwen")
+
     with tempfile.TemporaryDirectory() as tmpdir:
         evaluator = StagedEvaluator(output_dir=tmpdir)
         samples = [

@@ -20,7 +20,8 @@ from src.evaluation.attacker import Phi4MiniAttacker
 from src.evaluation.presidio_baseline import PresidioBaseline
 from src.evaluation.utility import UtilityEvaluator
 from src.rewriter.generate_training_data import generate_candidate_rewrites_heuristic, scrub_hard_pii
-from src.rewriter.inference import QwenRewriterInference
+# Imported inside the stage that uses it: inference.py pulls in torch at
+# module scope, and importing this harness should not require the GPU stack.
 
 logger = logging.getLogger(__name__)
 
@@ -58,8 +59,10 @@ class StagedEvaluator:
         presidio = PresidioBaseline()
         
         logger.info("Loading Qwen Rewriter model...")
+        from src.rewriter.inference import DEFAULT_BASE_MODEL, QwenRewriterInference
+
         qwen_rewriter = QwenRewriterInference(
-            model_name_or_path="Qwen/Qwen2.5-1.5B-Instruct",
+            model_name_or_path=DEFAULT_BASE_MODEL,
             adapter_path="artifacts/rewriter_qlora"
         )
         
