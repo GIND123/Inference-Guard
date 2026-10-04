@@ -38,7 +38,7 @@ QWEN_LITERAL = re.compile(r'["\']Qwen/[\w.\-]+["\']')
 
 def _constant_value() -> str:
     """Read DEFAULT_BASE_MODEL out of the source without importing torch."""
-    tree = ast.parse((ROOT / "src/rewriter/inference.py").read_text())
+    tree = ast.parse((ROOT / "src/rewriter/inference.py").read_text(encoding="utf-8"))
     for node in tree.body:
         if isinstance(node, ast.Assign) and any(
             getattr(t, "id", None) == "DEFAULT_BASE_MODEL" for t in node.targets
@@ -63,7 +63,7 @@ def test_no_file_hardcodes_a_base_model_instead_of_the_constant(path):
     src/evaluation/run.py both loaded Qwen2.5-1.5B-Instruct. Different hidden
     size, different tokenizer; the adapter cannot transfer.
     """
-    source = (ROOT / path).read_text()
+    source = (ROOT / path).read_text(encoding="utf-8")
     literals = {m.group(0).strip("'\"") for m in QWEN_LITERAL.finditer(source)}
     assert not literals, (
         f"{path} hardcodes {sorted(literals)}; import DEFAULT_BASE_MODEL from "
@@ -78,7 +78,7 @@ def test_adapter_config_is_trusted_unconditionally():
     the adapter's own record of its base model was discarded by exactly the
     two call sites that passed something different.
     """
-    source = (ROOT / "src/rewriter/inference.py").read_text()
+    source = (ROOT / "src/rewriter/inference.py").read_text(encoding="utf-8")
     assert "if extracted_base:" in source
     assert 'self.model_name_or_path == "Qwen/' not in source, (
         "base-model resolution is conditional on the caller's argument again"
@@ -86,7 +86,7 @@ def test_adapter_config_is_trusted_unconditionally():
 
 
 def test_a_mismatch_is_logged_rather_than_swallowed():
-    source = (ROOT / "src/rewriter/inference.py").read_text()
+    source = (ROOT / "src/rewriter/inference.py").read_text(encoding="utf-8")
     block = source.split("if extracted_base:")[1].split("except")[0]
     assert "logger.warning" in block, "a silent swap is how the demo misreports itself"
 
