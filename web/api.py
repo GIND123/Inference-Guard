@@ -28,7 +28,7 @@ from src.rewriter.generate_training_data import (
     generate_candidate_rewrites_heuristic,
     pareto_rejection_sample,
 )
-from src.rewriter.inference import QwenRewriterInference
+from src.rewriter.inference import DEFAULT_BASE_MODEL, QwenRewriterInference
 
 import torch
 from src.risk_model.model import ModernBertRiskClassifier
@@ -78,7 +78,7 @@ utility_evaluator = UtilityEvaluator()
 logger.info("Initializing Qwen Rewriter Inference Engine...")
 try:
     qwen_rewriter = QwenRewriterInference(
-        model_name_or_path="Qwen/Qwen2.5-1.5B-Instruct",
+        model_name_or_path=DEFAULT_BASE_MODEL,
         adapter_path="artifacts/rewriter_qlora"
     )
     logger.info("Qwen Rewriter successfully initialized!")

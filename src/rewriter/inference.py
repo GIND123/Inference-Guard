@@ -46,12 +46,21 @@ def clean_gpu_memory() -> None:
         pass
 
 
+# One place, so train / evaluate / serve cannot drift apart. They had: the
+# adapter was trained against Qwen3-1.7B while web/api.py and
+# src/evaluation/run.py both hardcoded Qwen2.5-1.5B-Instruct. A LoRA adapter
+# cannot cross between them -- different hidden size, different tokenizer --
+# and when it fails this class falls back to heuristics silently, so the UI
+# would have claimed Qwen while serving regex output.
+DEFAULT_BASE_MODEL = "Qwen/Qwen3-1.7B"
+
+
 class QwenRewriterInference:
     """Core inference engine for Qwen base model and QLoRA privacy rewriter adapter."""
 
     def __init__(
         self,
-        model_name_or_path: str = "Qwen/Qwen3-1.7B",
+        model_name_or_path: str = DEFAULT_BASE_MODEL,
         adapter_path: Optional[str] = "artifacts/rewriter_qlora",
         device: Optional[str] = None,
         load_in_4bit: bool = False,
@@ -75,6 +84,10 @@ class QwenRewriterInference:
         self.adapter_path: Optional[str] = adapter_path
         self.load_in_4bit: bool = load_in_4bit
         self._is_adapter_loaded: bool = False
+        # What is actually in VRAM, which is not always what was asked for.
+        # Surfaced so the UI and the report can state the model being served
+        # rather than the model that was requested.
+        self.resolved_base_model: str = model_name_or_path
         self.model: Any = None
         self.tokenizer: Any = None
 
@@ -150,8 +163,24 @@ class QwenRewriterInference:
 
             peft_cfg = PeftConfig.from_pretrained(str(adapter_p))
             extracted_base = getattr(peft_cfg, "base_model_name_or_path", None)
-            if extracted_base and self.model_name_or_path == "Qwen/Qwen3-1.7B":
+            if extracted_base:
+                # The adapter is the only authority on what it was trained
+                # against. This used to apply only when the caller had left
+                # model_name_or_path at its default, which meant the guard was
+                # skipped by precisely the two call sites that passed a
+                # different model explicitly. Trust the adapter always, and say
+                # so out loud when the caller disagreed.
+                if extracted_base != self.model_name_or_path:
+                    logger.warning(
+                        "Adapter at '%s' was trained on '%s', but '%s' was requested. "
+                        "Loading the adapter's own base model; the requested one would "
+                        "fail to accept these weights.",
+                        self.adapter_path,
+                        extracted_base,
+                        self.model_name_or_path,
+                    )
                 resolved_base_model = extracted_base
+                self.resolved_base_model = extracted_base
         except Exception as exc:
             logger.warning(
                 "Could not parse PeftConfig from '%s': %s. Operating in heuristic fallback mode.",

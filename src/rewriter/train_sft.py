@@ -17,11 +17,14 @@ from transformers import (
 )
 from trl import SFTTrainer
 
+from src.rewriter.inference import DEFAULT_BASE_MODEL
+
 logger = logging.getLogger(__name__)
 
 def parse_args():
     parser = argparse.ArgumentParser(description="QLoRA Fine-tuning for InferenceGuard Rewriter")
-    parser.add_argument("--model_name", type=str, default="Qwen/Qwen3-1.7B", help="Base model name")
+    parser.add_argument("--model_name", type=str, default=DEFAULT_BASE_MODEL,
+                        help="Base model name. Must match what inference loads: see DEFAULT_BASE_MODEL.")
     parser.add_argument("--dataset_path", type=str, required=True, help="Path to the JSONL dataset (ChatML or Alpaca format)")
     parser.add_argument("--output_dir", type=str, default="artifacts/rewriter_qlora", help="Output directory for adapters")
     parser.add_argument("--batch_size", type=int, default=4, help="Per device train batch size")
