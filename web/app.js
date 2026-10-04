@@ -5,6 +5,9 @@ document.addEventListener("DOMContentLoaded", () => {
     const sessionIdInput = document.getElementById("session-id");
     const analyzeBtn = document.getElementById("analyze-btn");
     const sampleBtn = document.getElementById("sample-btn");
+    const downloadBtn = document.getElementById("download-btn");
+
+    let latestResult = null;
 
     const overallBadge = document.getElementById("overall-badge");
     const overallScore = document.getElementById("overall-score");
@@ -54,11 +57,16 @@ document.addEventListener("DOMContentLoaded", () => {
                 user_id: "demo_user"
             };
 
+            const requestStart = performance.now();
+
             const response = await fetch("/analyze", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify(payload)
             });
+
+            const requestEnd = performance.now();
+            const clientLatencySeconds = (requestEnd - requestStart) / 1000;
 
             if (!response.ok) {
                 const err = await response.json();
@@ -66,6 +74,18 @@ document.addEventListener("DOMContentLoaded", () => {
             }
 
             const data = await response.json();
+
+            latestResult = {
+                session_id: payload.session_id,
+                user_id: payload.user_id,
+                input_text: text,
+                exported_at: new Date().toISOString(),
+                client_latency_seconds: clientLatencySeconds,
+                response: data
+            };
+
+            downloadBtn.disabled = false;
+
             renderResults(text, data);
         } catch (error) {
             console.error("Analysis error:", error);
@@ -74,6 +94,35 @@ document.addEventListener("DOMContentLoaded", () => {
             analyzeBtn.disabled = false;
             analyzeBtn.textContent = "Analyze and Protect";
         }
+    });
+
+    downloadBtn.addEventListener("click", () => {
+        if (!latestResult) {
+            alert("No analysis result available to download.");
+            return;
+        }
+
+        const safeSessionId = latestResult.session_id.replace(
+            /[^a-zA-Z0-9_-]/g,
+            "_"
+        );
+
+        const blob = new Blob(
+            [JSON.stringify(latestResult, null, 2)],
+            { type: "application/json" }
+        );
+
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement("a");
+
+        link.href = url;
+        link.download = `${safeSessionId}.json`;
+
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+
+        URL.revokeObjectURL(url);
     });
 
     function renderResults(rawText, data) {
