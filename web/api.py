@@ -150,22 +150,25 @@ def analyze_text(request: AnalyzeRequest) -> AnalyzeResponse:
     presidio_text = presidio_baseline.redact(text)
 
     # 4. Rewriter candidate generation and rejection sampling
-    if qwen_rewriter is not None and qwen_rewriter.is_adapter_loaded:
-        candidates = [qwen_rewriter.rewrite(text)]
+    if risk_summary.get("overall_band") == "LOW":
+        rewritten_text = text
     else:
-        candidates = generate_candidate_rewrites_heuristic(text)
-        
-    selected = pareto_rejection_sample(
-        original=text,
-        candidates=candidates,
-        max_risk_threshold=0.30,
-        min_cosine_threshold=0.30,
-    )
+        if qwen_rewriter is not None and qwen_rewriter.is_adapter_loaded:
+            candidates = [qwen_rewriter.rewrite(text)]
+        else:
+            candidates = generate_candidate_rewrites_heuristic(text)
+            
+        selected = pareto_rejection_sample(
+            original=text,
+            candidates=candidates,
+            max_risk_threshold=0.30,
+            min_cosine_threshold=0.30,
+        )
 
-    if selected is not None:
-        rewritten_text, _ = selected
-    else:
-        rewritten_text = candidates[0] if candidates else presidio_text
+        if selected is not None:
+            rewritten_text, _ = selected
+        else:
+            rewritten_text = candidates[0] if candidates else presidio_text
 
     # 5. Utility metrics
     utility_metrics = utility_evaluator.compute_metrics(text, rewritten_text)
