@@ -15,8 +15,7 @@ import gc
 import json
 import logging
 from pathlib import Path
-import tempfile
-from typing import Any, Dict, List, Optional, Sequence
+from typing import Any, Dict, List, Sequence
 from unittest.mock import MagicMock, patch
 
 import pytest

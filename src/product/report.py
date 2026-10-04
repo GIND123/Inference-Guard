@@ -41,7 +41,7 @@ from __future__ import annotations
 
 from collections import Counter
 from dataclasses import dataclass, field
-from typing import Iterable, Literal, Mapping, Sequence
+from typing import Iterable, Literal, Mapping
 
 from .risk_bands import ATTRIBUTES, Band, Cue, RiskSummary, summarize
 

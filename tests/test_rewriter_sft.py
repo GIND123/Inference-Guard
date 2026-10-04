@@ -14,12 +14,10 @@ import pytest
 from src.rewriter.generate_training_data import (
     compute_bidirectional_nli_score,
     compute_token_cosine_similarity,
-    evaluate_rewrite_utility,
     estimate_privacy_risk,
     filter_train_records,
     format_alpaca_example,
     format_chatml_example,
-    generate_candidate_rewrites_heuristic,
     generate_sft_dataset,
     load_profile_splits,
     pareto_rejection_sample,

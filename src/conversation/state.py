@@ -10,14 +10,12 @@ from __future__ import annotations
 
 import json
 import logging
-import math
 import os
 import uuid
 from dataclasses import asdict, dataclass, field
-from pathlib import Path
-from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple
+from typing import Any, Callable, Dict, List, Optional, Sequence
 
-from src.product.risk_bands import ATTRIBUTES, Band, band_for
+from src.product.risk_bands import ATTRIBUTES, band_for
 
 logger = logging.getLogger(__name__)
 

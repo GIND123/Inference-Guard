@@ -6,9 +6,7 @@ and programmatic LLM-as-a-judge verification conforming to TEST_INFRA.md.
 
 from __future__ import annotations
 
-import json
 import tempfile
-from pathlib import Path
 import pytest
 from fastapi.testclient import TestClient
 
@@ -16,16 +14,13 @@ from src.conversation.pseudonyms import PersistentPseudonymManager
 from src.conversation.state import ConversationTracker
 from src.evaluation.attacker import Phi4MiniAttacker
 from src.evaluation.presidio_baseline import PresidioBaseline
-from src.evaluation.run import StagedEvaluator
 from src.evaluation.utility import UtilityEvaluator
-from src.product.risk_bands import Band, band_for, summarize
+from src.product.risk_bands import Band, summarize
 from src.rewriter.generate_training_data import (
     generate_candidate_rewrites_heuristic,
-    generate_sft_dataset,
-    load_profile_splits,
     pareto_rejection_sample,
 )
-from src.risk_model.calibration import TemperatureScaler, compute_ece
+from src.risk_model.calibration import compute_ece
 from web.api import app
 
 

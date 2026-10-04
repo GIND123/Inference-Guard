@@ -12,7 +12,6 @@ Bombards clean_output across 8 vulnerability surfaces:
 8. Degenerate outputs & heuristic fallback
 """
 
-import inspect
 import pytest
 from src.rewriter.inference import QwenRewriterInference
 
@@ -413,7 +412,7 @@ class TestChatPromptFormatting:
         prompt = rewriter.format_chat_prompt("Hello world")
         assert "<|im_start|>system" in prompt
         assert rewriter.system_prompt in prompt
-        assert "<|im_start|>user\nHello world<|im_end|>" in prompt
+        assert "TEXT TO REWRITE:\nHello world<|im_end|>" in prompt
         assert prompt.endswith("<|im_start|>assistant\n")
 
     def test_prompt_formatting_with_injected_chatml(self):

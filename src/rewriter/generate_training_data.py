@@ -13,7 +13,6 @@ import argparse
 import json
 import logging
 import math
-import os
 import re
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional, Sequence, Set, Tuple
@@ -402,7 +401,7 @@ def pareto_rejection_sample(
         }
 
         # Filter constraints
-        if overall_risk < max_risk_threshold and utility["cosine_similarity"] >= min_cosine_threshold:
+        if overall_risk < max_risk_threshold and utility["cosine_similarity"] >= min_cosine_threshold and not had_unmasked_pii:
             valid_candidates.append((cand, metadata))
 
     if not valid_candidates:

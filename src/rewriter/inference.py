@@ -16,6 +16,8 @@ from typing import Any, Dict, List, Optional, Sequence
 
 import torch
 
+from src.rewriter.constants import DEFAULT_BASE_MODEL
+
 try:
     from src.rewriter.generate_training_data import (
         SYSTEM_PROMPT,
@@ -51,7 +53,7 @@ class QwenRewriterInference:
 
     def __init__(
         self,
-        model_name_or_path: str = "Qwen/Qwen3-1.7B",
+        model_name_or_path: str = DEFAULT_BASE_MODEL,
         adapter_path: Optional[str] = "artifacts/rewriter_qlora",
         device: Optional[str] = None,
         load_in_4bit: bool = False,
@@ -150,7 +152,13 @@ class QwenRewriterInference:
 
             peft_cfg = PeftConfig.from_pretrained(str(adapter_p))
             extracted_base = getattr(peft_cfg, "base_model_name_or_path", None)
-            if extracted_base and self.model_name_or_path == "Qwen/Qwen3-1.7B":
+            if extracted_base:
+                if extracted_base != self.model_name_or_path:
+                    logger.warning(
+                        "Adapter was trained on '%s' but caller requested '%s'. "
+                        "Overriding requested model and using the adapter's base model.",
+                        extracted_base, self.model_name_or_path
+                    )
                 resolved_base_model = extracted_base
         except Exception as exc:
             logger.warning(

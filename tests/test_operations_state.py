@@ -6,13 +6,12 @@ cryptographic persistence, and ConversationTracker multi-turn dynamic leakage ac
 
 from __future__ import annotations
 
-import json
 import tempfile
 from pathlib import Path
 import pytest
 
 from src.conversation.pseudonyms import PersistentPseudonymManager
-from src.conversation.state import ConversationTracker, SessionManager, TurnRiskRecord
+from src.conversation.state import ConversationTracker, SessionManager
 
 
 def test_pseudonym_manager_entity_types():

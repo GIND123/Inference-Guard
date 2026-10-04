@@ -7,8 +7,9 @@ Conforms strictly to PROJECT.md interface contracts.
 
 from __future__ import annotations
 
+import dataclasses
 import logging
-import os
+import re
 import shutil
 import subprocess
 from pathlib import Path
@@ -22,7 +23,18 @@ from pydantic import BaseModel, Field
 from src.conversation.state import ConversationTracker
 from src.evaluation.presidio_baseline import PresidioBaseline
 from src.evaluation.utility import UtilityEvaluator
-from src.product.risk_bands import Cue, summarize
+from src.product.report import (
+    DEFAULT_UTILITY_FLOOR,
+    PiiSpan,
+    compare,
+    compose,
+)
+from src.product.risk_bands import ATTRIBUTES, Band, Cue
+from src.product.thresholds import (
+    VALIDATED_CUE_IMPORTANCE_FLOOR,
+    VALIDATED_MAX_RISK_THRESHOLD,
+    VALIDATED_MIN_COSINE_THRESHOLD,
+)
 from src.rewriter.generate_training_data import (
     estimate_privacy_risk,
     generate_candidate_rewrites_heuristic,
@@ -77,14 +89,87 @@ utility_evaluator = UtilityEvaluator()
 
 logger.info("Initializing Qwen Rewriter Inference Engine...")
 try:
+    from src.rewriter import DEFAULT_BASE_MODEL
     qwen_rewriter = QwenRewriterInference(
-        model_name_or_path="Qwen/Qwen2.5-1.5B-Instruct",
+        model_name_or_path=DEFAULT_BASE_MODEL,
         adapter_path="artifacts/rewriter_qlora"
     )
     logger.info("Qwen Rewriter successfully initialized!")
 except Exception as e:
     logger.warning(f"Failed to initialize Qwen Rewriter: {e}")
     qwen_rewriter = None
+
+
+def extract_pii_spans(text: str) -> List[PiiSpan]:
+    """Extract PiiSpan objects using Presidio analyzer or regex fallback."""
+    if not text or not text.strip():
+        return []
+    spans: List[PiiSpan] = []
+
+    if presidio_baseline.analyzer is not None:
+        try:
+            results = presidio_baseline.analyzer.analyze(
+                text=text,
+                language="en",
+                entities=[
+                    "PERSON",
+                    "LOCATION",
+                    "EMAIL_ADDRESS",
+                    "PHONE_NUMBER",
+                    "IP_ADDRESS",
+                    "DATE_TIME",
+                    "US_SSN",
+                    "CRYPTO",
+                    "CREDIT_CARD",
+                    "IBAN_CODE",
+                    "US_PASSPORT",
+                    "US_DRIVER_LICENSE",
+                    "MEDICAL_LICENSE",
+                ],
+            )
+            for res in results:
+                spans.append(
+                    PiiSpan(
+                        entity_type=res.entity_type,
+                        start=res.start,
+                        end=res.end,
+                        score=float(res.score),
+                    )
+                )
+            spans.sort(key=lambda s: (s.start, s.end))
+            return spans
+        except Exception as e:
+            logger.warning(f"Presidio analyze error: {e}. Falling back to regex.")
+
+    # Fallback to regex pattern extraction mapped to canonical types in HARD_PII_TYPES / report.py
+    entity_map = {
+        "EMAIL": "EMAIL_ADDRESS",
+        "PHONE": "PHONE_NUMBER",
+        "SSN": "US_SSN",
+        "IP": "IP_ADDRESS",
+        "PERSON": "PERSON",
+        "LOCATION": "LOCATION",
+        "DATE": "DATE_TIME",
+        "URL": "URL",
+    }
+    for entity_name, pat in presidio_baseline.patterns.items():
+        canonical_type = entity_map.get(entity_name, entity_name)
+        for m in re.finditer(pat, text):
+            if m.lastindex and m.lastindex >= 1:
+                start, end = m.start(1), m.end(1)
+            else:
+                start, end = m.start(), m.end()
+            spans.append(
+                PiiSpan(
+                    entity_type=canonical_type,
+                    start=start,
+                    end=end,
+                    score=1.0,
+                )
+            )
+
+    spans.sort(key=lambda s: (s.start, s.end))
+    return spans
 
 
 class AnalyzeRequest(BaseModel):
@@ -99,11 +184,15 @@ class AnalyzeResponse(BaseModel):
     presidio_text: str
     utility_metrics: Dict[str, float]
     turn_record: Optional[Dict[str, Any]] = None
+    privacy_report: Optional[Dict[str, Any]] = None
+    comparison: Optional[Dict[str, Any]] = None
+    verdict: Optional[str] = None
+    is_win: Optional[bool] = None
 
 
 class RewriteRequest(BaseModel):
     text: str = Field(..., min_length=1)
-    max_risk: float = Field(0.30, ge=0.0, le=1.0)
+    max_risk: float = Field(default=VALIDATED_MAX_RISK_THRESHOLD, ge=0.0, le=1.0)
 
 
 class RewriteResponse(BaseModel):
@@ -130,55 +219,101 @@ def analyze_text(request: AnalyzeRequest) -> AnalyzeResponse:
     # 1. Multi-turn tracking
     turn_rec = conversation_tracker.add_turn(raw_text=text, session_id=session_id)
 
-    # 2. Risk estimation
+    # 2. Explicit PII detection on input
+    input_spans = extract_pii_spans(text)
+
+    # 3. Inferential risk estimation & cues
     raw_scores = turn_rec.turn_scores
-    # Extract cues
     cues_list: List[Cue] = []
-    # Identify cues based on attributes clearing MEDIUM threshold
     for attr, score in raw_scores.items():
-        if score >= 0.20:
+        if score >= VALIDATED_CUE_IMPORTANCE_FLOOR:
             cues_list.append(Cue(span=f"[{attr} cue]", attribute=attr, importance=round(score, 2)))
 
-    risk_summary_obj = summarize(
-        scores=raw_scores,
+    # Delegate input privacy report composition to src.product.report.compose
+    before_report = compose(
+        pii_spans=input_spans,
+        risk_scores=raw_scores,
         cues=cues_list,
         leakage_delta=turn_rec.leakage_delta,
     )
-    risk_summary = risk_summary_obj.to_dict()
 
-    # 3. Presidio baseline redaction
+    # 4. Presidio baseline redaction
     presidio_text = presidio_baseline.redact(text)
 
-    # 4. Rewriter candidate generation and rejection sampling
-    if risk_summary.get("overall_band") == "LOW":
+    # 5. Rewriter candidate generation and rejection sampling
+    if before_report.inferential_band == Band.LOW:
         rewritten_text = text
+        after_report = before_report
     else:
         if qwen_rewriter is not None and qwen_rewriter.is_adapter_loaded:
             candidates = [qwen_rewriter.rewrite(text)]
         else:
             candidates = generate_candidate_rewrites_heuristic(text)
-            
+
         selected = pareto_rejection_sample(
             original=text,
             candidates=candidates,
-            max_risk_threshold=0.30,
-            min_cosine_threshold=0.30,
+            max_risk_threshold=VALIDATED_MAX_RISK_THRESHOLD,
+            min_cosine_threshold=VALIDATED_MIN_COSINE_THRESHOLD,
         )
 
         if selected is not None:
             rewritten_text, _ = selected
         else:
-            rewritten_text = candidates[0] if candidates else presidio_text
+            if qwen_rewriter is not None and qwen_rewriter.is_adapter_loaded:
+                heuristic_cands = generate_candidate_rewrites_heuristic(text)
+                selected_heur = pareto_rejection_sample(
+                    original=text,
+                    candidates=heuristic_cands,
+                    max_risk_threshold=VALIDATED_MAX_RISK_THRESHOLD,
+                    min_cosine_threshold=VALIDATED_MIN_COSINE_THRESHOLD,
+                )
+                if selected_heur is not None:
+                    rewritten_text, _ = selected_heur
+                else:
+                    rewritten_text = presidio_text
+            else:
+                rewritten_text = presidio_text
 
-    # 5. Utility metrics
+        # Extract explicit PII spans on rewrite
+        rewrite_spans = extract_pii_spans(rewritten_text)
+        after_scores = estimate_privacy_risk(rewritten_text, risk_model_fn=risk_model)
+        after_cues: List[Cue] = [
+            Cue(span=f"[{attr} cue]", attribute=attr, importance=round(score, 2))
+            for attr, score in after_scores.items()
+            if attr in ATTRIBUTES and score >= VALIDATED_CUE_IMPORTANCE_FLOOR
+        ]
+        after_report = compose(
+            pii_spans=rewrite_spans,
+            risk_scores=after_scores,
+            cues=after_cues,
+        )
+
+    # 6. Utility metrics
     utility_metrics = utility_evaluator.compute_metrics(text, rewritten_text)
 
+    # 7. Comparison and Rule 2 veto enforcement
+    utility_score = utility_metrics.get("utility_score")
+    comparison = compare(
+        before=before_report,
+        after=after_report,
+        utility=utility_score,
+        utility_floor=DEFAULT_UTILITY_FLOOR,
+    )
+
+    comparison_dict = dataclasses.asdict(comparison)
+    comparison_dict["is_win"] = comparison.is_win
+
     return AnalyzeResponse(
-        risk_summary=risk_summary,
+        risk_summary=before_report.inferential.to_dict(),
         rewritten_text=rewritten_text,
         presidio_text=presidio_text,
         utility_metrics=utility_metrics,
         turn_record=turn_rec.to_dict(),
+        privacy_report=before_report.to_dict(),
+        comparison=comparison_dict,
+        verdict=comparison.verdict,
+        is_win=comparison.is_win,
     )
 
 
@@ -193,18 +328,32 @@ def rewrite_text(request: RewriteRequest) -> RewriteResponse:
         candidates = [qwen_rewriter.rewrite(text)]
     else:
         candidates = generate_candidate_rewrites_heuristic(text)
-        
+
     selected = pareto_rejection_sample(
         original=text,
         candidates=candidates,
         risk_model_fn=risk_model,
         max_risk_threshold=request.max_risk,
-        min_cosine_threshold=0.30,
+        min_cosine_threshold=VALIDATED_MIN_COSINE_THRESHOLD,
     )
     if selected is not None:
         rewritten, _ = selected
     else:
-        rewritten = candidates[0] if candidates else text
+        if qwen_rewriter is not None and qwen_rewriter.is_adapter_loaded:
+            heuristic_cands = generate_candidate_rewrites_heuristic(text)
+            selected_heur = pareto_rejection_sample(
+                original=text,
+                candidates=heuristic_cands,
+                risk_model_fn=risk_model,
+                max_risk_threshold=request.max_risk,
+                min_cosine_threshold=VALIDATED_MIN_COSINE_THRESHOLD,
+            )
+            if selected_heur is not None:
+                rewritten, _ = selected_heur
+            else:
+                rewritten = presidio_baseline.redact(text)
+        else:
+            rewritten = presidio_baseline.redact(text)
 
     utility = utility_evaluator.compute_metrics(text, rewritten)
     return RewriteResponse(

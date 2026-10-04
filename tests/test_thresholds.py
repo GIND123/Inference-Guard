@@ -10,7 +10,6 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from src.product.risk_bands import Band  # noqa: E402
 from src.product.thresholds import (  # noqa: E402
-    ThresholdFit,
     band_for,
     expected_calibration_error,
     fit_attribute,

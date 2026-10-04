@@ -75,7 +75,7 @@ def test_api_analyze_endpoint_passthrough(client):
 
     # Verify turn record
     turn = data["turn_record"]
-    assert turn["session_id"] == "test_session_ui"
+    assert turn["session_id"] == "test_passthrough"
     assert "joint_entropy" in turn
     assert "leakage_delta" in turn
 
@@ -114,5 +114,81 @@ def test_launch_tunnel_fallback():
     """Verify launch_tunnel returns a valid URL string without crashing."""
     url = launch_tunnel(port=8000, tunnel_type="invalid_tunnel_type")
     assert url.startswith("http")
+
+
+def test_validated_thresholds_exports_and_wiring():
+    """Verify validated thresholds are exported and wired correctly."""
+    from src.product.thresholds import (
+        VALIDATED_CUE_IMPORTANCE_FLOOR,
+        VALIDATED_MAX_RISK_THRESHOLD,
+        VALIDATED_MIN_COSINE_THRESHOLD,
+        get_validated_thresholds,
+    )
+    from web.api import RewriteRequest
+
+    thresholds = get_validated_thresholds()
+    assert thresholds["max_risk_threshold"] == VALIDATED_MAX_RISK_THRESHOLD
+    assert thresholds["min_cosine_threshold"] == VALIDATED_MIN_COSINE_THRESHOLD
+    assert thresholds["cue_importance_floor"] == VALIDATED_CUE_IMPORTANCE_FLOOR
+
+    req = RewriteRequest(text="Hello world")
+    assert req.max_risk == VALIDATED_MAX_RISK_THRESHOLD
+
+
+def test_api_analyze_delegates_to_privacy_report_and_comparison(client):
+    """Verify /analyze includes privacy_report, comparison, verdict, and is_win."""
+    payload = {
+        "text": "I am 26 years old living in Denver, CO and working as a software engineer.",
+        "session_id": "test_delegation",
+    }
+    resp = client.post("/analyze", json=payload)
+    assert resp.status_code == 200
+
+    data = resp.json()
+    assert "privacy_report" in data
+    assert "comparison" in data
+    assert "verdict" in data
+    assert "is_win" in data
+
+    report = data["privacy_report"]
+    assert "explicit" in report
+    assert "inferential" in report
+    assert "count" in report["explicit"]
+    assert "hard_count" in report["explicit"]
+
+    comp = data["comparison"]
+    assert "verdict" in comp
+    assert "inferential_before" in comp
+    assert "inferential_after" in comp
+    assert "inferential_delta" in comp
+    assert comp["verdict"] in ("improved", "improved_with_cost", "explicit_pii_remains", "no_change", "worse")
+
+
+def test_explicit_pii_veto_enforced():
+    """Verify domain contract Rule 2: remaining explicit PII vetoes a win."""
+    from src.product.report import PiiSpan, compare, compose
+
+    before = compose(
+        pii_spans=[PiiSpan("PERSON", 0, 8), PiiSpan("EMAIL_ADDRESS", 10, 26)],
+        risk_scores={"location": 0.85, "age": 0.90},
+    )
+    # Rewrite reduced inferential risk to low, but left the email address intact
+    after = compose(
+        pii_spans=[PiiSpan("EMAIL_ADDRESS", 10, 26)],
+        risk_scores={"location": 0.05, "age": 0.10},
+    )
+    comp = compare(before=before, after=after)
+    assert comp.verdict == "explicit_pii_remains"
+    assert comp.is_win is False
+    assert comp.hard_pii_remaining == 1
+
+
+def test_no_literal_030_threshold_floats_in_web_api():
+    """Verify that no literal 0.30 floats remain in web/api.py."""
+    import re
+    api_path = Path(__file__).resolve().parents[1] / "web" / "api.py"
+    content = api_path.read_text(encoding="utf-8")
+    matches = re.findall(r"\b0\.30\b", content)
+    assert len(matches) == 0, f"Found literal 0.30 in web/api.py: {matches}"
 
 

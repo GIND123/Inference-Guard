@@ -12,15 +12,12 @@ import argparse
 import gc
 import json
 import logging
-import os
 from pathlib import Path
-from typing import Any, Callable, Dict, List, Optional, Sequence
+from typing import Any, Dict, List, Sequence
 
 from src.evaluation.attacker import Phi4MiniAttacker
 from src.evaluation.presidio_baseline import PresidioBaseline
 from src.evaluation.utility import UtilityEvaluator
-from src.rewriter.generate_training_data import generate_candidate_rewrites_heuristic, scrub_hard_pii
-from src.rewriter.inference import QwenRewriterInference
 
 logger = logging.getLogger(__name__)
 
@@ -58,8 +55,9 @@ class StagedEvaluator:
         presidio = PresidioBaseline()
         
         logger.info("Loading Qwen Rewriter model...")
+        from src.rewriter import QwenRewriterInference, DEFAULT_BASE_MODEL
         qwen_rewriter = QwenRewriterInference(
-            model_name_or_path="Qwen/Qwen2.5-1.5B-Instruct",
+            model_name_or_path=DEFAULT_BASE_MODEL,
             adapter_path="artifacts/rewriter_qlora"
         )
         
