@@ -1,0 +1,61 @@
+{
+  "session_id": "04",
+  "user_id": "P04",
+  "input_text": "I am a 58 year old women, and I've taken metformin about one month ago and I take statin, but can I take these two medication together and whether should I change the medication list.",
+  "exported_at": "2026-10-05T00:56:54.552Z",
+  "client_latency_seconds": 0.6723999998569489,
+  "response": {
+    "risk_summary": {
+      "overall": 0.05,
+      "overall_band": "LOW",
+      "primary": "age",
+      "secondary": [],
+      "bands": {
+        "age": "LOW",
+        "location": "LOW",
+        "occupation": "LOW",
+        "education": "LOW"
+      },
+      "scores": {
+        "age": 0.05,
+        "location": 0.05,
+        "occupation": 0.05,
+        "education": 0.05
+      },
+      "cues": [],
+      "leakage_delta": 0
+    },
+    "rewritten_text": "I am a someone women, and I've taken metformin about one month ago and I take statin, but can I take these two medication together and whether should I change the medication list.",
+    "presidio_text": "I am a <DATE_TIME> women, and I've taken metformin <DATE_TIME> and I take statin, but can I take these two medication together and whether should I change the medication list.",
+    "utility_metrics": {
+      "cosine_similarity": 0.9693,
+      "nli_forward": 0.9615,
+      "nli_backward": 0.8929,
+      "contradiction": 0,
+      "utility_score": 0.9479
+    },
+    "turn_record": {
+      "turn_number": 1,
+      "session_id": "04",
+      "raw_text": "I am a 58 year old women, and I've taken metformin about one month ago and I take statin, but can I take these two medication together and whether should I change the medication list.",
+      "turn_scores": {
+        "age": 0.05,
+        "location": 0.05,
+        "occupation": 0.05,
+        "education": 0.05
+      },
+      "cumulative_scores": {
+        "age": 0.9522,
+        "location": 1,
+        "occupation": 0.9174,
+        "education": 0.5744
+      },
+      "overall_turn_risk": 0.05,
+      "overall_cumulative_risk": 1,
+      "joint_entropy": 0.556,
+      "leakage_delta": 0,
+      "is_breached": true,
+      "risk_band": "HIGH"
+    }
+  }
+}
