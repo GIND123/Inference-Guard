@@ -1,0 +1,91 @@
+{
+  "session_id": "01",
+  "user_id": "P01",
+  "input_text": "- You have 12 days of annual leave remaining.\n- Your employer requires unused leave to be taken before the fiscal year closes at the end of March.\n- Your partner is a secondary-school teacher.\n- Because of your partner's schedule, you strongly prefer to travel during the February half-term break.\n- You want a destination with warm weather.\n- You prefer a direct flight.\n- You normally fly from your nearest regional airport rather than travelling to a major London airport.\n- Your approximate total budget for the two of you is £2,500.\n- You would prefer a trip of 7–9 nights.\nPlease help me decide the destination of the trip and help me plan an ideal time for the trip and decide the flight while controlling the budget. Please remember that I have 12 days of annual leave.",
+  "exported_at": "2026-10-04T19:19:54.976Z",
+  "client_latency_seconds": 2.539199999809265,
+  "response": {
+    "risk_summary": {
+      "overall": 0.520578145980835,
+      "overall_band": "MEDIUM",
+      "primary": "age",
+      "secondary": [
+        "education",
+        "occupation"
+      ],
+      "bands": {
+        "age": "MEDIUM",
+        "location": "LOW",
+        "occupation": "MEDIUM",
+        "education": "MEDIUM"
+      },
+      "scores": {
+        "age": 0.520578145980835,
+        "location": 0.2977319061756134,
+        "occupation": 0.3217824697494507,
+        "education": 0.32440614700317383
+      },
+      "cues": [
+        {
+          "span": "[age cue]",
+          "attribute": "age",
+          "importance": 0.52
+        },
+        {
+          "span": "[overall cue]",
+          "attribute": "overall",
+          "importance": 0.52
+        },
+        {
+          "span": "[education cue]",
+          "attribute": "education",
+          "importance": 0.32
+        },
+        {
+          "span": "[occupation cue]",
+          "attribute": "occupation",
+          "importance": 0.32
+        },
+        {
+          "span": "[location cue]",
+          "attribute": "location",
+          "importance": 0.3
+        }
+      ],
+      "leakage_delta": 0.5206
+    },
+    "rewritten_text": "- You have 12 days of annual leave remaining.\n- Your employer requires unused leave to be taken before the fiscal year closes at the end of March.\n- Your partner is a secondary-school teacher.\n- Because of your partner's schedule, you strongly prefer to travel during the February half-term break.\n- You want a destination with warm weather.\n- You prefer a direct flight.\n- You normally fly from your nearest regional airport rather than travelling to a major London airport.\n- Your approximate total budget for the two of you is £2,500.\n- You would prefer a trip of 7–9 nights.\nPlease help me decide the destination of the trip and help me plan an ideal time for the trip and decide the flight while controlling the budget. Please remember that I have 12 days of annual leave.",
+    "presidio_text": "- You have <DATE_TIME> of <DATE_TIME> leave remaining.\n- Your employer requires unused leave to be taken before <DATE_TIME> closes at <DATE_TIME>.\n- Your partner is a secondary-school teacher.\n- Because of your partner's schedule, you strongly prefer to travel during the <DATE_TIME>-term break.\n- You want a destination with warm weather.\n- You prefer a direct flight.\n- You normally fly from your nearest regional airport rather than travelling to a major <LOCATION> airport.\n- Your approximate total budget for the two of you is £2,500.\n- You would prefer a trip of <DATE_TIME>.\nPlease help me decide the destination of the trip and help me plan an ideal time for the trip and decide the flight while controlling the budget. Please remember that I have <DATE_TIME> of <DATE_TIME> leave.",
+    "utility_metrics": {
+      "cosine_similarity": 1,
+      "nli_forward": 1,
+      "nli_backward": 1,
+      "contradiction": 0,
+      "utility_score": 1
+    },
+    "turn_record": {
+      "turn_number": 1,
+      "session_id": "01",
+      "raw_text": "- You have 12 days of annual leave remaining.\n- Your employer requires unused leave to be taken before the fiscal year closes at the end of March.\n- Your partner is a secondary-school teacher.\n- Because of your partner's schedule, you strongly prefer to travel during the February half-term break.\n- You want a destination with warm weather.\n- You prefer a direct flight.\n- You normally fly from your nearest regional airport rather than travelling to a major London airport.\n- Your approximate total budget for the two of you is £2,500.\n- You would prefer a trip of 7–9 nights.\nPlease help me decide the destination of the trip and help me plan an ideal time for the trip and decide the flight while controlling the budget. Please remember that I have 12 days of annual leave.",
+      "turn_scores": {
+        "age": 0.520578145980835,
+        "location": 0.2977319061756134,
+        "occupation": 0.3217824697494507,
+        "education": 0.32440614700317383,
+        "overall": 0.520578145980835
+      },
+      "cumulative_scores": {
+        "age": 0.5206,
+        "location": 0.2977,
+        "occupation": 0.3218,
+        "education": 0.3244
+      },
+      "overall_turn_risk": 0.5206,
+      "overall_cumulative_risk": 0.5206,
+      "joint_entropy": 2.5355,
+      "leakage_delta": 0.5206,
+      "is_breached": false,
+      "risk_band": "MEDIUM"
+    }
+  }
+}

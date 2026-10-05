@@ -1,0 +1,67 @@
+{
+  "session_id": "03",
+  "user_id": "P03",
+  "input_text": "I'm an undergraduate student and my second co-op placement begins in January. My current lease runs through the end of December.During my current placement, I usually commute using the Green Line.The commute takes about 55 minutes each way. My  spring semester begins shortly after the new placement starts.I expect to graduate after two more academic terms. Moving would cost approximately one additional month's rent in deposits and moving expenses.",
+  "exported_at": "2026-10-05T00:33:47.699Z",
+  "client_latency_seconds": 0.46739999985694886,
+  "response": {
+    "risk_summary": {
+      "overall": 0.45,
+      "overall_band": "MEDIUM",
+      "primary": "location",
+      "secondary": [],
+      "bands": {
+        "age": "LOW",
+        "location": "MEDIUM",
+        "occupation": "LOW",
+        "education": "LOW"
+      },
+      "scores": {
+        "age": 0.05,
+        "location": 0.45,
+        "occupation": 0.05,
+        "education": 0.05
+      },
+      "cues": [
+        {
+          "span": "[location cue]",
+          "attribute": "location",
+          "importance": 0.45
+        }
+      ],
+      "leakage_delta": 0.45
+    },
+    "rewritten_text": "I'm an undergraduate student and my second co-op placement begins in January. My current lease runs through the end of December.During my current placement, I usually commute using the Green Line.The commute takes about 55 minutes each way. My  spring semester begins shortly after the new placement starts.I expect to graduate after two more academic terms. Moving would cost approximately one additional month's rent in deposits and moving expenses.",
+    "presidio_text": "I'm an undergraduate student and my second co-op placement begins in <DATE_TIME>. My current lease runs through <DATE_TIME>.During my current placement, I usually commute using <LOCATION>.The commute takes <DATE_TIME> each way. My  <DATE_TIME> begins shortly after the new placement starts.I expect to graduate after two more academic terms. Moving would cost <DATE_TIME> rent in deposits and moving expenses.",
+    "utility_metrics": {
+      "cosine_similarity": 1,
+      "nli_forward": 1,
+      "nli_backward": 1,
+      "contradiction": 0,
+      "utility_score": 1
+    },
+    "turn_record": {
+      "turn_number": 1,
+      "session_id": "03",
+      "raw_text": "I'm an undergraduate student and my second co-op placement begins in January. My current lease runs through the end of December.During my current placement, I usually commute using the Green Line.The commute takes about 55 minutes each way. My  spring semester begins shortly after the new placement starts.I expect to graduate after two more academic terms. Moving would cost approximately one additional month's rent in deposits and moving expenses.",
+      "turn_scores": {
+        "age": 0.05,
+        "location": 0.45,
+        "occupation": 0.05,
+        "education": 0.05
+      },
+      "cumulative_scores": {
+        "age": 0.05,
+        "location": 0.45,
+        "occupation": 0.05,
+        "education": 0.05
+      },
+      "overall_turn_risk": 0.45,
+      "overall_cumulative_risk": 0.45,
+      "joint_entropy": 3.4,
+      "leakage_delta": 0.45,
+      "is_breached": false,
+      "risk_band": "MEDIUM"
+    }
+  }
+}
