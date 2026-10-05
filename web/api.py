@@ -31,9 +31,9 @@ from src.product.report import (
 )
 from src.product.risk_bands import ATTRIBUTES, Band, Cue
 from src.product.thresholds import (
-    VALIDATED_CUE_IMPORTANCE_FLOOR,
-    VALIDATED_MAX_RISK_THRESHOLD,
-    VALIDATED_MIN_COSINE_THRESHOLD,
+    PROVISIONAL_CUE_IMPORTANCE_FLOOR,
+    PROVISIONAL_MAX_RISK_THRESHOLD,
+    PROVISIONAL_MIN_COSINE_THRESHOLD,
 )
 from src.rewriter.generate_training_data import (
     estimate_privacy_risk,
@@ -191,7 +191,7 @@ class AnalyzeResponse(BaseModel):
 
 class RewriteRequest(BaseModel):
     text: str = Field(..., min_length=1)
-    max_risk: float = Field(default=VALIDATED_MAX_RISK_THRESHOLD, ge=0.0, le=1.0)
+    max_risk: float = Field(default=PROVISIONAL_MAX_RISK_THRESHOLD, ge=0.0, le=1.0)
 
 
 class RewriteResponse(BaseModel):
@@ -225,7 +225,7 @@ def analyze_text(request: AnalyzeRequest) -> AnalyzeResponse:
     raw_scores = turn_rec.turn_scores
     cues_list: List[Cue] = []
     for attr, score in raw_scores.items():
-        if score >= VALIDATED_CUE_IMPORTANCE_FLOOR:
+        if score >= PROVISIONAL_CUE_IMPORTANCE_FLOOR:
             cues_list.append(Cue(span=f"[{attr} cue]", attribute=attr, importance=round(score, 2)))
 
     # Delegate input privacy report composition to src.product.report.compose
@@ -252,8 +252,8 @@ def analyze_text(request: AnalyzeRequest) -> AnalyzeResponse:
         selected = pareto_rejection_sample(
             original=text,
             candidates=candidates,
-            max_risk_threshold=VALIDATED_MAX_RISK_THRESHOLD,
-            min_cosine_threshold=VALIDATED_MIN_COSINE_THRESHOLD,
+            max_risk_threshold=PROVISIONAL_MAX_RISK_THRESHOLD,
+            min_cosine_threshold=PROVISIONAL_MIN_COSINE_THRESHOLD,
         )
 
         if selected is not None:
@@ -264,8 +264,8 @@ def analyze_text(request: AnalyzeRequest) -> AnalyzeResponse:
                 selected_heur = pareto_rejection_sample(
                     original=text,
                     candidates=heuristic_cands,
-                    max_risk_threshold=VALIDATED_MAX_RISK_THRESHOLD,
-                    min_cosine_threshold=VALIDATED_MIN_COSINE_THRESHOLD,
+                    max_risk_threshold=PROVISIONAL_MAX_RISK_THRESHOLD,
+                    min_cosine_threshold=PROVISIONAL_MIN_COSINE_THRESHOLD,
                 )
                 if selected_heur is not None:
                     rewritten_text, _ = selected_heur
@@ -280,7 +280,7 @@ def analyze_text(request: AnalyzeRequest) -> AnalyzeResponse:
         after_cues: List[Cue] = [
             Cue(span=f"[{attr} cue]", attribute=attr, importance=round(score, 2))
             for attr, score in after_scores.items()
-            if attr in ATTRIBUTES and score >= VALIDATED_CUE_IMPORTANCE_FLOOR
+            if attr in ATTRIBUTES and score >= PROVISIONAL_CUE_IMPORTANCE_FLOOR
         ]
         after_report = compose(
             pii_spans=rewrite_spans,
@@ -333,7 +333,7 @@ def rewrite_text(request: RewriteRequest) -> RewriteResponse:
         candidates=candidates,
         risk_model_fn=risk_model,
         max_risk_threshold=request.max_risk,
-        min_cosine_threshold=VALIDATED_MIN_COSINE_THRESHOLD,
+        min_cosine_threshold=PROVISIONAL_MIN_COSINE_THRESHOLD,
     )
     if selected is not None:
         rewritten, _ = selected
@@ -345,7 +345,7 @@ def rewrite_text(request: RewriteRequest) -> RewriteResponse:
                 candidates=heuristic_cands,
                 risk_model_fn=risk_model,
                 max_risk_threshold=request.max_risk,
-                min_cosine_threshold=VALIDATED_MIN_COSINE_THRESHOLD,
+                min_cosine_threshold=PROVISIONAL_MIN_COSINE_THRESHOLD,
             )
             if selected_heur is not None:
                 rewritten, _ = selected_heur
