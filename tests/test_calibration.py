@@ -12,7 +12,6 @@ import torch
 
 from src.product.risk_bands import ATTRIBUTES, Band, band_for, summarize
 from src.risk_model.calibration import (
-    BandValidationResult,
     CalibrationMetrics,
     TemperatureScaler,
     compute_ece,

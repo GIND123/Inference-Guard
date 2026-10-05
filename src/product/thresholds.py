@@ -43,7 +43,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Mapping, Sequence
 
-from .risk_bands import ATTRIBUTES, Band
+from .risk_bands import ATTRIBUTES, Band, CUE_IMPORTANCE_FLOOR, MEDIUM_EDGE
 
 # Defaults chosen for a warning surface, not for a leaderboard.
 # 0.60 precision on HIGH means roughly two in five HIGH warnings are wrong,
@@ -58,6 +58,20 @@ DEFAULT_LOW_RECALL = 0.90
 # them apart and say so in the fit result rather than silently emitting
 # high_edge == medium_edge.
 MIN_BAND_WIDTH = 0.05
+
+# Validated product threshold defaults for runtime consumers (API, rewriter, rejection sampling).
+VALIDATED_MAX_RISK_THRESHOLD: float = MEDIUM_EDGE
+VALIDATED_MIN_COSINE_THRESHOLD: float = 0.30
+VALIDATED_CUE_IMPORTANCE_FLOOR: float = CUE_IMPORTANCE_FLOOR
+
+
+def get_validated_thresholds() -> dict[str, float]:
+    """Return dictionary of runtime validated thresholds for inference services."""
+    return {
+        "max_risk_threshold": VALIDATED_MAX_RISK_THRESHOLD,
+        "min_cosine_threshold": VALIDATED_MIN_COSINE_THRESHOLD,
+        "cue_importance_floor": VALIDATED_CUE_IMPORTANCE_FLOOR,
+    }
 
 
 @dataclass(frozen=True)

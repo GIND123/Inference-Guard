@@ -14,14 +14,13 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from src.product.report import (  # noqa: E402
     DEFAULT_UTILITY_FLOOR,
     FORBIDDEN_CLAIMS,
-    Comparison,
     PiiSpan,
     compare,
     compose,
     render,
     render_comparison,
 )
-from src.product.risk_bands import Band, Cue  # noqa: E402
+from src.product.risk_bands import Cue  # noqa: E402
 
 
 def r(scores, pii=(), **kw):

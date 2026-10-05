@@ -21,9 +21,9 @@ before any of these bands appear in a report as a finding. See issue #17.
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from enum import Enum
-from typing import Iterable, Mapping, Sequence
+from typing import Iterable, Mapping
 
 # The four attribute families in scope for v1. Stretch attributes (income,
 # relationship status, health) are deliberately absent -- adding one here

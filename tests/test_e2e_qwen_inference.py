@@ -10,10 +10,6 @@ Fulfills Milestone M-E2E requirements from TEST_INFRA.md and PROJECT.md:
 from __future__ import annotations
 
 import json
-import os
-import re
-import tempfile
-from pathlib import Path
 from typing import Any, Dict, List, Sequence
 from unittest.mock import MagicMock, patch
 
@@ -23,7 +19,6 @@ from fastapi.testclient import TestClient
 from src.evaluation.attacker import Phi4MiniAttacker
 from src.evaluation.presidio_baseline import PresidioBaseline
 from src.evaluation.run import StagedEvaluator, clean_gpu_memory
-from src.evaluation.utility import UtilityEvaluator
 from web.api import app
 
 # Target inference class under development in Milestone M1
@@ -232,12 +227,15 @@ def test_tier1_loader_instantiates_with_adapter(mock_hf_env):
     if QwenRewriterInference is None:
         pytest.skip("QwenRewriterInference not yet implemented (Milestone M1)")
 
-    rewriter = QwenRewriterInference(
-        model_name_or_path="Qwen/Qwen3-1.7B",
-        adapter_path="tmp_out",
-        device="cpu",
-    )
-    assert rewriter.is_adapter_loaded is True, "Expected is_adapter_loaded to be True with valid adapter path"
+    with patch("pathlib.Path.exists", return_value=True), \
+         patch("pathlib.Path.is_dir", return_value=True), \
+         patch("peft.PeftConfig.from_pretrained", return_value=MagicMock(base_model_name_or_path="Qwen/Qwen3-1.7B")):
+        rewriter = QwenRewriterInference(
+            model_name_or_path="Qwen/Qwen3-1.7B",
+            adapter_path="tmp_out",
+            device="cpu",
+        )
+        assert rewriter.is_adapter_loaded is True, "Expected is_adapter_loaded to be True with valid adapter path"
 
 
 def test_tier1_chatml_formatter_constructs_valid_chatml(rewriter_instance):

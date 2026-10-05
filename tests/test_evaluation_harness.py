@@ -14,7 +14,7 @@ import pytest
 from src.evaluation.attacker import ATTRIBUTES, Phi4MiniAttacker
 from src.evaluation.presidio_baseline import PresidioBaseline
 from src.evaluation.run import StagedEvaluator, clean_gpu_memory
-from src.evaluation.utility import UtilityEvaluator, compute_fallback_token_cosine
+from src.evaluation.utility import UtilityEvaluator
 
 
 def test_attacker_prompt_formatting():
