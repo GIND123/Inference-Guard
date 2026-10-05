@@ -1,25 +1,15 @@
 """
 Validation utilities for InferenceGuard experiment artifacts.
 
-This script validates:
-1. experiment configuration
-2. user-study JSON / JSONL records
-3. consistency between records and the experiment config
-4. basic privacy and numerical sanity checks
+Supports the original experiment-operations schema and the Session 06
+goal-driven user-study schema.
 
 Usage:
 
-    # Validate only the experiment configuration
     python scripts/validate_experiment.py \
         --config configs/experiments/session06.yaml \
         --config-only
 
-    # Validate one JSONL file
-    python scripts/validate_experiment.py \
-        --config configs/experiments/session06.yaml \
-        --input experiments/session06_user_eval_v1/raw/P01.jsonl
-
-    # Validate all JSON / JSONL files in a directory
     python scripts/validate_experiment.py \
         --config configs/experiments/session06.yaml \
         --input experiments/session06_user_eval_v1/raw/
@@ -37,7 +27,7 @@ from typing import Any, Dict, Iterable, List, Tuple
 import yaml
 
 
-PARTICIPANT_RE = re.compile(r"^P\d{2,}$")
+DEFAULT_PARTICIPANT_RE = re.compile(r"^P\d{2,}$")
 
 EMAIL_RE = re.compile(
     r"\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}\b"
@@ -49,7 +39,8 @@ PHONE_RE = re.compile(
     r"\d{3}[-.\s]?\d{4}"
 )
 
-VALID_REWRITE_DECISIONS = {
+
+LEGACY_REWRITE_DECISIONS = {
     "use_as_is",
     "accept",
     "accept_with_edits",
@@ -60,21 +51,50 @@ VALID_REWRITE_DECISIONS = {
     "would_not_use",
 }
 
+SESSION06_COMPREHENSION = {
+    "correct",
+    "partial",
+    "incorrect",
+    "echo",
+}
+
+SESSION06_SYSTEM_STATES = {
+    "risk_positive_rewrite",
+    "risk_positive_utility_conflict",
+    "risk_negative_passthrough",
+}
+
+
 SCORE_FIELDS = {
     "risk_before",
     "risk_after",
+    "risk_score",
     "privacy_risk_delta",
+    "attacker_success_rate",
     "utility_score",
     "cosine_similarity",
     "nli_forward",
     "nli_backward",
     "contradiction",
+    "turn_level_risk",
+    "cumulative_risk",
 }
 
 NONNEGATIVE_FIELDS = {
     "latency",
     "latency_s",
+    "client_latency_seconds",
+    "query_formulation_seconds",
     "time_to_decision_seconds",
+}
+
+BOOLEAN_FIELDS = {
+    "evaluator_intervention_pre_submit",
+    "detected_risk",
+    "requested_rewrite",
+    "rewrite_changed_text",
+    "would_use_before_sending",
+    "protocol_deviation",
 }
 
 
@@ -104,6 +124,72 @@ def load_yaml(path: Path) -> Dict[str, Any]:
     return data
 
 
+def participant_pattern(config: Dict[str, Any]) -> re.Pattern[str]:
+    """
+    Read the participant-ID rule from config.
+
+    Session 06 uses participant_id_regex. Older configs fall back to P##.
+    """
+    user_cfg = config.get("user_study", {})
+
+    pattern = user_cfg.get("participant_id_regex")
+
+    if isinstance(pattern, str) and pattern:
+        try:
+            return re.compile(pattern)
+        except re.error:
+            pass
+
+    return DEFAULT_PARTICIPANT_RE
+
+
+def allowed_scenarios(config: Dict[str, Any]) -> set[str]:
+    user_cfg = config.get("user_study", {})
+
+    core = user_cfg.get("core_scenarios", [])
+    optional = user_cfg.get("optional_scenarios", [])
+
+    return set(core + optional)
+
+
+def required_record_fields(config: Dict[str, Any]) -> List[str]:
+    user_cfg = config.get("user_study", {})
+    return list(user_cfg.get("required_fields", []))
+
+
+def valid_rewrite_decisions(config: Dict[str, Any]) -> set[str]:
+    configured = config.get(
+        "user_study", {}
+    ).get("valid_rewrite_decisions")
+
+    if configured:
+        return set(configured)
+
+    return LEGACY_REWRITE_DECISIONS
+
+
+def valid_comprehension_labels(config: Dict[str, Any]) -> set[str]:
+    configured = config.get(
+        "user_study", {}
+    ).get("valid_warning_comprehension")
+
+    if configured:
+        return set(configured)
+
+    return SESSION06_COMPREHENSION
+
+
+def valid_system_states(config: Dict[str, Any]) -> set[str]:
+    configured = config.get(
+        "user_study", {}
+    ).get("valid_system_states")
+
+    if configured:
+        return set(configured)
+
+    return SESSION06_SYSTEM_STATES
+
+
 def validate_config(config: Dict[str, Any]) -> ValidationResult:
     result = ValidationResult()
 
@@ -130,7 +216,6 @@ def validate_config(config: Dict[str, Any]) -> ValidationResult:
     if not isinstance(session, int) or session <= 0:
         result.error("session must be a positive integer.")
 
-    # User-evaluation-specific validation
     if config.get("experiment_type") == "user_evaluation":
         user_cfg = config.get("user_study")
 
@@ -149,8 +234,13 @@ def validate_config(config: Dict[str, Any]) -> ValidationResult:
             all_scenarios = core + optional
 
             duplicates = sorted(
-                {x for x in all_scenarios if all_scenarios.count(x) > 1}
+                {
+                    x
+                    for x in all_scenarios
+                    if all_scenarios.count(x) > 1
+                }
             )
+
             if duplicates:
                 result.error(
                     f"Scenario IDs appear more than once: {duplicates}"
@@ -161,7 +251,31 @@ def validate_config(config: Dict[str, Any]) -> ValidationResult:
                     "user_study.required_fields cannot be empty."
                 )
 
+            pattern = user_cfg.get("participant_id_regex")
+
+            if pattern is not None:
+                try:
+                    re.compile(pattern)
+                except re.error as exc:
+                    result.error(
+                        f"Invalid participant_id_regex: {exc}"
+                    )
+
+            scenario_modes = user_cfg.get("scenario_modes", {})
+
+            if scenario_modes:
+                missing_modes = sorted(
+                    set(all_scenarios) - set(scenario_modes)
+                )
+
+                if missing_modes:
+                    result.error(
+                        "scenario_modes missing scenarios: "
+                        f"{missing_modes}"
+                    )
+
     dataset = config.get("dataset", {})
+
     if isinstance(dataset, dict):
         if dataset.get("revision") == "TBD":
             result.warning(
@@ -170,6 +284,7 @@ def validate_config(config: Dict[str, Any]) -> ValidationResult:
             )
 
     rewriter = config.get("rewriter", {})
+
     if isinstance(rewriter, dict):
         if rewriter.get("checkpoint") == "TBD":
             result.warning(
@@ -177,20 +292,6 @@ def validate_config(config: Dict[str, Any]) -> ValidationResult:
             )
 
     return result
-
-
-def allowed_scenarios(config: Dict[str, Any]) -> set[str]:
-    user_cfg = config.get("user_study", {})
-
-    core = user_cfg.get("core_scenarios", [])
-    optional = user_cfg.get("optional_scenarios", [])
-
-    return set(core + optional)
-
-
-def required_record_fields(config: Dict[str, Any]) -> List[str]:
-    user_cfg = config.get("user_study", {})
-    return list(user_cfg.get("required_fields", []))
 
 
 def iter_text_values(value: Any) -> Iterable[str]:
@@ -225,11 +326,10 @@ def validate_score(
     result: ValidationResult,
     prefix: str,
 ) -> None:
-    if not isinstance(value, (int, float)):
+    if not isinstance(value, (int, float)) or isinstance(value, bool):
         result.error(f"{prefix}{field} must be numeric.")
         return
 
-    # Delta may legitimately be negative when risk increases.
     if field == "privacy_risk_delta":
         if not -1.0 <= float(value) <= 1.0:
             result.error(
@@ -240,6 +340,149 @@ def validate_score(
     if not 0.0 <= float(value) <= 1.0:
         result.error(
             f"{prefix}{field}={value} outside expected [0, 1] range."
+        )
+
+
+def validate_anchor_fields(
+    record: Dict[str, Any],
+    result: ValidationResult,
+    prefix: str,
+) -> None:
+    available = record.get("anchors_available")
+    used = record.get("anchors_used")
+
+    if available is not None and not isinstance(available, list):
+        result.error(
+            f"{prefix}anchors_available must be a list."
+        )
+        return
+
+    if used is not None and not isinstance(used, list):
+        result.error(
+            f"{prefix}anchors_used must be a list."
+        )
+        return
+
+    if isinstance(available, list) and isinstance(used, list):
+        available_set = set(map(str, available))
+        used_set = set(map(str, used))
+
+        unknown = sorted(used_set - available_set)
+
+        if unknown:
+            result.error(
+                f"{prefix}anchors_used contains anchors not present "
+                f"in anchors_available: {unknown}"
+            )
+
+
+def validate_session06_semantics(
+    record: Dict[str, Any],
+    config: Dict[str, Any],
+    result: ValidationResult,
+    prefix: str,
+) -> None:
+    """
+    Validate cross-field relationships introduced by the Session 06 protocol.
+    """
+
+    scenario_id = record.get("scenario_id")
+    scenario_mode = record.get("scenario_mode")
+
+    expected_modes = config.get(
+        "user_study", {}
+    ).get("scenario_modes", {})
+
+    if (
+        scenario_id in expected_modes
+        and scenario_mode is not None
+        and scenario_mode != expected_modes[scenario_id]
+    ):
+        result.error(
+            f"{prefix}scenario_mode '{scenario_mode}' does not match "
+            f"{scenario_id} expected mode "
+            f"'{expected_modes[scenario_id]}'."
+        )
+
+    comprehension = record.get("warning_comprehension")
+
+    if comprehension is not None:
+        valid_labels = valid_comprehension_labels(config)
+
+        if comprehension not in valid_labels:
+            result.error(
+                f"{prefix}invalid warning_comprehension "
+                f"'{comprehension}'. Allowed: {sorted(valid_labels)}"
+            )
+
+    state = record.get("system_state")
+
+    if state is not None:
+        states = valid_system_states(config)
+
+        if state not in states:
+            result.error(
+                f"{prefix}invalid system_state '{state}'. "
+                f"Allowed: {sorted(states)}"
+            )
+
+    detected = record.get("detected_risk")
+    changed = record.get("rewrite_changed_text")
+    requested = record.get("requested_rewrite")
+    decision = record.get("rewrite_decision")
+
+    if state == "risk_negative_passthrough":
+        if detected is True:
+            result.error(
+                f"{prefix}risk_negative_passthrough cannot have "
+                "detected_risk=true."
+            )
+
+        if changed is True:
+            result.error(
+                f"{prefix}risk_negative_passthrough cannot have "
+                "rewrite_changed_text=true."
+            )
+
+        if decision is not None and decision != "not_applicable":
+            result.error(
+                f"{prefix}risk_negative_passthrough should use "
+                "rewrite_decision='not_applicable'."
+            )
+
+    if state in {
+        "risk_positive_rewrite",
+        "risk_positive_utility_conflict",
+    }:
+        if detected is False:
+            result.error(
+                f"{prefix}{state} cannot have detected_risk=false."
+            )
+
+    if decision == "accept_with_edits":
+        if "edit_made" not in record:
+            result.error(
+                f"{prefix}edit_made is required when "
+                "rewrite_decision='accept_with_edits'."
+            )
+
+    if record.get("protocol_deviation") is True:
+        for field in ("deviation_type", "description"):
+            if not record.get(field):
+                result.error(
+                    f"{prefix}{field} is required when "
+                    "protocol_deviation=true."
+                )
+
+    # A requested rewrite in a passthrough state is retained as a warning
+    # rather than a hard error because pilot sessions may expose legacy UI.
+    if (
+        state == "risk_negative_passthrough"
+        and requested is True
+    ):
+        result.warning(
+            f"{prefix}rewrite was requested in a zero-risk passthrough "
+            "state. Check for legacy UI or trust-calibration behavior."
         )
 
 
@@ -254,7 +497,9 @@ def validate_record(
 
     for field in required_record_fields(config):
         if field not in record:
-            result.error(f"{prefix}missing required field '{field}'.")
+            result.error(
+                f"{prefix}missing required field '{field}'."
+            )
 
     participant_id = record.get("participant_id")
 
@@ -263,11 +508,15 @@ def validate_record(
             result.error(
                 f"{prefix}participant_id must be a string."
             )
-        elif not PARTICIPANT_RE.fullmatch(participant_id):
-            result.error(
-                f"{prefix}participant_id '{participant_id}' "
-                "must follow a pseudonymous format such as P01."
-            )
+        else:
+            pattern = participant_pattern(config)
+
+            if not pattern.fullmatch(participant_id):
+                result.error(
+                    f"{prefix}participant_id '{participant_id}' "
+                    f"does not match configured format "
+                    f"'{pattern.pattern}'."
+                )
 
     scenario_id = record.get("scenario_id")
 
@@ -306,14 +555,22 @@ def validate_record(
 
     rewrite_decision = record.get("rewrite_decision")
 
-    if (
-        rewrite_decision is not None
-        and rewrite_decision not in VALID_REWRITE_DECISIONS
-    ):
-        result.warning(
-            f"{prefix}unrecognized rewrite_decision "
-            f"'{rewrite_decision}'."
-        )
+    if rewrite_decision is not None:
+        allowed_decisions = valid_rewrite_decisions(config)
+
+        if rewrite_decision not in allowed_decisions:
+            result.error(
+                f"{prefix}invalid rewrite_decision "
+                f"'{rewrite_decision}'. "
+                f"Allowed: {sorted(allowed_decisions)}"
+            )
+
+    for field in BOOLEAN_FIELDS:
+        if field in record and record[field] is not None:
+            if not isinstance(record[field], bool):
+                result.error(
+                    f"{prefix}{field} must be boolean."
+                )
 
     for field in SCORE_FIELDS:
         if field in record and record[field] is not None:
@@ -328,7 +585,10 @@ def validate_record(
         if field in record and record[field] is not None:
             value = record[field]
 
-            if not isinstance(value, (int, float)):
+            if (
+                not isinstance(value, (int, float))
+                or isinstance(value, bool)
+            ):
                 result.error(
                     f"{prefix}{field} must be numeric."
                 )
@@ -338,6 +598,35 @@ def validate_record(
                     f"{prefix}{field} cannot be negative."
                 )
 
+    usefulness = record.get("usefulness")
+
+    if usefulness is not None:
+        if (
+            not isinstance(usefulness, (int, float))
+            or isinstance(usefulness, bool)
+        ):
+            result.error(
+                f"{prefix}usefulness must be numeric."
+            )
+        elif not 0 <= float(usefulness) <= 10:
+            result.error(
+                f"{prefix}usefulness={usefulness} outside "
+                "expected [0, 10] range."
+            )
+
+    validate_anchor_fields(
+        record=record,
+        result=result,
+        prefix=prefix,
+    )
+
+    validate_session06_semantics(
+        record=record,
+        config=config,
+        result=result,
+        prefix=prefix,
+    )
+
     if config.get("validation", {}).get(
         "scan_for_possible_pii", False
     ):
@@ -346,7 +635,8 @@ def validate_record(
         for finding in pii_findings:
             result.warning(
                 f"{prefix}{finding} detected. "
-                "Confirm that this comes only from an approved synthetic scenario."
+                "Confirm that this comes only from an approved "
+                "synthetic scenario."
             )
 
     return result
@@ -395,7 +685,9 @@ def read_jsonl_file(path: Path) -> List[Dict[str, Any]]:
     return records
 
 
-def load_records(path: Path) -> List[Tuple[str, Dict[str, Any]]]:
+def load_records(
+    path: Path,
+) -> List[Tuple[str, Dict[str, Any]]]:
     files: List[Path]
 
     if path.is_dir():
@@ -483,7 +775,11 @@ def main() -> int:
         return 2
 
     config_result = validate_config(config)
-    print_result("Experiment config", config_result)
+
+    print_result(
+        "Experiment config",
+        config_result,
+    )
 
     overall_ok = config_result.ok
 
@@ -508,14 +804,21 @@ def main() -> int:
         print(f"\nERROR: Failed to load records: {exc}")
         return 2
 
-    print(f"\nLoaded {len(records)} experiment record(s).")
+    print(
+        f"\nLoaded {len(records)} experiment record(s)."
+    )
 
     total_errors = 0
     total_warnings = 0
 
-    seen_participant_scenarios: set[Tuple[str, str]] = set()
+    seen_participant_scenarios: set[
+        Tuple[str, str]
+    ] = set()
 
-    for i, (source, record) in enumerate(records, start=1):
+    for i, (source, record) in enumerate(
+        records,
+        start=1,
+    ):
         record_result = validate_record(
             record=record,
             config=config,
@@ -552,10 +855,14 @@ def main() -> int:
     print(f"Warnings: {total_warnings}")
 
     if total_errors == 0 and overall_ok:
-        print("PASS: Experiment artifacts passed validation.")
+        print(
+            "PASS: Experiment artifacts passed validation."
+        )
         return 0
 
-    print("FAIL: Fix validation errors before analysis.")
+    print(
+        "FAIL: Fix validation errors before analysis."
+    )
     return 1
 
 
