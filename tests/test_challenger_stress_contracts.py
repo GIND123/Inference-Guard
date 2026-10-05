@@ -12,7 +12,7 @@ from __future__ import annotations
 import pytest
 from fastapi.testclient import TestClient
 
-from src.product.thresholds import VALIDATED_MAX_RISK_THRESHOLD
+from src.product.thresholds import PROVISIONAL_MAX_RISK_THRESHOLD
 from web import api
 from web.api import app
 
@@ -280,7 +280,7 @@ def test_rewrite_endpoint_adversarial_pii(client):
     """Verify /rewrite endpoint behavior on adversarial PII inputs."""
     payload = {
         "text": "Call me at 303-555-0192 or email test@example.com. I am 26 years old.",
-        "max_risk": VALIDATED_MAX_RISK_THRESHOLD,
+        "max_risk": PROVISIONAL_MAX_RISK_THRESHOLD,
     }
     resp = client.post("/rewrite", json=payload)
     assert resp.status_code == 200

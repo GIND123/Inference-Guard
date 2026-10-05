@@ -59,18 +59,27 @@ DEFAULT_LOW_RECALL = 0.90
 # high_edge == medium_edge.
 MIN_BAND_WIDTH = 0.05
 
-# Validated product threshold defaults for runtime consumers (API, rewriter, rejection sampling).
-VALIDATED_MAX_RISK_THRESHOLD: float = MEDIUM_EDGE
-VALIDATED_MIN_COSINE_THRESHOLD: float = 0.30
-VALIDATED_CUE_IMPORTANCE_FLOOR: float = CUE_IMPORTANCE_FLOOR
+# Runtime defaults for the API, the rewriter and rejection sampling. Having
+# them in one place is right; calling them validated was not. None of these
+# has been fitted to anything -- MEDIUM_EDGE is documented in risk_bands.py as
+# carried over unchanged from the Session 04 notebook, and the cosine floor is
+# a bare literal. `fit_attribute()` in this module is what would earn the other
+# name, and nothing calls it yet, because we have no committed validation
+# scores to fit against.
+#
+# To promote these: run fit_thresholds() on the validation split, commit the
+# fits, and have runtime read those per attribute instead of one global pair.
+PROVISIONAL_MAX_RISK_THRESHOLD: float = MEDIUM_EDGE
+PROVISIONAL_MIN_COSINE_THRESHOLD: float = 0.30
+PROVISIONAL_CUE_IMPORTANCE_FLOOR: float = CUE_IMPORTANCE_FLOOR
 
 
-def get_validated_thresholds() -> dict[str, float]:
-    """Return dictionary of runtime validated thresholds for inference services."""
+def get_provisional_thresholds() -> dict[str, float]:
+    """Runtime thresholds. Uncalibrated -- see the note above before quoting them."""
     return {
-        "max_risk_threshold": VALIDATED_MAX_RISK_THRESHOLD,
-        "min_cosine_threshold": VALIDATED_MIN_COSINE_THRESHOLD,
-        "cue_importance_floor": VALIDATED_CUE_IMPORTANCE_FLOOR,
+        "max_risk_threshold": PROVISIONAL_MAX_RISK_THRESHOLD,
+        "min_cosine_threshold": PROVISIONAL_MIN_COSINE_THRESHOLD,
+        "cue_importance_floor": PROVISIONAL_CUE_IMPORTANCE_FLOOR,
     }
 
 

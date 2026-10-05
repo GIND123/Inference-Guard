@@ -119,20 +119,20 @@ def test_launch_tunnel_fallback():
 def test_validated_thresholds_exports_and_wiring():
     """Verify validated thresholds are exported and wired correctly."""
     from src.product.thresholds import (
-        VALIDATED_CUE_IMPORTANCE_FLOOR,
-        VALIDATED_MAX_RISK_THRESHOLD,
-        VALIDATED_MIN_COSINE_THRESHOLD,
-        get_validated_thresholds,
+        PROVISIONAL_CUE_IMPORTANCE_FLOOR,
+        PROVISIONAL_MAX_RISK_THRESHOLD,
+        PROVISIONAL_MIN_COSINE_THRESHOLD,
+        get_provisional_thresholds,
     )
     from web.api import RewriteRequest
 
-    thresholds = get_validated_thresholds()
-    assert thresholds["max_risk_threshold"] == VALIDATED_MAX_RISK_THRESHOLD
-    assert thresholds["min_cosine_threshold"] == VALIDATED_MIN_COSINE_THRESHOLD
-    assert thresholds["cue_importance_floor"] == VALIDATED_CUE_IMPORTANCE_FLOOR
+    thresholds = get_provisional_thresholds()
+    assert thresholds["max_risk_threshold"] == PROVISIONAL_MAX_RISK_THRESHOLD
+    assert thresholds["min_cosine_threshold"] == PROVISIONAL_MIN_COSINE_THRESHOLD
+    assert thresholds["cue_importance_floor"] == PROVISIONAL_CUE_IMPORTANCE_FLOOR
 
     req = RewriteRequest(text="Hello world")
-    assert req.max_risk == VALIDATED_MAX_RISK_THRESHOLD
+    assert req.max_risk == PROVISIONAL_MAX_RISK_THRESHOLD
 
 
 def test_api_analyze_delegates_to_privacy_report_and_comparison(client):

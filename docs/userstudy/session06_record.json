@@ -1,283 +1,202 @@
-{
-  "participant_id": "P01",
-  "scenario_id": "S04",
-  "scenario_mode": "generative",
-  "session_id": "01",
-  "date": "10/04/2026",
-  "facilitator": "Yiwei Jin",
-
-  "task_context": {
-    "anchors_available": [
-      "annual leave, fiscal year ending in March, half-term, partner is a teacher, GBP budget, London reference, regional airport, February timing"
-    ],
-    "anchors_used": [
-      "annual leave, fiscal year ending in March, half-term, partner is a teacher, GBP budget, London reference, regional airport, February timing"
-    ],
-    "anchor_disclosure_ratio": "1",
-    "query_formulation_seconds": "(15",
-    "evaluator_intervention_pre_submit": "false"
-  },
-
-  "participant_observation": {
-    "warning_in_their_words": "Make sense that it warns that I may be giving out my age information, based on my annual leave days and the fact that I have a partner",
-
-    "warning_comprehension": "correct",
-
-    "surprising_or_unclear": "none",
-
-    "rewrite_decision": "reject",
-
-    "edit_made": "false",
-
-    "edited_query": "none",
-
-    "usefulness": "1",
-
-    "would_use_before_sending": "false",
-
-    "adoption_reason": "This is a llm company side concern; I prefer that my llm can remember some of my information so that I don't have to repeat myself; what if the program is remembering my private information",
-
-    "time_to_decision_seconds": "10"
-  },
-
-  "researcher_coding": {
-    "expected_inference_attributes": [
-      "age; occupation; education; location"
-    ],
-
-    "observed_disclosure_attributes": [
-      "age; occupation; education"
-    ],
-
-    "detection_outcome": {
-      "(attribute)": "not_coded"
+[
+  {
+    "participant_id": "P01",
+    "scenario_id": "S04",
+    "scenario_mode": "generative",
+    "session_id": "01",
+    "date": "10/04/2026",
+    "facilitator": "Yiwei Jin",
+    "task_context": {
+      "anchors_available": [
+        "annual leave, fiscal year ending in March, half-term, partner is a teacher, GBP budget, London reference, regional airport, February timing"
+      ],
+      "anchors_used": [
+        "annual leave, fiscal year ending in March, half-term, partner is a teacher, GBP budget, London reference, regional airport, February timing"
+      ],
+      "anchor_disclosure_ratio": "1",
+      "query_formulation_seconds": "(15",
+      "evaluator_intervention_pre_submit": "false"
     },
-
-    "rewrite_preserved_task_intent": "true",
-
-    "notable_model_behavior": "Model didn't edit the original question",
-
-    "comments": "none"
-  },
-
-  "protocol": {
-    "protocol_deviation": "false",
-
-    "deviation_type": "none",
-
-    "deviation_description": "none"
-  }
-}
-
-{
-  "participant_id": "P02",
-  "scenario_id": "S02",
-  "scenario_mode": "controlled",
-  "session_id": "02",
-  "date": "10/04/2026",
-  "facilitator": "Yiwei Jin",
-
-  "task_context": {
-    "anchors_available": [
-      "client-facing assignments; seven years; train new staff; colleagues with master's degrees; I don't have a postgraduate degree"
-    ],
-    "anchors_used": [
-      "client-facing assignments; seven years; train new staff; colleagues with master's degrees; I don't have a postgraduate degree"
-    ],
-    "anchor_disclosure_ratio": "1",
-    "query_formulation_seconds": "10",
-    "evaluator_intervention_pre_submit": "false"
-  },
-
-  "participant_observation": {
-    "warning_in_their_words": "none",
-
-    "warning_comprehension": "echo",
-
-    "surprising_or_unclear": "none",
-
-    "rewrite_decision": "accept_as_is ",
-
-    "edit_made": "false",
-
-    "edited_query": "none",
-
-    "usefulness": "5",
-
-    "would_use_before_sending": " true ",
-
-    "adoption_reason": "It shows privacy risk and protects my privacy",
-
-    "time_to_decision_seconds": "5"
-  },
-
-  "researcher_coding": {
-    "expected_inference_attributes": [
-      "education, occupation, age"
-    ],
-
-    "observed_disclosure_attributes": [
-      "education, occupation, age"
-    ],
-
-    "detection_outcome": {
-      "(attribute)": "not_coded"
+    "participant_observation": {
+      "warning_in_their_words": "Make sense that it warns that I may be giving out my age information, based on my annual leave days and the fact that I have a partner",
+      "warning_comprehension": "correct",
+      "surprising_or_unclear": "none",
+      "rewrite_decision": "reject",
+      "edit_made": "false",
+      "edited_query": "none",
+      "usefulness": "1",
+      "would_use_before_sending": "false",
+      "adoption_reason": "This is a llm company side concern; I prefer that my llm can remember some of my information so that I don't have to repeat myself; what if the program is remembering my private information",
+      "time_to_decision_seconds": "10"
     },
-
-    "rewrite_preserved_task_intent": "true",
-
-    "notable_model_behavior": "Model didn't edit the original query",
-
-    "comments": "Controlled benchmark type of experiment looks confusing to volunteer."
-  },
-
-  "protocol": {
-    "protocol_deviation": "false",
-
-    "deviation_type": "none",
-
-    "deviation_description": "none"
-  }
-}
-
-{
-  "participant_id": "P03",
-  "scenario_id": "S01",
-  "scenario_mode": "generative",
-  "session_id": "03",
-  "date": "10/04/2026",
-  "facilitator": "Yiwei Jin",
-
-  "task_context": {
-    "anchors_available": [
-      "undergraduate degree; second co-op; spring semester; two academic terms before graduation; Green Line; placement timing"
-    ],
-    "anchors_used": [
-      "undergraduate degree; second co-op; spring semester; two academic terms before graduation; Green Line; placement timing"
-    ],
-    "anchor_disclosure_ratio": "1",
-    "query_formulation_seconds": "120",
-    "evaluator_intervention_pre_submit": "false"
-  },
-
-  "participant_observation": {
-    "warning_in_their_words": "Age, education, location and occupation is the information that I don't wanna share with others",
-
-    "warning_comprehension": "partial ",
-
-    "surprising_or_unclear": "What is joint entropy? What is leakage Delta?",
-
-    "rewrite_decision": "accept_as_is",
-
-    "edit_made": "false",
-
-    "edited_query": "none",
-
-    "usefulness": "8",
-
-    "would_use_before_sending": "true ",
-
-    "adoption_reason": "It's a good program. Some people are not careful about their private information",
-
-    "time_to_decision_seconds": "5"
-  },
-
-  "researcher_coding": {
-    "expected_inference_attributes": [
-      "education;location;age;occupation"
-    ],
-
-    "observed_disclosure_attributes": [
-      "education;location;age;occupation"
-    ],
-
-    "detection_outcome": {
-      "(attribute)": "not_coded"
+    "researcher_coding": {
+      "expected_inference_attributes": [
+        "age; occupation; education; location"
+      ],
+      "observed_disclosure_attributes": [
+        "age; occupation; education"
+      ],
+      "detection_outcome": {
+        "(attribute)": "not_coded"
+      },
+      "rewrite_preserved_task_intent": "true",
+      "notable_model_behavior": "Model didn't edit the original question",
+      "comments": "none"
     },
-
-    "rewrite_preserved_task_intent": "true",
-
-    "notable_model_behavior": "Model repeated the original query without telling user it did",
-
-    "comments": "none"
+    "protocol": {
+      "protocol_deviation": "false",
+      "deviation_type": "none",
+      "deviation_description": "none"
+    }
   },
-
-  "protocol": {
-    "protocol_deviation": "false",
-
-    "deviation_type": "none",
-
-    "deviation_description": "none"
-  }
-}
-
-{
-  "participant_id": "P04",
-  "scenario_id": "S03",
-  "scenario_mode": "generative",
-  "session_id": "04",
-  "date": "10/04/2026",
-  "facilitator": "Yiwei Jin",
-
-  "task_context": {
-    "anchors_available": [
-      "explicit age (58); metformin; statin; multiple prescribers; GP; practice; Didsbury"
-    ],
-    "anchors_used": [
-      "(explicit age (58); metformin; statin; "
-    ],
-    "anchor_disclosure_ratio": "0.3",
-    "query_formulation_seconds": "30",
-    "evaluator_intervention_pre_submit": "false"
-  },
-
-  "participant_observation": {
-    "warning_in_their_words": "There might be a little privacy leak in those 4 factors.",
-
-    "warning_comprehension": "correct",
-
-    "surprising_or_unclear": "Surprising there are only 4 of the columns.",
-
-    "rewrite_decision": "accept_as_is",
-
-    "edit_made": "false",
-
-    "edited_query": " none",
-
-    "usefulness": "5-6",
-
-    "would_use_before_sending": "No",
-
-    "adoption_reason": "didn't know this kind of app exists. After knowing still no, willing to provide some private information to AI so that AI can answer user's questions.",
-
-    "time_to_decision_seconds": "5"
-  },
-
-  "researcher_coding": {
-    "expected_inference_attributes": [
-      "health;location;age)"
-    ],
-
-    "observed_disclosure_attributes": [
-      "none"
-    ],
-
-    "detection_outcome": {
-      "(attribute)": " not_coded"
+  {
+    "participant_id": "P02",
+    "scenario_id": "S02",
+    "scenario_mode": "controlled",
+    "session_id": "02",
+    "date": "10/04/2026",
+    "facilitator": "Yiwei Jin",
+    "task_context": {
+      "anchors_available": [
+        "client-facing assignments; seven years; train new staff; colleagues with master's degrees; I don't have a postgraduate degree"
+      ],
+      "anchors_used": [
+        "client-facing assignments; seven years; train new staff; colleagues with master's degrees; I don't have a postgraduate degree"
+      ],
+      "anchor_disclosure_ratio": "1",
+      "query_formulation_seconds": "10",
+      "evaluator_intervention_pre_submit": "false"
     },
-
-    "rewrite_preserved_task_intent": "true",
-
-    "notable_model_behavior": "Model failed to detect private information and didn't give obvious warnings. In logs, model rewrited the age information, but in UI it didn't show.",
-
-    "comments": "none"
+    "participant_observation": {
+      "warning_in_their_words": "none",
+      "warning_comprehension": "echo",
+      "surprising_or_unclear": "none",
+      "rewrite_decision": "accept_as_is ",
+      "edit_made": "false",
+      "edited_query": "none",
+      "usefulness": "5",
+      "would_use_before_sending": " true ",
+      "adoption_reason": "It shows privacy risk and protects my privacy",
+      "time_to_decision_seconds": "5"
+    },
+    "researcher_coding": {
+      "expected_inference_attributes": [
+        "education, occupation, age"
+      ],
+      "observed_disclosure_attributes": [
+        "education, occupation, age"
+      ],
+      "detection_outcome": {
+        "(attribute)": "not_coded"
+      },
+      "rewrite_preserved_task_intent": "true",
+      "notable_model_behavior": "Model didn't edit the original query",
+      "comments": "Controlled benchmark type of experiment looks confusing to volunteer."
+    },
+    "protocol": {
+      "protocol_deviation": "false",
+      "deviation_type": "none",
+      "deviation_description": "none"
+    }
   },
-
-  "protocol": {
-    "protocol_deviation": "false",
-
-    "deviation_type": " none",
-
-    "deviation_description": " none"
+  {
+    "participant_id": "P03",
+    "scenario_id": "S01",
+    "scenario_mode": "generative",
+    "session_id": "03",
+    "date": "10/04/2026",
+    "facilitator": "Yiwei Jin",
+    "task_context": {
+      "anchors_available": [
+        "undergraduate degree; second co-op; spring semester; two academic terms before graduation; Green Line; placement timing"
+      ],
+      "anchors_used": [
+        "undergraduate degree; second co-op; spring semester; two academic terms before graduation; Green Line; placement timing"
+      ],
+      "anchor_disclosure_ratio": "1",
+      "query_formulation_seconds": "120",
+      "evaluator_intervention_pre_submit": "false"
+    },
+    "participant_observation": {
+      "warning_in_their_words": "Age, education, location and occupation is the information that I don't wanna share with others",
+      "warning_comprehension": "partial ",
+      "surprising_or_unclear": "What is joint entropy? What is leakage Delta?",
+      "rewrite_decision": "accept_as_is",
+      "edit_made": "false",
+      "edited_query": "none",
+      "usefulness": "8",
+      "would_use_before_sending": "true ",
+      "adoption_reason": "It's a good program. Some people are not careful about their private information",
+      "time_to_decision_seconds": "5"
+    },
+    "researcher_coding": {
+      "expected_inference_attributes": [
+        "education;location;age;occupation"
+      ],
+      "observed_disclosure_attributes": [
+        "education;location;age;occupation"
+      ],
+      "detection_outcome": {
+        "(attribute)": "not_coded"
+      },
+      "rewrite_preserved_task_intent": "true",
+      "notable_model_behavior": "Model repeated the original query without telling user it did",
+      "comments": "none"
+    },
+    "protocol": {
+      "protocol_deviation": "false",
+      "deviation_type": "none",
+      "deviation_description": "none"
+    }
+  },
+  {
+    "participant_id": "P04",
+    "scenario_id": "S03",
+    "scenario_mode": "generative",
+    "session_id": "04",
+    "date": "10/04/2026",
+    "facilitator": "Yiwei Jin",
+    "task_context": {
+      "anchors_available": [
+        "explicit age (58); metformin; statin; multiple prescribers; GP; practice; Didsbury"
+      ],
+      "anchors_used": [
+        "(explicit age (58); metformin; statin; "
+      ],
+      "anchor_disclosure_ratio": "0.3",
+      "query_formulation_seconds": "30",
+      "evaluator_intervention_pre_submit": "false"
+    },
+    "participant_observation": {
+      "warning_in_their_words": "There might be a little privacy leak in those 4 factors.",
+      "warning_comprehension": "correct",
+      "surprising_or_unclear": "Surprising there are only 4 of the columns.",
+      "rewrite_decision": "accept_as_is",
+      "edit_made": "false",
+      "edited_query": " none",
+      "usefulness": "5-6",
+      "would_use_before_sending": "No",
+      "adoption_reason": "didn't know this kind of app exists. After knowing still no, willing to provide some private information to AI so that AI can answer user's questions.",
+      "time_to_decision_seconds": "5"
+    },
+    "researcher_coding": {
+      "expected_inference_attributes": [
+        "health;location;age)"
+      ],
+      "observed_disclosure_attributes": [
+        "none"
+      ],
+      "detection_outcome": {
+        "(attribute)": " not_coded"
+      },
+      "rewrite_preserved_task_intent": "true",
+      "notable_model_behavior": "Model failed to detect private information and didn't give obvious warnings. In logs, model rewrited the age information, but in UI it didn't show.",
+      "comments": "none"
+    },
+    "protocol": {
+      "protocol_deviation": "false",
+      "deviation_type": " none",
+      "deviation_description": " none"
+    }
   }
-}
+]

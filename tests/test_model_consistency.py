@@ -125,3 +125,34 @@ def test_unknown_attribute_still_raises_attribute_error():
 
     with pytest.raises(AttributeError):
         r.not_a_real_name
+
+
+# --- honesty of the names we ship ----------------------------------------
+
+def test_runtime_thresholds_are_not_called_validated():
+    """We have been bitten twice by a confident label on an unearned number.
+
+    A simulated benchmark committed to reports/, and a training-split F1
+    reported as the north star. The runtime cut-offs are carried over
+    unchanged from the Session 04 notebook and nothing fits them, so they may
+    not be named as though something did. `fit_attribute()` is what would earn
+    that name; when it is wired up, this test is the thing to delete.
+    """
+    src = (ROOT / "src/product/thresholds.py").read_text(encoding="utf-8")
+    assert "VALIDATED_" not in src, (
+        "a threshold constant is named VALIDATED but nothing calls fit_attribute()"
+    )
+    assert "PROVISIONAL_MAX_RISK_THRESHOLD" in src
+
+
+def test_committed_user_study_records_are_parseable():
+    """session06_record.json shipped as four concatenated objects, so every
+    reader of it — including our own aggregation harness — raised
+    JSONDecodeError. Evidence nothing can open is not evidence."""
+    import json
+
+    for path in sorted((ROOT / "docs").rglob("*.json")):
+        try:
+            json.loads(path.read_text(encoding="utf-8"))
+        except json.JSONDecodeError as exc:
+            raise AssertionError(f"{path.relative_to(ROOT)} is not valid JSON: {exc}")
