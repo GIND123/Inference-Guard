@@ -47,7 +47,7 @@ north_star:
 - **Adversarial Evaluation Harness**: Designed the evaluation harness utilizing Phi-4-mini to act as a zero-shot attribute guesser, alongside DeBERTa-v3 Bidirectional NLI for semantic preservation checking.
 
 ## User evidence
-- **We have no qualifying user evidence this week, and we are not claiming any.** The focus was heavily on ML training pipelines and SFT dataset generation.
+- P05 - P09 user tests were carried out before web UI was merged. Session05 user test showed flaws in test design. 
 
 ## Metrics snapshot
 - Risk Classifier (ModernBERT), **validation split** (45 held-out profiles, profile-disjoint, seed 42), best epoch 3 of 3. `best_macro_f1` in `train_risk_model` is the best per-epoch **validation** macro F1, not a training-split number:
@@ -99,9 +99,8 @@ north_star:
     - Outstanding and not done this session: issue #21, `make_artifacts.py` split reproducibility, is assigned to Engineering and is still open.
 
 - Yiwei Jin (Users&Research):
-    - Opened issue #31 and PR #32 (open as of 2026-09-27): usability sessions with five external, non-contributor participants (P01–P05) running the synthetic scenarios in `docs/product/user_test_scenarios.md`, with the raw logs committed as `data/logs/session05_user_test_logs.zip`.
+    - Opened issue #31 and PR #32: usability sessions with five external, non-contributor participants (P01–P05) running the synthetic scenarios in `docs/product/user_test_scenarios.md`, with the raw logs committed in `docs/session05-log`.
     - Reviewed, approved and merged PRs #29 and #30.
-    - Note: PR #32 is not merged, and its logs have not been audited by the team, so the User evidence section above still claims nothing from them. If it merges before submission, that section needs rewriting and this north star's "previous" line needs revisiting.
 
 - Bingqi Lian (Operations):
     - Designed and implemented the Experiment Operations framework in PR #38, establishing a standardized protocol for reproducible, auditable, and comparable user and model evaluations across sessions.

@@ -1,0 +1,74 @@
+{
+  "session_id": "05",
+  "user_id": "demo_user",
+  "input_text": "My manager keeps giving the client-facing assignments to colleagues with master's degrees, even though I've been on the team for seven years and regularly train new staff. I don't have a postgraduate degree. How do I raise this without making it sound like I'm questioning my colleagues' qualifications?",
+  "exported_at": "2026-10-06T01:11:34.468Z",
+  "client_latency_seconds": 0.476,
+  "response": {
+    "risk_summary": {
+      "overall": 0.75,
+      "overall_band": "HIGH",
+      "primary": "occupation",
+      "secondary": [
+        "education"
+      ],
+      "bands": {
+        "age": "LOW",
+        "location": "LOW",
+        "occupation": "HIGH",
+        "education": "MEDIUM"
+      },
+      "scores": {
+        "age": 0.05,
+        "location": 0.05,
+        "occupation": 0.75,
+        "education": 0.45
+      },
+      "cues": [
+        {
+          "span": "[occupation cue]",
+          "attribute": "occupation",
+          "importance": 0.75
+        },
+        {
+          "span": "[education cue]",
+          "attribute": "education",
+          "importance": 0.45
+        }
+      ],
+      "leakage_delta": 0.75
+    },
+    "rewritten_text": "My manager keeps giving the client-facing assignments to colleagues with master's degrees, even though I've been on the team for seven years and regularly train new staff. I don't have a postgraduate degree. How do I raise this without making it sound like I'm questioning my colleagues' qualifications?",
+    "presidio_text": "My manager keeps giving the client-facing assignments to colleagues with master's degrees, even though I've been on the team for seven years and regularly train new staff. I don't have a postgraduate degree. How do I raise this without making it sound like I'm questioning my colleagues' qualifications?",
+    "utility_metrics": {
+      "cosine_similarity": 1,
+      "nli_forward": 1,
+      "nli_backward": 1,
+      "contradiction": 0,
+      "utility_score": 1
+    },
+    "turn_record": {
+      "turn_number": 1,
+      "session_id": "05",
+      "raw_text": "My manager keeps giving the client-facing assignments to colleagues with master's degrees, even though I've been on the team for seven years and regularly train new staff. I don't have a postgraduate degree. How do I raise this without making it sound like I'm questioning my colleagues' qualifications?",
+      "turn_scores": {
+        "age": 0.05,
+        "location": 0.05,
+        "occupation": 0.75,
+        "education": 0.45
+      },
+      "cumulative_scores": {
+        "age": 0.05,
+        "location": 0.05,
+        "occupation": 0.75,
+        "education": 0.45
+      },
+      "overall_turn_risk": 0.75,
+      "overall_cumulative_risk": 0.75,
+      "joint_entropy": 2.7,
+      "leakage_delta": 0.75,
+      "is_breached": true,
+      "risk_band": "HIGH"
+    }
+  }
+}
