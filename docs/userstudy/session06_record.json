@@ -198,76 +198,55 @@
       "deviation_type": " none",
       "deviation_description": " none"
     }
-  }
-
+  },
   {
-  "participant_id": "P05",
-  "scenario_id": "S02",
-  "scenario_mode": "controlled",
-  "session_id": "05",
-  "date": "10/05/2026",
-  "facilitator": "Yiwei Jin",
-
-  "task_context": {
-    "anchors_available": [
-      "client-facing assignments; seven years; train new staff; colleagues with master's degrees; I don't have a postgraduate degree"
-    ],
-    "anchors_used": [
-      "(client-facing assignments; seven years; train new staff; colleagues with master's degrees; I don't have a postgraduate degree "
-    ],
-    "anchor_disclosure_ratio": "1",
-    "query_formulation_seconds": "5",
-    "evaluator_intervention_pre_submit": "false"
-  },
-
-  "participant_observation": {
-    "warning_in_their_words": "It thinks that I have a high risk of leaking my occupation and education information",
-
-    "warning_comprehension": "correct",
-
-    "surprising_or_unclear": "none",
-
-    "rewrite_decision": "accept_with_edit",
-
-    "edit_made": "true",
-
-    "edited_query": "My manager keeps giving the client-facing assignments to colleagues with doctor degrees, even though I've been on the team for 10 years and regularly train new staff. I don't have a phd degree. How do I raise this without making it sound like I'm questioning my colleagues' qualifications?",
-
-    "usefulness": "3",
-
-    "would_use_before_sending": "Yes",
-
-    "adoption_reason": "this kind of program can protect my privacy",
-
-    "time_to_decision_seconds": "5"
-  },
-
-  "researcher_coding": {
-    "expected_inference_attributes": [
-      "education, occupation, age"
-    ],
-
-    "observed_disclosure_attributes": [
-      "education, occupation,"
-    ],
-
-    "detection_outcome": {
-      "(attribute)": " not_coded"
+    "participant_id": "P05",
+    "scenario_id": "S02",
+    "scenario_mode": "controlled",
+    "session_id": "05",
+    "date": "10/05/2026",
+    "facilitator": "Yiwei Jin",
+    "task_context": {
+      "anchors_available": [
+        "client-facing assignments; seven years; train new staff; colleagues with master's degrees; I don't have a postgraduate degree"
+      ],
+      "anchors_used": [
+        "(client-facing assignments; seven years; train new staff; colleagues with master's degrees; I don't have a postgraduate degree "
+      ],
+      "anchor_disclosure_ratio": "1",
+      "query_formulation_seconds": "5",
+      "evaluator_intervention_pre_submit": "false"
     },
-
-    "rewrite_preserved_task_intent": "true",
-
-    "notable_model_behavior": "Model detected private information and gave warning, but didn't rewrite",
-
-    "comments": "none"
-  },
-
-  "protocol": {
-    "protocol_deviation": "false",
-
-    "deviation_type": " none",
-
-    "deviation_description": " none"
+    "participant_observation": {
+      "warning_in_their_words": "It thinks that I have a high risk of leaking my occupation and education information",
+      "warning_comprehension": "correct",
+      "surprising_or_unclear": "none",
+      "rewrite_decision": "accept_with_edit",
+      "edit_made": "true",
+      "edited_query": "My manager keeps giving the client-facing assignments to colleagues with doctor degrees, even though I've been on the team for 10 years and regularly train new staff. I don't have a phd degree. How do I raise this without making it sound like I'm questioning my colleagues' qualifications?",
+      "usefulness": "3",
+      "would_use_before_sending": "Yes",
+      "adoption_reason": "this kind of program can protect my privacy",
+      "time_to_decision_seconds": "5"
+    },
+    "researcher_coding": {
+      "expected_inference_attributes": [
+        "education, occupation, age"
+      ],
+      "observed_disclosure_attributes": [
+        "education, occupation,"
+      ],
+      "detection_outcome": {
+        "(attribute)": " not_coded"
+      },
+      "rewrite_preserved_task_intent": "true",
+      "notable_model_behavior": "Model detected private information and gave warning, but didn't rewrite",
+      "comments": "none"
+    },
+    "protocol": {
+      "protocol_deviation": "false",
+      "deviation_type": " none",
+      "deviation_description": " none"
+    }
   }
-}
 ]

@@ -47,7 +47,7 @@ north_star:
 - **Adversarial Evaluation Harness**: Designed the evaluation harness utilizing Phi-4-mini to act as a zero-shot attribute guesser, alongside DeBERTa-v3 Bidirectional NLI for semantic preservation checking.
 
 ## User evidence
-- P05 - P09 user tests were carried out before web UI was merged. Session05 user test showed flaws in test design. 
+- **We have no qualifying user evidence this week, and we are not claiming any.** The focus was heavily on ML training pipelines and SFT dataset generation.
 
 ## Metrics snapshot
 - Risk Classifier (ModernBERT), **validation split** (45 held-out profiles, profile-disjoint, seed 42), best epoch 3 of 3. `best_macro_f1` in `train_risk_model` is the best per-epoch **validation** macro F1, not a training-split number:
@@ -112,3 +112,25 @@ north_star:
 
 ## Lean canvas changes (if any)
 - No changes to the Lean Canvas this session. The product vision and distribution strategy established in Session 04 remain accurate.
+
+---
+
+## Addendum — 2026-10-06
+
+Added after this report was submitted at the Session 05 deadline (2026-09-29,
+17:00 ET). **The body above is unchanged.** This note records what we have
+since established, so a reader is not misled by it.
+
+- **The User evidence section above understated what we had.** Nine external
+  participants (P01–P09) were run on 27–28 September, before the deadline, and
+  their raw logs are committed at `docs/session05-log/`. The statement that we
+  had no qualifying user evidence was written before those logs were audited
+  and is wrong on the facts. We are correcting it toward more evidence rather
+  than less, and leaving the original sentence standing.
+- **Those sessions ran before the web UI was merged**, against the notebook
+  loop rather than the product a user would see, and the exercise exposed flaws
+  in the test design itself. Session 06 re-ran the protocol against the live UI
+  with a silent-observer method; see `artifacts/session06-doc.md`.
+- The evidence pointer in Individual contributions was corrected in PR #50 from
+  `data/logs/session05_user_test_logs.zip`, which never existed, to
+  `docs/session05-log/`, which is where the logs actually landed.
