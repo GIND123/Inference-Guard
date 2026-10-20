@@ -12,7 +12,7 @@ import numpy as np
 from sklearn.metrics import f1_score
 
 from src.contracts.schemas import AttributeName
-from src.risk_model.taxonomy import ATTRIBUTE_TAXONOMY
+from src.risk_model.taxonomy import ATTRIBUTE_TAXONOMY, map_raw_to_taxonomy_label
 
 
 def compute_method_metrics(
@@ -32,12 +32,27 @@ def compute_method_metrics(
         preds = predictions_by_attr.get(attr, [])
         trues = ground_truth_by_attr.get(attr, [])
 
-        valid_pairs = [(p, t) for p, t in zip(preds, trues) if t in valid_labels]
+        valid_pairs: List[tuple[str, str]] = []
+        for p, t in zip(preds, trues):
+            t_str = str(t or "").strip()
+            if t_str not in valid_labels:
+                t_str = map_raw_to_taxonomy_label(attr, t_str)
+            if t_str in valid_labels:
+                p_str = str(p or "").strip()
+                if p_str not in valid_labels and p_str != "UNKNOWN":
+                    p_str = map_raw_to_taxonomy_label(attr, p_str)
+                valid_pairs.append((p_str, t_str))
+
         if not valid_pairs:
+            per_attribute[attr.value] = {
+                "attack_accuracy": 0.0,
+                "macro_f1": 0.0,
+                "abstention_rate": 0.0,
+            }
             continue
 
         p_list, t_list = zip(*valid_pairs)
-        acc = float(np.mean([1.0 if p == t else 0.0 for p, t in valid_pairs]))
+        acc = float(np.mean([1.0 if (p == t and p != "UNKNOWN") else 0.0 for p, t in valid_pairs]))
         abstention = float(np.mean([1.0 if p == "UNKNOWN" else 0.0 for p in p_list]))
         mac_f1 = float(f1_score(t_list, p_list, labels=valid_labels, average="macro", zero_division=0))
 

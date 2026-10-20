@@ -1,12 +1,37 @@
 {
   "split": "val",
   "sample_count": 50,
+  "use_heavy_models": false,
+  "adversary_mode": "heuristic",
+  "rewriter_engine": "heuristic",
+  "utility_mode": "heuristic",
   "methods": {
     "raw": {
       "overall_attack_success_rate": 0.0,
       "overall_attacker_macro_f1": 0.0,
-      "overall_attacker_abstention_rate": 0.0,
-      "per_attribute": {},
+      "overall_attacker_abstention_rate": 0.99,
+      "per_attribute": {
+        "age": {
+          "attack_accuracy": 0.0,
+          "macro_f1": 0.0,
+          "abstention_rate": 1.0
+        },
+        "education": {
+          "attack_accuracy": 0.0,
+          "macro_f1": 0.0,
+          "abstention_rate": 1.0
+        },
+        "occupation": {
+          "attack_accuracy": 0.0,
+          "macro_f1": 0.0,
+          "abstention_rate": 0.96
+        },
+        "location": {
+          "attack_accuracy": 0.0,
+          "macro_f1": 0.0,
+          "abstention_rate": 1.0
+        }
+      },
       "mean_bidirectional_entailment": 1.0,
       "mean_semantic_similarity": 1.0,
       "contradiction_rate": 0.0,
@@ -15,32 +40,95 @@
     "presidio": {
       "overall_attack_success_rate": 0.0,
       "overall_attacker_macro_f1": 0.0,
-      "overall_attacker_abstention_rate": 0.0,
-      "per_attribute": {},
+      "overall_attacker_abstention_rate": 0.99,
+      "per_attribute": {
+        "age": {
+          "attack_accuracy": 0.0,
+          "macro_f1": 0.0,
+          "abstention_rate": 1.0
+        },
+        "education": {
+          "attack_accuracy": 0.0,
+          "macro_f1": 0.0,
+          "abstention_rate": 1.0
+        },
+        "occupation": {
+          "attack_accuracy": 0.0,
+          "macro_f1": 0.0,
+          "abstention_rate": 0.96
+        },
+        "location": {
+          "attack_accuracy": 0.0,
+          "macro_f1": 0.0,
+          "abstention_rate": 1.0
+        }
+      },
       "mean_bidirectional_entailment": 0.9967,
       "mean_semantic_similarity": 0.9967,
       "contradiction_rate": 0.0,
-      "p95_latency_ms": 9.81
+      "p95_latency_ms": 18.86
     },
     "prompt_baseline": {
       "overall_attack_success_rate": 0.0,
       "overall_attacker_macro_f1": 0.0,
-      "overall_attacker_abstention_rate": 0.0,
-      "per_attribute": {},
+      "overall_attacker_abstention_rate": 0.99,
+      "per_attribute": {
+        "age": {
+          "attack_accuracy": 0.0,
+          "macro_f1": 0.0,
+          "abstention_rate": 1.0
+        },
+        "education": {
+          "attack_accuracy": 0.0,
+          "macro_f1": 0.0,
+          "abstention_rate": 1.0
+        },
+        "occupation": {
+          "attack_accuracy": 0.0,
+          "macro_f1": 0.0,
+          "abstention_rate": 0.96
+        },
+        "location": {
+          "attack_accuracy": 0.0,
+          "macro_f1": 0.0,
+          "abstention_rate": 1.0
+        }
+      },
       "mean_bidirectional_entailment": 0.9967,
       "mean_semantic_similarity": 0.9967,
       "contradiction_rate": 0.0,
-      "p95_latency_ms": 7.03
+      "p95_latency_ms": 15.09
     },
     "qlora_sft": {
       "overall_attack_success_rate": 0.0,
       "overall_attacker_macro_f1": 0.0,
-      "overall_attacker_abstention_rate": 0.0,
-      "per_attribute": {},
+      "overall_attacker_abstention_rate": 0.99,
+      "per_attribute": {
+        "age": {
+          "attack_accuracy": 0.0,
+          "macro_f1": 0.0,
+          "abstention_rate": 1.0
+        },
+        "education": {
+          "attack_accuracy": 0.0,
+          "macro_f1": 0.0,
+          "abstention_rate": 1.0
+        },
+        "occupation": {
+          "attack_accuracy": 0.0,
+          "macro_f1": 0.0,
+          "abstention_rate": 0.96
+        },
+        "location": {
+          "attack_accuracy": 0.0,
+          "macro_f1": 0.0,
+          "abstention_rate": 1.0
+        }
+      },
       "mean_bidirectional_entailment": 0.9967,
       "mean_semantic_similarity": 0.9967,
       "contradiction_rate": 0.0,
-      "p95_latency_ms": 6.79
+      "p95_latency_ms": 14.75
     }
   }
 }

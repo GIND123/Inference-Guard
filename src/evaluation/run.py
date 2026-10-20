@@ -223,6 +223,11 @@ def run_comparative_benchmark(
     input_file: Optional[str] = None,
     output_dir: str = "reports",
     limit: Optional[int] = None,
+    use_heavy_models: bool = False,
+    adapter_dir: Optional[str] = None,
+    base_model_name: Optional[str] = None,
+    device: Optional[str] = None,
+    strict: bool = False,
 ) -> Dict[str, Any]:
     """Execute four-way comparative evaluation benchmark across privacy-preserving methods."""
     from src.contracts.schemas import AttributeName, ConversationState, RewriteMode
@@ -230,7 +235,8 @@ def run_comparative_benchmark(
     from src.evaluation.attacker import HeldOutPhi4Adversary
     from src.evaluation.privacy_metrics import compute_method_metrics
     from src.evaluation.utility_metrics import BidirectionalUtilityEvaluator
-    from src.rewriter.inference import QwenPrivacyRewriterService
+    from src.rewriter.inference import DEFAULT_BASE_MODEL, QwenPrivacyRewriterService
+    from src.risk_model.taxonomy import map_raw_to_taxonomy_label
 
     out_path = Path(output_dir)
     out_path.mkdir(parents=True, exist_ok=True)
@@ -265,10 +271,39 @@ def run_comparative_benchmark(
             },
         ]
 
+    # Resolve default adapter location if available
+    effective_adapter = adapter_dir
+    if effective_adapter is None and Path("artifacts/rewriter_qlora").exists():
+        effective_adapter = "artifacts/rewriter_qlora"
+
     pseudonym_mgr = DeterministicPseudonymManager()
-    utility_eval = BidirectionalUtilityEvaluator(load_models=False)
-    adversary = HeldOutPhi4Adversary(load_model=False)
-    rewriter = QwenPrivacyRewriterService()
+    utility_eval = BidirectionalUtilityEvaluator(load_models=use_heavy_models, device=device)
+    adversary = HeldOutPhi4Adversary(load_model=use_heavy_models, device=device)
+    rewriter = QwenPrivacyRewriterService(
+        base_model_name=base_model_name or DEFAULT_BASE_MODEL,
+        adapter_dir=effective_adapter,
+        device=device,
+        load_model=use_heavy_models,
+    )
+
+    adversary_mode = "model" if getattr(adversary, "model", None) is not None else "heuristic"
+    rewriter_engine = (
+        "qlora_sft"
+        if getattr(rewriter, "model", None) is not None and getattr(rewriter, "has_adapter", False)
+        else ("qwen_base" if getattr(rewriter, "model", None) is not None else "heuristic")
+    )
+    utility_mode = "model" if getattr(utility_eval, "nli_model", None) is not None else "heuristic"
+
+    if use_heavy_models and strict:
+        if adversary_mode != "model":
+            raise RuntimeError("Strict evaluation requested but HeldOutPhi4Adversary could not load model weights.")
+        if rewriter.model is None:
+            raise RuntimeError("Strict evaluation requested but QwenPrivacyRewriterService could not load model weights.")
+
+    logger.info(
+        f"Starting comparative benchmark across {len(records)} samples. "
+        f"Modes: Adversary={adversary_mode}, Rewriter={rewriter_engine}, Utility={utility_mode}"
+    )
 
     comparative_results: Dict[str, Any] = {}
 
@@ -311,10 +346,13 @@ def run_comparative_benchmark(
 
             # Step 3: Adversarial inference
             inferred = adversary.infer_attributes([transformed])
-            attrs_gt = rec.get("attributes", {})
+            attrs_gt = rec.get("attributes", {}) or rec.get("profile", {})
             for attr in AttributeName:
                 method_predictions[attr].append(inferred.get(attr, "UNKNOWN"))
-                ground_truth[attr].append(attrs_gt.get(attr.value, "UNKNOWN"))
+                raw_gt = attrs_gt.get(attr.value) if isinstance(attrs_gt, dict) else None
+                if raw_gt is None and isinstance(attrs_gt, dict):
+                    raw_gt = attrs_gt.get(attr)
+                ground_truth[attr].append(map_raw_to_taxonomy_label(attr, raw_gt))
 
         metrics = compute_method_metrics(
             records=records,
@@ -328,6 +366,10 @@ def run_comparative_benchmark(
     benchmark_payload = {
         "split": split,
         "sample_count": len(records),
+        "use_heavy_models": use_heavy_models,
+        "adversary_mode": adversary_mode,
+        "rewriter_engine": rewriter_engine,
+        "utility_mode": utility_mode,
         "methods": comparative_results,
     }
 
@@ -346,6 +388,10 @@ def main() -> None:
     parser.add_argument("--methods", nargs="+", default=["raw", "presidio", "prompt_baseline", "qlora_sft"], help="Methods to compare")
     parser.add_argument("--limit", "--max_samples", type=int, default=None, dest="limit", help="Max samples to evaluate")
     parser.add_argument("--use_heavy_models", action="store_true", help="Load heavy models; fail instead of falling back")
+    parser.add_argument("--adapter_dir", type=str, default=None, help="Directory containing fine-tuned QLoRA adapter")
+    parser.add_argument("--base_model_name", type=str, default=None, help="Base causal LLM model name")
+    parser.add_argument("--device", type=str, default=None, help="Device placement (cuda/cpu)")
+    parser.add_argument("--strict", action="store_true", help="Raise if heavy models fail to load")
     args = parser.parse_args()
 
     print(f"Executing 4-way comparative benchmark on split '{args.split}' for methods: {args.methods}")
@@ -355,6 +401,11 @@ def main() -> None:
         input_file=args.input_file,
         output_dir=args.output_dir,
         limit=args.limit,
+        use_heavy_models=args.use_heavy_models,
+        adapter_dir=args.adapter_dir,
+        base_model_name=args.base_model_name,
+        device=args.device,
+        strict=args.strict,
     )
     print("\n" + "=" * 78)
     print(f"{'Method':<18} | {'Attacker Acc (v)':<16} | {'Abstain % (^)':<13} | {'Bi-NLI (^)':<11} | {'p95 Lat (ms)':<12}")
@@ -367,6 +418,9 @@ def main() -> None:
             f"{data['p95_latency_ms']:<12.2f}"
         )
     print("=" * 78)
+    print(f"Adversary Mode: {results['adversary_mode']} | Rewriter Engine: {results['rewriter_engine']} | Utility: {results['utility_mode']}")
+    if not args.use_heavy_models:
+        print("[NOTE] Running in offline heuristic mode. To evaluate trained neural weights, pass --use_heavy_models --adapter_dir <path>")
 
 
 if __name__ == "__main__":

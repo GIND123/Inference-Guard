@@ -22,7 +22,12 @@ from tqdm import tqdm
 
 from src.contracts.schemas import AttributeName
 from src.risk_model.model import ATTRIBUTES, ModernBertRiskClassifier, MultiTaskModernBERTRiskModel
-from src.risk_model.taxonomy import ATTRIBUTE_TAXONOMY, LABEL_TO_ID
+from src.risk_model.taxonomy import (
+    ATTRIBUTE_TAXONOMY,
+    LABEL_TO_ID,
+    map_raw_to_taxonomy_label,
+    map_to_taxonomy_id,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -48,72 +53,6 @@ def extract_inferability_labels(row: Dict[str, Any]) -> List[float]:
         est = str(attr_data.get("estimate", "") or "").strip()
         labels.append(1.0 if est != "" else 0.0)
     return labels
-
-
-def map_to_taxonomy_id(attr: AttributeName, raw_val: Any) -> int:
-    """Map raw SynthPAI profile string to coarse integer class ID."""
-    val_str = str(raw_val or "").strip().lower()
-    mapping = LABEL_TO_ID[attr]
-
-    if attr == AttributeName.AGE:
-        try:
-            m = re.search(r"\d+", val_str)
-            num = int(m.group(0)) if m else 30
-            if num < 25:
-                return mapping["18-24"]
-            elif num < 35:
-                return mapping["25-34"]
-            elif num < 45:
-                return mapping["35-44"]
-            elif num < 55:
-                return mapping["45-54"]
-            else:
-                return mapping["55+"]
-        except Exception:
-            return mapping["25-34"]
-
-    elif attr == AttributeName.EDUCATION:
-        if any(w in val_str for w in ["phd", "doctor", "master", "postgraduate", "jd", "md"]):
-            return mapping["graduate_professional"]
-        elif any(w in val_str for w in ["bachelor", "undergraduate", "college", "bs", "ba"]):
-            return mapping["undergraduate"]
-        elif any(w in val_str for w in ["high school", "secondary", "ged"]):
-            return mapping["high_school"]
-        return mapping["other_unknown"]
-
-    elif attr == AttributeName.OCCUPATION:
-        if any(w in val_str for w in ["student", "intern", "co-op"]):
-            return mapping["student"]
-        elif any(w in val_str for w in ["software", "developer", "engineer", "tech", "programmer", "data", "it"]):
-            return mapping["technology"]
-        elif any(w in val_str for w in ["doctor", "nurse", "physician", "psycholog", "clinic", "health"]):
-            return mapping["healthcare"]
-        elif any(w in val_str for w in ["teacher", "professor", "academic", "educat", "school"]):
-            return mapping["education_academic"]
-        elif any(w in val_str for w in ["finance", "bank", "account", "manager", "business", "analyst"]):
-            return mapping["business_finance"]
-        elif any(w in val_str for w in ["retail", "service", "barista", "waiter", "sales"]):
-            return mapping["service_retail"]
-        return mapping["other"]
-
-    elif attr == AttributeName.LOCATION:
-        if any(w in val_str for w in ["canada", "montreal", "toronto", "vancouver"]):
-            return mapping["canada"]
-        elif any(w in val_str for w in ["uk", "london", "england", "europe", "germany", "france", "berlin", "paris"]):
-            return mapping["uk_europe"]
-        elif any(w in val_str for w in ["asia", "japan", "tokyo", "china", "pacific", "australia"]):
-            return mapping["asia_pacific"]
-        elif any(w in val_str for w in ["ny", "new york", "boston", "massachusetts", "northeast"]):
-            return mapping["us_northeast"]
-        elif any(w in val_str for w in ["wa", "seattle", "ca", "california", "colorado", "denver", "west"]):
-            return mapping["us_west"]
-        elif any(w in val_str for w in ["chicago", "illinois", "midwest", "ohio"]):
-            return mapping["us_midwest"]
-        elif any(w in val_str for w in ["tx", "texas", "austin", "atlanta", "georgia", "south"]):
-            return mapping["us_south"]
-        return mapping["other_global"]
-
-    return 0
 
 
 class SynthPAIRiskDataset(Dataset):
