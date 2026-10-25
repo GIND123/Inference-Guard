@@ -46,6 +46,30 @@ class RewriterQLoRAConfig:
     seed: int = 42
 
 
+def get_warmup_kwargs(config_cls: Any, ratio: float = 0.05) -> Dict[str, Any]:
+    """Provide cross-version compatible warmup argument (ratio in v4 vs float steps in v5)."""
+    import inspect
+    try:
+        params = inspect.signature(config_cls.__init__).parameters
+        if "warmup_ratio" in params:
+            return {"warmup_ratio": ratio}
+    except Exception:
+        pass
+    return {"warmup_steps": ratio}
+
+
+def filter_supported_kwargs(config_cls: Any, kwargs: Dict[str, Any]) -> Dict[str, Any]:
+    """Filter kwargs to only those accepted by config_cls.__init__ across TRL/Transformers versions."""
+    import inspect
+    try:
+        params = inspect.signature(config_cls.__init__).parameters
+        if any(p.kind == inspect.Parameter.VAR_KEYWORD for p in params.values()):
+            return kwargs
+        return {k: v for k, v in kwargs.items() if k in params}
+    except Exception:
+        return kwargs
+
+
 def train_qlora_rewriter(cfg: RewriterQLoRAConfig) -> None:
     """Execute QLoRA fine-tuning with completion-only LM loss masking."""
     from trl import DataCollatorForCompletionOnlyLM, SFTConfig
@@ -104,24 +128,26 @@ def train_qlora_rewriter(cfg: RewriterQLoRAConfig) -> None:
         tokenizer=tokenizer,
     )
 
-    sft_args = SFTConfig(
-        output_dir=cfg.output_adapter_dir,
-        dataset_text_field="text",
-        max_length=cfg.max_seq_length,
-        per_device_train_batch_size=cfg.per_device_train_batch_size,
-        gradient_accumulation_steps=cfg.gradient_accumulation_steps,
-        learning_rate=cfg.learning_rate,
-        num_train_epochs=cfg.num_train_epochs,
-        warmup_ratio=cfg.warmup_ratio,
-        lr_scheduler_type="cosine",
-        weight_decay=0.01,
-        logging_steps=10,
-        bf16=is_cuda and torch.cuda.is_bf16_supported(),
-        fp16=is_cuda and not torch.cuda.is_bf16_supported(),
-        neftune_noise_alpha=cfg.neftune_noise_alpha,
-        seed=cfg.seed,
-        report_to="none",
-    )
+    sft_kwargs = {
+        "output_dir": cfg.output_adapter_dir,
+        "dataset_text_field": "text",
+        "max_length": cfg.max_seq_length,
+        "per_device_train_batch_size": cfg.per_device_train_batch_size,
+        "gradient_accumulation_steps": cfg.gradient_accumulation_steps,
+        "learning_rate": cfg.learning_rate,
+        "num_train_epochs": cfg.num_train_epochs,
+        "lr_scheduler_type": "cosine",
+        "weight_decay": 0.01,
+        "logging_steps": 10,
+        "bf16": is_cuda and torch.cuda.is_bf16_supported(),
+        "fp16": is_cuda and not torch.cuda.is_bf16_supported(),
+        "use_cpu": not is_cuda,
+        "neftune_noise_alpha": cfg.neftune_noise_alpha,
+        "seed": cfg.seed,
+        "report_to": "none",
+        **get_warmup_kwargs(SFTConfig, cfg.warmup_ratio),
+    }
+    sft_args = SFTConfig(**filter_supported_kwargs(SFTConfig, sft_kwargs))
 
     trainer = SFTTrainer(
         model=base_model,
@@ -143,7 +169,14 @@ def parse_args():
     parser = argparse.ArgumentParser(description="QLoRA Fine-tuning for InferenceGuard Rewriter")
     parser.add_argument("--model_name", "--base_model", type=str, default=DEFAULT_BASE_MODEL,
                         help="Base model name. Must match what inference loads: see DEFAULT_BASE_MODEL.")
-    parser.add_argument("--dataset_path", "--train_path", type=str, required=True, help="Path to the JSONL dataset (ChatML or Alpaca format)")
+    parser.add_argument(
+        "--dataset_path",
+        "--train_path",
+        "--train_data",
+        type=str,
+        default="artifacts/rewriter_sft_chatml.jsonl",
+        help="Path to the JSONL dataset (ChatML or Alpaca format)",
+    )
     parser.add_argument("--output_dir", type=str, default="artifacts/rewriter_qlora", help="Output directory for adapters")
     parser.add_argument("--batch_size", type=int, default=4, help="Per device train batch size")
     parser.add_argument("--learning_rate", type=float, default=2e-4, help="Learning rate")
@@ -227,56 +260,60 @@ def main():
     model = get_peft_model(model, peft_config)
     model.print_trainable_parameters()
 
-    # Handle cross-version compatibility for TRL
+    # Handle cross-version compatibility for TRL and Transformers
     try:
         from trl import SFTConfig
-        training_args = SFTConfig(
-            output_dir=args.output_dir,
-            per_device_train_batch_size=args.batch_size,
-            gradient_accumulation_steps=4,
-            learning_rate=args.learning_rate,
-            num_train_epochs=args.epochs,
-            weight_decay=args.weight_decay,
-            warmup_ratio=0.05,
-            lr_scheduler_type="cosine",
-            logging_steps=10,
-            save_strategy="epoch",
-            optim="paged_adamw_32bit",
-            bf16=use_bf16,
-            fp16=use_fp16,
-            gradient_checkpointing=True,
-            max_length=args.max_length,
-            dataset_text_field="text"
-        )
+        sft_kwargs = {
+            "output_dir": args.output_dir,
+            "per_device_train_batch_size": args.batch_size,
+            "gradient_accumulation_steps": 4,
+            "learning_rate": args.learning_rate,
+            "num_train_epochs": args.epochs,
+            "weight_decay": args.weight_decay,
+            "lr_scheduler_type": "cosine",
+            "logging_steps": 10,
+            "save_strategy": "epoch",
+            "optim": "paged_adamw_32bit",
+            "bf16": use_bf16,
+            "fp16": use_fp16,
+            "use_cpu": not is_cuda,
+            "gradient_checkpointing": True,
+            "max_length": args.max_length,
+            "dataset_text_field": "text",
+            **get_warmup_kwargs(SFTConfig, 0.05),
+        }
+        training_args = SFTConfig(**filter_supported_kwargs(SFTConfig, sft_kwargs))
         trainer = SFTTrainer(
             model=model,
             train_dataset=dataset,
             processing_class=tokenizer,
-            args=training_args
+            args=training_args,
         )
-    except ImportError:
-        training_args = TrainingArguments(
-            output_dir=args.output_dir,
-            per_device_train_batch_size=args.batch_size,
-            gradient_accumulation_steps=4,
-            learning_rate=args.learning_rate,
-            num_train_epochs=args.epochs,
-            weight_decay=args.weight_decay,
-            warmup_ratio=0.05,
-            lr_scheduler_type="cosine",
-            logging_steps=10,
-            save_strategy="epoch",
-            optim="paged_adamw_32bit",
-            bf16=use_bf16,
-            fp16=use_fp16,
-            gradient_checkpointing=True,
-        )
+    except (ImportError, TypeError):
+        t_kwargs = {
+            "output_dir": args.output_dir,
+            "per_device_train_batch_size": args.batch_size,
+            "gradient_accumulation_steps": 4,
+            "learning_rate": args.learning_rate,
+            "num_train_epochs": args.epochs,
+            "weight_decay": args.weight_decay,
+            "lr_scheduler_type": "cosine",
+            "logging_steps": 10,
+            "save_strategy": "epoch",
+            "optim": "paged_adamw_32bit",
+            "bf16": use_bf16,
+            "fp16": use_fp16,
+            "use_cpu": not is_cuda,
+            "gradient_checkpointing": True,
+            **get_warmup_kwargs(TrainingArguments, 0.05),
+        }
+        training_args = TrainingArguments(**filter_supported_kwargs(TrainingArguments, t_kwargs))
         trainer = SFTTrainer(
             model=model,
             train_dataset=dataset,
             tokenizer=tokenizer,
             args=training_args,
-            dataset_text_field="text"
+            dataset_text_field="text",
         )
 
     logger.info("Starting QLoRA fine-tuning")
