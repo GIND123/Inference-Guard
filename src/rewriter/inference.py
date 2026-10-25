@@ -814,11 +814,22 @@ class QwenPrivacyRewriterService:
         elif load_model:
             try:
                 from peft import PeftModel
-                from transformers import AutoModelForCausalLM
+                from transformers import AutoModelForCausalLM, BitsAndBytesConfig
+                is_cuda = self.device == "cuda" and torch.cuda.is_available()
+                use_bf16 = is_cuda and torch.cuda.is_bf16_supported()
+                bnb_config = None
+                if is_cuda:
+                    bnb_config = BitsAndBytesConfig(
+                        load_in_4bit=True,
+                        bnb_4bit_quant_type="nf4",
+                        bnb_4bit_use_double_quant=True,
+                        bnb_4bit_compute_dtype=torch.bfloat16 if use_bf16 else torch.float16,
+                    )
                 base = AutoModelForCausalLM.from_pretrained(
                     base_model_name,
-                    torch_dtype=torch.bfloat16 if (torch.cuda.is_available() and torch.cuda.is_bf16_supported()) else torch.float32,
-                    device_map="auto" if self.device == "cuda" else None,
+                    quantization_config=bnb_config,
+                    torch_dtype=torch.bfloat16 if use_bf16 else (torch.float16 if is_cuda else torch.float32),
+                    device_map="auto" if is_cuda else None,
                     trust_remote_code=True,
                 )
                 if adapter_dir and Path(adapter_dir).exists():
@@ -828,7 +839,12 @@ class QwenPrivacyRewriterService:
                     self.model = base
                     self.has_adapter = False
                 self.model.eval()
-            except Exception:
+            except Exception as exc:
+                logger.warning(
+                    "Failed to initialize QwenPrivacyRewriterService model (%s: %s). Operating in heuristic mode.",
+                    type(exc).__name__,
+                    exc,
+                )
                 self.model = None
         else:
             self.model = None
@@ -841,10 +857,9 @@ class QwenPrivacyRewriterService:
         conversation_state: Any,
         mode: Any = "balanced_sft",
     ) -> Tuple[str, float]:
-        """Protect text by cue-conditioned rewriting or safe pass-through with latency profiling."""
+        """Protect text with generalized privacy rewriting or safe pass-through with latency profiling."""
         import time
         from src.contracts.schemas import RewriteMode, RiskBand
-        from src.rewriter.generate_training_data import format_cue_conditioned_instruction
 
         start_ts = time.perf_counter()
         mode_val = getattr(mode, "value", str(mode))
@@ -879,16 +894,31 @@ class QwenPrivacyRewriterService:
             elapsed_ms = (time.perf_counter() - start_ts) * 1000.0
             return chosen, round(elapsed_ms, 2)
 
-        active_tokens = [
-            tok for tok in getattr(conversation_state, "reverse_entity_map", {}).keys()
-            if tok in pseudonymized_text
+        # Generalized ChatML prompt without demographic cue conditioning
+        messages = [
+            {"role": "system", "content": SYSTEM_PROMPT},
+            {"role": "user", "content": pseudonymized_text},
         ]
-        prompt = format_cue_conditioned_instruction(
-            pseudonymized_text=pseudonymized_text,
-            risk_report=risk_report,
-            mode=mode,
-            active_pseudonyms=active_tokens,
-        )
+        if hasattr(self.tokenizer, "apply_chat_template"):
+            try:
+                prompt = self.tokenizer.apply_chat_template(
+                    messages,
+                    tokenize=False,
+                    add_generation_prompt=True,
+                    enable_thinking=False,
+                )
+            except TypeError:
+                prompt = self.tokenizer.apply_chat_template(
+                    messages,
+                    tokenize=False,
+                    add_generation_prompt=True,
+                )
+        else:
+            prompt = (
+                f"<|im_start|>system\n{SYSTEM_PROMPT}<|im_end|>\n"
+                f"<|im_start|>user\n{pseudonymized_text}<|im_end|>\n"
+                f"<|im_start|>assistant\n"
+            )
 
         inputs = self.tokenizer(prompt, return_tensors="pt")
         target_device = getattr(self.model, "device", self.device)
@@ -916,14 +946,7 @@ class QwenPrivacyRewriterService:
 
         gen_ids = outputs[0][input_len:]
         rewritten = self.tokenizer.decode(gen_ids, skip_special_tokens=True).strip()
-        rewritten = re.sub(r"<\|im_end\|>.*$", "", rewritten, flags=re.DOTALL).strip()
-        rewritten = re.sub(
-            r"^(Here is the (protected |rewritten )?(message|text|version):\s*)",
-            "",
-            rewritten,
-            flags=re.IGNORECASE,
-        ).strip(' "')
-
+        rewritten = QwenRewriterInference.clean_output(rewritten, original_text=pseudonymized_text)
         if not rewritten:
             rewritten = pseudonymized_text
 

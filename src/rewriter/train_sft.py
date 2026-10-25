@@ -32,15 +32,16 @@ class RewriterQLoRAConfig:
     train_jsonl_path: str = "data/sft/train_pareto_sft.jsonl"
     val_jsonl_path: Optional[str] = "data/sft/val_pareto_sft.jsonl"
     output_adapter_dir: str = "models/qwen35_08b_qlora_sft"
-    lora_r: int = 16
-    lora_alpha: int = 32
-    lora_dropout: float = 0.05
+    lora_r: int = 32
+    lora_alpha: int = 64
+    lora_dropout: float = 0.10
+    weight_decay: float = 0.01
     max_seq_length: int = 1024
     per_device_train_batch_size: int = 4
     gradient_accumulation_steps: int = 4
     learning_rate: float = 2e-4
-    num_train_epochs: int = 3
-    warmup_ratio: float = 0.08
+    num_train_epochs: int = 4
+    warmup_ratio: float = 0.05
     neftune_noise_alpha: float = 5.0
     seed: int = 42
 
@@ -146,8 +147,12 @@ def parse_args():
     parser.add_argument("--output_dir", type=str, default="artifacts/rewriter_qlora", help="Output directory for adapters")
     parser.add_argument("--batch_size", type=int, default=4, help="Per device train batch size")
     parser.add_argument("--learning_rate", type=float, default=2e-4, help="Learning rate")
-    parser.add_argument("--epochs", type=int, default=3, help="Number of training epochs")
+    parser.add_argument("--epochs", type=int, default=4, help="Number of training epochs")
     parser.add_argument("--max_length", type=int, default=1024, help="Maximum sequence length")
+    parser.add_argument("--lora_r", type=int, default=32, help="LoRA rank dimension (capacity)")
+    parser.add_argument("--lora_alpha", type=int, default=64, help="LoRA alpha scaling parameter")
+    parser.add_argument("--lora_dropout", type=float, default=0.10, help="LoRA dropout rate (regularization)")
+    parser.add_argument("--weight_decay", type=float, default=0.01, help="AdamW weight decay parameter")
     return parser.parse_args()
 
 
@@ -179,14 +184,17 @@ def main():
         dataset = dataset.map(get_formatting_func(tokenizer))
 
     device_map = {"": 0} if torch.cuda.is_available() else "cpu"
+    is_cuda = torch.cuda.is_available()
+    use_bf16 = is_cuda and torch.cuda.is_bf16_supported()
+    use_fp16 = is_cuda and not torch.cuda.is_bf16_supported()
     
-    if torch.cuda.is_available():
+    if is_cuda:
         logger.info("Configuring 4-bit quantization")
         bnb_config = BitsAndBytesConfig(
             load_in_4bit=True,
             bnb_4bit_use_double_quant=True,
             bnb_4bit_quant_type="nf4",
-            bnb_4bit_compute_dtype=torch.bfloat16
+            bnb_4bit_compute_dtype=torch.bfloat16 if use_bf16 else torch.float16
         )
         logger.info("Loading base model with quantization")
         model = AutoModelForCausalLM.from_pretrained(
@@ -194,7 +202,7 @@ def main():
             quantization_config=bnb_config,
             device_map=device_map,
             trust_remote_code=True,
-            torch_dtype=torch.bfloat16
+            torch_dtype=torch.bfloat16 if use_bf16 else torch.float16
         )
         model = prepare_model_for_kbit_training(model)
     else:
@@ -209,9 +217,9 @@ def main():
     model.config.use_cache = False
 
     peft_config = LoraConfig(
-        r=16,
-        lora_alpha=32,
-        lora_dropout=0.05,
+        r=args.lora_r,
+        lora_alpha=args.lora_alpha,
+        lora_dropout=args.lora_dropout,
         bias="none",
         task_type="CAUSAL_LM",
         target_modules=["q_proj", "k_proj", "v_proj", "o_proj", "gate_proj", "up_proj", "down_proj"]
@@ -228,10 +236,14 @@ def main():
             gradient_accumulation_steps=4,
             learning_rate=args.learning_rate,
             num_train_epochs=args.epochs,
+            weight_decay=args.weight_decay,
+            warmup_ratio=0.05,
+            lr_scheduler_type="cosine",
             logging_steps=10,
             save_strategy="epoch",
             optim="paged_adamw_32bit",
-            bf16=True,
+            bf16=use_bf16,
+            fp16=use_fp16,
             gradient_checkpointing=True,
             max_length=args.max_length,
             dataset_text_field="text"
@@ -249,10 +261,14 @@ def main():
             gradient_accumulation_steps=4,
             learning_rate=args.learning_rate,
             num_train_epochs=args.epochs,
+            weight_decay=args.weight_decay,
+            warmup_ratio=0.05,
+            lr_scheduler_type="cosine",
             logging_steps=10,
             save_strategy="epoch",
             optim="paged_adamw_32bit",
-            bf16=True,
+            bf16=use_bf16,
+            fp16=use_fp16,
             gradient_checkpointing=True,
         )
         trainer = SFTTrainer(

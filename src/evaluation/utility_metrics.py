@@ -89,7 +89,13 @@ class BidirectionalUtilityEvaluator:
 
             self.embed_tokenizer = AutoTokenizer.from_pretrained(self.embed_model_name)
             self.embed_model = AutoModel.from_pretrained(self.embed_model_name).to(self.device).eval()
-        except Exception:
+        except Exception as exc:
+            import logging
+            logging.getLogger(__name__).warning(
+                "Could not initialize utility models (%s: %s). Operating in heuristic mode.",
+                type(exc).__name__,
+                exc,
+            )
             self.nli_model = None
             self.embed_model = None
 

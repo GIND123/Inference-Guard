@@ -90,15 +90,26 @@ class Phi4MiniAttacker:
         attacker answers from the heuristic, with ``mode="heuristic"``.
         """
         try:
-            from transformers import AutoModelForCausalLM, AutoTokenizer
+            from transformers import AutoModelForCausalLM, AutoTokenizer, BitsAndBytesConfig
             import torch
 
             logger.info(f"Loading adversary model: {self.model_name}")
             self.tokenizer = AutoTokenizer.from_pretrained(self.model_name)
+            is_cuda = torch.cuda.is_available()
+            use_bf16 = is_cuda and torch.cuda.is_bf16_supported()
+            bnb_config = None
+            if is_cuda:
+                bnb_config = BitsAndBytesConfig(
+                    load_in_4bit=True,
+                    bnb_4bit_quant_type="nf4",
+                    bnb_4bit_use_double_quant=True,
+                    bnb_4bit_compute_dtype=torch.bfloat16 if use_bf16 else torch.float16,
+                )
             self.model = AutoModelForCausalLM.from_pretrained(
                 self.model_name,
-                torch_dtype=torch.float16 if torch.cuda.is_available() else torch.float32,
-                device_map="auto" if torch.cuda.is_available() else None,
+                quantization_config=bnb_config,
+                torch_dtype=torch.bfloat16 if use_bf16 else (torch.float16 if is_cuda else torch.float32),
+                device_map="auto" if is_cuda else None,
             )
         except Exception as e:
             self.model = None
@@ -488,14 +499,31 @@ class HeldOutPhi4Adversary:
             self.model = model
         elif load_model:
             try:
-                from transformers import AutoModelForCausalLM
+                from transformers import AutoModelForCausalLM, BitsAndBytesConfig
+                is_cuda = self.device == "cuda" and torch.cuda.is_available()
+                use_bf16 = is_cuda and torch.cuda.is_bf16_supported()
+                bnb_config = None
+                if is_cuda:
+                    bnb_config = BitsAndBytesConfig(
+                        load_in_4bit=True,
+                        bnb_4bit_quant_type="nf4",
+                        bnb_4bit_use_double_quant=True,
+                        bnb_4bit_compute_dtype=torch.bfloat16 if use_bf16 else torch.float16,
+                    )
                 self.model = AutoModelForCausalLM.from_pretrained(
                     model_name,
-                    torch_dtype=torch.bfloat16 if (torch.cuda.is_available() and torch.cuda.is_bf16_supported()) else torch.float32,
-                    device_map="auto" if self.device == "cuda" else None,
+                    quantization_config=bnb_config,
+                    torch_dtype=torch.bfloat16 if use_bf16 else (torch.float16 if is_cuda else torch.float32),
+                    device_map="auto" if is_cuda else None,
                     trust_remote_code=True,
                 ).eval()
-            except Exception:
+            except Exception as exc:
+                logger.warning(
+                    "HeldOutPhi4Adversary failed to load model %s (%s: %s). Falling back to heuristic mode.",
+                    model_name,
+                    type(exc).__name__,
+                    exc,
+                )
                 self.model = None
         else:
             self.model = None
