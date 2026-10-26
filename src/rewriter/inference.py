@@ -385,52 +385,10 @@ class QwenRewriterInference:
         return [proc]
 
     def format_chat_prompt(self, text: str) -> str:
-        """Format input text into a ChatML prompt with system instruction and disabled thinking."""
-        few_shot_user_1 = (
-            "I'm a 3rd-year pediatric resident at Boston Children's Hospital working 80-hour weeks. "
-            "Can you help me differential-diagnose a 4-year-old presenting with high fever for 6 days, "
-            "bilateral conjunctival injection, strawberry tongue, and cervical lymphadenopathy?"
-        )
-        few_shot_assistant_1 = (
-            "Can you help me differential-diagnose a 4-year-old presenting with high fever for 6 days, "
-            "bilateral conjunctival injection, strawberry tongue, and cervical lymphadenopathy for clinical rounds?"
-        )
-
-        few_shot_user_2 = (
-            "I work as a bar manager in an Austin live music venue on 6th Street. Our owner is retaining 25% "
-            "of the collective credit card tip pool to cover glassware breakage. Is this legal under Texas labor code "
-            "and the federal FLSA tip credit regulations?"
-        )
-        few_shot_assistant_2 = (
-            "Is it legal under the federal FLSA tip credit regulations and state labor laws for an employer to retain "
-            "a portion of an employee credit card tip pool to offset glassware breakage or operational losses?"
-        )
-
-        few_shot_user_3 = (
-            "I'm a 58-year-old high school physics teacher in upstate New York planning to retire in two years after 32 years "
-            "of teaching. What are the best strategies to coordinate my NY state teacher pension with my 403b savings "
-            "under current Windfall Elimination Provision rules?"
-        )
-        few_shot_assistant_3 = (
-            "What are the best strategies to coordinate a public educator state pension with supplemental 403(b) retirement accounts "
-            "under current Windfall Elimination Provision rules when approaching retirement?"
-        )
-
-        wrapped_text = (
-            "Rewrite the following user prompt to neutralize the author's demographic inferential cues (location, occupation, education, age) "
-            "while preserving 100% of the problem-solving utility and technical domain terms. Do not use placeholder tokens. Output ONLY the rewritten prompt.\n\n"
-            f"PROMPT TO REWRITE:\n{text}"
-        )
-        
+        """Format input text into a single-turn ChatML prompt aligned with SFT training."""
         messages = [
             {"role": "system", "content": self.system_prompt},
-            {"role": "user", "content": few_shot_user_1},
-            {"role": "assistant", "content": few_shot_assistant_1},
-            {"role": "user", "content": few_shot_user_2},
-            {"role": "assistant", "content": few_shot_assistant_2},
-            {"role": "user", "content": few_shot_user_3},
-            {"role": "assistant", "content": few_shot_assistant_3},
-            {"role": "user", "content": wrapped_text},
+            {"role": "user", "content": text},
         ]
 
         if self.tokenizer is not None and hasattr(self.tokenizer, "apply_chat_template"):
@@ -460,13 +418,7 @@ class QwenRewriterInference:
         # Tier 3: Deterministic manual ChatML string fallback
         return (
             f"<|im_start|>system\n{self.system_prompt}<|im_end|>\n"
-            f"<|im_start|>user\n{few_shot_user_1}<|im_end|>\n"
-            f"<|im_start|>assistant\n{few_shot_assistant_1}<|im_end|>\n"
-            f"<|im_start|>user\n{few_shot_user_2}<|im_end|>\n"
-            f"<|im_start|>assistant\n{few_shot_assistant_2}<|im_end|>\n"
-            f"<|im_start|>user\n{few_shot_user_3}<|im_end|>\n"
-            f"<|im_start|>assistant\n{few_shot_assistant_3}<|im_end|>\n"
-            f"<|im_start|>user\n{wrapped_text}<|im_end|>\n"
+            f"<|im_start|>user\n{text}<|im_end|>\n"
             f"<|im_start|>assistant\n"
         )
 

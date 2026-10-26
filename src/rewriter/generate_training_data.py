@@ -578,10 +578,42 @@ def generate_candidate_rewrites_heuristic(text: str) -> List[str]:
     cand_gen = re.sub(r"\s+", " ", cand_gen).strip()
     candidates.append(cand_gen)
 
-    # Deduplicate while preserving order
+    # Strategy 3: Multi-tiered diverse candidates for Pareto sampling and ablation
+    # Tier A: Single attribute neutralizations
+    c_age = neutralize_age_cues(base_text)
+    if c_age != base_text:
+        candidates.append(c_age)
+
+    c_loc = neutralize_location_cues(base_text)
+    if c_loc != base_text:
+        candidates.append(c_loc)
+
+    c_occ = neutralize_occupation_cues(base_text)
+    if c_occ != base_text:
+        candidates.append(c_occ)
+
+    c_edu = neutralize_education_cues(base_text)
+    if c_edu != base_text:
+        candidates.append(c_edu)
+
+    # Tier B: Explicit placeholder tags candidate
+    c_placeholders = placeholder_cues(base_text)
+    if c_placeholders != base_text:
+        candidates.append(c_placeholders)
+
+    # Tier C: Multi-attribute combinations
+    c_age_occ = neutralize_occupation_cues(c_age)
+    if c_age_occ not in candidates:
+        candidates.append(c_age_occ)
+
+    c_loc_edu = neutralize_education_cues(c_loc)
+    if c_loc_edu not in candidates:
+        candidates.append(c_loc_edu)
+
+    # Deduplicate while strictly preserving insertion order
     unique_cands: List[str] = []
     for c in candidates:
-        c_clean = c.strip()
+        c_clean = re.sub(r"\s+", " ", c).strip()
         if c_clean and c_clean not in unique_cands and c_clean != cleaned:
             unique_cands.append(c_clean)
 
@@ -589,25 +621,6 @@ def generate_candidate_rewrites_heuristic(text: str) -> List[str]:
         unique_cands.append(cleaned)
 
     return unique_cands
-    cand4 = re.sub(r"\b(?:work as|employed as|employed at|working as|internship in|intern at)\s+(?:a\s+|an\s+|my\s+)?(?:software engineer|lawyer|doctor|nurse|barista|consultant|designer|engineer|teacher|summer internship)\b", "work as [OCCUPATION]", cand4, flags=re.IGNORECASE)
-    cand4 = re.sub(r"\b(?:software engineer|lawyer|doctor|nurse|barista|consultant|designer)\b", "[OCCUPATION]", cand4, flags=re.IGNORECASE)
-    cand4 = re.sub(r"\b(?:undergrad at|attending|student at|degree from|graduated from)\s+[A-Za-z\s]+(?:University|College|Mellon|MIT)?\b", "after getting my [EDUCATION]", cand4, flags=re.IGNORECASE)
-    cand4 = re.sub(r"\b(?:undergrad|Carnegie Mellon|MIT|Stanford|Harvard|Berkeley)\b", "[EDUCATION]", cand4, flags=re.IGNORECASE)
-    candidates.append(cand4.strip())
-
-    # Cand 5: age + occupation
-    cand5 = re.sub(r"\b(?:\d{1,2}[-\s]*(?:years?[-\s]*old|yo|y/o)|in my (?:20s|30s|40s|50s|60s|twenties|thirties|forties))\b", "an adult", base_text, flags=re.IGNORECASE)
-    cand5 = re.sub(r"\b(?:work as|employed as|employed at|working as|internship in|intern at)\s+(?:a\s+|an\s+|my\s+)?(?:software engineer|lawyer|doctor|nurse|barista|consultant|designer|engineer|teacher|summer internship)\b", "work in a role", cand5, flags=re.IGNORECASE)
-    cand5 = re.sub(r"\b(?:in|to|from)\s+(?:Pittsburgh|Denver|Seattle|Austin|New York|Boston|Chicago|San Francisco|London|Paris|Tokyo)[,\sA-Z]*\b", "locally", cand5, flags=re.IGNORECASE)
-    candidates.append(cand5.strip())
-
-    # Cand 6: occupation + education
-    cand6 = re.sub(r"\b(?:work as|employed as|employed at|working as|internship in|intern at)\s+(?:a\s+|an\s+|my\s+)?(?:software engineer|lawyer|doctor|nurse|barista|consultant|designer|engineer|teacher|summer internship)\b", "work in a professional role", base_text, flags=re.IGNORECASE)
-    cand6 = re.sub(r"\b(?:undergrad at|attending|student at|degree from|graduated from)\s+[A-Za-z\s]+(?:University|College|Mellon|MIT)?\b", "completing higher education", cand6, flags=re.IGNORECASE)
-    cand6 = re.sub(r"\b(?:in|to|from)\s+(?:Pittsburgh|Denver|Seattle|Austin|New York|Boston|Chicago|San Francisco|London|Paris|Tokyo)[,\sA-Z]*\b", "locally", cand6, flags=re.IGNORECASE)
-    candidates.append(cand6.strip())
-
-    return list(dict.fromkeys(c for c in candidates if c))
 
 
 def pareto_rejection_sample(

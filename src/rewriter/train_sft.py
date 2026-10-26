@@ -49,9 +49,9 @@ logger = logging.getLogger(__name__)
 class RewriterQLoRAConfig:
     """Configuration parameters for QLoRA fine-tuning with completion-only loss masking."""
     base_model_name: str = DEFAULT_BASE_MODEL
-    train_jsonl_path: str = "data/sft/train_pareto_sft.jsonl"
-    val_jsonl_path: Optional[str] = "data/sft/val_pareto_sft.jsonl"
-    output_adapter_dir: str = "models/qwen35_08b_qlora_sft"
+    train_jsonl_path: str = "data/sft/train_queries_sft.jsonl"
+    val_jsonl_path: Optional[str] = "data/sft/val_queries_sft.jsonl"
+    output_adapter_dir: str = "artifacts/rewriter_qlora"
     lora_r: int = 32
     lora_alpha: int = 64
     lora_dropout: float = 0.10
@@ -186,6 +186,11 @@ def train_qlora_rewriter(cfg: RewriterQLoRAConfig) -> None:
 
 
 def parse_args():
+    default_dataset = (
+        "data/sft/train_queries_sft.jsonl"
+        if Path("data/sft/train_queries_sft.jsonl").exists()
+        else "artifacts/rewriter_sft_chatml.jsonl"
+    )
     parser = argparse.ArgumentParser(description="QLoRA Fine-tuning for InferenceGuard Rewriter")
     parser.add_argument("--model_name", "--base_model", type=str, default=DEFAULT_BASE_MODEL,
                         help="Base model name. Must match what inference loads: see DEFAULT_BASE_MODEL.")
@@ -194,7 +199,7 @@ def parse_args():
         "--train_path",
         "--train_data",
         type=str,
-        default="artifacts/rewriter_sft_chatml.jsonl",
+        default=default_dataset,
         help="Path to the JSONL dataset (ChatML or Alpaca format)",
     )
     parser.add_argument("--output_dir", type=str, default="artifacts/rewriter_qlora", help="Output directory for adapters")

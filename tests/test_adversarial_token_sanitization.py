@@ -405,7 +405,7 @@ class TestChatPromptFormatting:
         prompt = rewriter.format_chat_prompt("Hello world")
         assert "<|im_start|>system" in prompt
         assert rewriter.system_prompt in prompt
-        assert "TEXT TO REWRITE:\nHello world<|im_end|>" in prompt
+        assert "Hello world<|im_end|>" in prompt
         assert prompt.endswith("<|im_start|>assistant\n")
 
     def test_prompt_formatting_with_injected_chatml(self):
