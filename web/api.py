@@ -172,26 +172,7 @@ def get_risk_model() -> Optional[Callable[[str], Dict[str, float]]]:
 conversation_tracker = ConversationTracker(risk_estimator_fn=risk_model)
 presidio_baseline = PresidioBaseline()
 utility_evaluator = UtilityEvaluator()
-
-logger.info("Initializing Qwen Rewriter Inference Engine...")
 qwen_rewriter = None
-try:
-    from src.rewriter import DEFAULT_BASE_MODEL, QwenRewriterInference
-    adapter_p = find_adapter_path()
-    if adapter_p is not None:
-        device = "cuda" if torch.cuda.is_available() else "cpu"
-        qwen_rewriter = QwenRewriterInference(
-            model_name_or_path=DEFAULT_BASE_MODEL,
-            adapter_path=str(adapter_p),
-            device=device,
-            load_in_4bit=torch.cuda.is_available(),
-        )
-        logger.info("Qwen Rewriter successfully initialized! Adapter loaded: %s", qwen_rewriter.is_adapter_loaded)
-    else:
-        logger.info("Rewriter adapter not found on disk yet. Dynamic loading enabled.")
-except Exception as e:
-    logger.warning(f"Failed to initialize Qwen Rewriter: {e}")
-    qwen_rewriter = None
 
 
 def get_qwen_rewriter():
