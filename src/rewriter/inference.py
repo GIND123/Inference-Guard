@@ -333,8 +333,6 @@ class QwenRewriterInference:
             "<|thought|>",
             "</thought>",
             "<|im_start|>",
-            "<|im_end|>",
-            "<|endoftext|>",
         ]
         banned_ids: List[List[int]] = []
         for phrase in banned_phrases:
@@ -359,7 +357,7 @@ class QwenRewriterInference:
         for seq in self._get_banned_token_ids():
             if len(seq) == 1:
                 flat_ids.add(seq[0])
-        for token_str in ["<think>", "</think>", "<|thought|>", "</thought>", "<|im_start|>", "<|im_end|>", "<|endoftext|>"]:
+        for token_str in ["<think>", "</think>", "<|thought|>", "</thought>", "<|im_start|>"]:
             if hasattr(self.tokenizer, "convert_tokens_to_ids"):
                 try:
                     tid = self.tokenizer.convert_tokens_to_ids(token_str)
@@ -545,7 +543,27 @@ class QwenRewriterInference:
         # 7. Strip any stray think tags
         text = re.sub(r"</?think>", "", text, flags=re.IGNORECASE)
 
-        # 8. Strip ChatML and special control tokens
+        # 8. Early truncation at generation stop delimiters, tool calls, notes, and chatter
+        for stop_pat in [
+            r"<\|im_end\|>",
+            r"<\|endoftext\|>",
+            r"<\|im_start\|>",
+            r"<tool_call>",
+            r"\[REDACTED\](?:\s*\[REDACTED\]){2,}",
+            r"(?:\n|\A|\s*)(?:\*\*)?Note(?:\*\*)?:\s*This rewrite",
+            r"(?:\n|\A|\s*)(?:\*\*)?Note(?:\*\*)?:",
+            r";?\s*Sure!\s*I'm here to help",
+            r"#include\s*<iostream>",
+            r"istringstream\b",
+            r"\}\}\}\}\}",
+            r"<form\b",
+            r"Login failed\.\s*Please try again",
+        ]:
+            m = re.search(stop_pat, text, flags=re.IGNORECASE)
+            if m:
+                text = text[:m.start()]
+
+        # 9. Strip ChatML and special control tokens
         text = re.sub(r"<\|im_start\|>|<\|im_end\|>|<\|endoftext\|>", "", text)
         text = re.sub(r"<\|.*?\|>", "", text)
 
@@ -591,10 +609,15 @@ class QwenRewriterInference:
                     stripped_any = True
                     break
 
-        # 11. Normalize whitespace
+        # 11. Strip trailing hashtags and runaway emoji bursts
+        text = re.sub(r'(\s*#\w+.*)$', '', text)
+        text = re.sub(r'(\s*[\U0001F000-\U0001FAFF\U00002700-\U000027BF\U00002600-\U000026FF]){2,}.*$', '', text)
+        text = re.sub(r'([.!?]\s*)(?:[\U0001F000-\U0001FAFF\U00002700-\U000027BF\U00002600-\U000026FF\s.!?]+)$', r'\1', text)
+
+        # 12. Normalize whitespace
         text = re.sub(r"\s+", " ", text).strip()
 
-        # 12. Minimal length guard: if sanitized text is empty or degenerate, fall back
+        # 13. Minimal length guard: if sanitized text is empty or degenerate, fall back
         is_degenerate = (
             len(text) < 3
             or text.lower() in {"none", "n/a", "null", "empty", "...", "."}
@@ -657,8 +680,21 @@ class QwenRewriterInference:
                 gen_kwargs["logits_processor"] = logits_proc
             if self.tokenizer.pad_token_id is not None:
                 gen_kwargs["pad_token_id"] = self.tokenizer.pad_token_id
+            
+            eos_ids: List[int] = []
             if self.tokenizer.eos_token_id is not None:
-                gen_kwargs["eos_token_id"] = self.tokenizer.eos_token_id
+                if isinstance(self.tokenizer.eos_token_id, list):
+                    eos_ids.extend(self.tokenizer.eos_token_id)
+                else:
+                    eos_ids.append(self.tokenizer.eos_token_id)
+            if hasattr(self.tokenizer, "convert_tokens_to_ids"):
+                for stop_tok in ["<|im_end|>", "<|endoftext|>"]:
+                    tid = self.tokenizer.convert_tokens_to_ids(stop_tok)
+                    if isinstance(tid, int) and tid > 0 and tid not in eos_ids:
+                        eos_ids.append(tid)
+            if eos_ids:
+                gen_kwargs["eos_token_id"] = eos_ids if len(eos_ids) > 1 else eos_ids[0]
+            gen_kwargs["repetition_penalty"] = 1.15
             if do_sample and temperature > 0.0:
                 gen_kwargs["temperature"] = temperature
 
@@ -946,22 +982,38 @@ class QwenPrivacyRewriterService:
         input_len = inputs["input_ids"].shape[1]
         max_new_tokens = min(256, int(input_len * 1.4) + 24)
 
+        eos_ids: List[int] = []
+        if getattr(self.tokenizer, "eos_token_id", None) is not None:
+            e_id = self.tokenizer.eos_token_id
+            if isinstance(e_id, list):
+                eos_ids.extend(e_id)
+            else:
+                eos_ids.append(e_id)
+        if hasattr(self.tokenizer, "convert_tokens_to_ids"):
+            for stop_tok in ["<|im_end|>", "<|endoftext|>"]:
+                tid = self.tokenizer.convert_tokens_to_ids(stop_tok)
+                if isinstance(tid, int) and tid > 0 and tid not in eos_ids:
+                    eos_ids.append(tid)
+        gen_eos = eos_ids if len(eos_ids) > 1 else (eos_ids[0] if eos_ids else None)
+
         if mode_val == "prompt_baseline" and self.has_adapter and hasattr(self.model, "disable_adapter"):
             with self.model.disable_adapter():
                 outputs = self.model.generate(
                     **inputs,
                     max_new_tokens=max_new_tokens,
                     do_sample=False,
-                    repetition_penalty=1.08,
-                    pad_token_id=getattr(self.tokenizer, "eos_token_id", None),
+                    repetition_penalty=1.12,
+                    pad_token_id=getattr(self.tokenizer, "pad_token_id", None) or getattr(self.tokenizer, "eos_token_id", None),
+                    eos_token_id=gen_eos,
                 )
         else:
             outputs = self.model.generate(
                 **inputs,
                 max_new_tokens=max_new_tokens,
                 do_sample=False,
-                repetition_penalty=1.05,
-                pad_token_id=getattr(self.tokenizer, "eos_token_id", None),
+                repetition_penalty=1.12,
+                pad_token_id=getattr(self.tokenizer, "pad_token_id", None) or getattr(self.tokenizer, "eos_token_id", None),
+                eos_token_id=gen_eos,
             )
 
         gen_ids = outputs[0][input_len:]
