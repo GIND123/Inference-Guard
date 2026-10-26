@@ -23,6 +23,26 @@ from trl import SFTTrainer
 
 from src.rewriter.inference import DEFAULT_BASE_MODEL
 
+# Guard against PEFT dispatch bug when incompatible torchao (< 0.16.0) is pre-installed in Colab
+try:
+    import peft.import_utils
+    _orig_is_torchao = getattr(peft.import_utils, "is_torchao_available", None)
+    if _orig_is_torchao is not None:
+        def _safe_is_torchao_available() -> bool:
+            try:
+                return bool(_orig_is_torchao())
+            except ImportError:
+                return False
+
+        peft.import_utils.is_torchao_available = _safe_is_torchao_available
+        try:
+            import peft.tuners.lora.torchao as _tao
+            _tao.is_torchao_available = _safe_is_torchao_available
+        except Exception:
+            pass
+except Exception:
+    pass
+
 logger = logging.getLogger(__name__)
 
 @dataclass
