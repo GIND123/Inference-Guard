@@ -205,6 +205,7 @@ def run_comparison(
     if use_neural_rewriter:
         try:
             print("Loading neural rewriter...")
+            from src.rewriter.inference import QwenRewriterInference
             neural_rewriter = QwenRewriterInference(adapter_path=adapter_path)
         except Exception as exc:
             print(f"Neural rewriter load note: {exc}. Operating with heuristic rewriter.")

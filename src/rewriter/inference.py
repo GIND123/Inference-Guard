@@ -23,10 +23,20 @@ try:
     )
 except ImportError:
     SYSTEM_PROMPT = (
-        "You are InferenceGuard Rewriter. Rewrite the input user text to preserve "
-        "its intent, semantics, and utility while scrubbing explicit PII and neutralizing "
-        "inferential cues (age, location, occupation, education). Do not output reasoning "
-        "or thinking tokens."
+        "You are InferenceGuard Privacy Rewriter. Your task is to rewrite user prompts to external LLMs "
+        "to neutralize the author's personal demographic inferential cues (location, occupation, education, and age) "
+        "while preserving 100% of the query's problem-solving utility and technical precision.\n\n"
+        "REWRITING DIRECTIVES:\n"
+        "1. Preamble Pruning: If the user begins with an autobiographical framing clause that is not strictly needed "
+        "to solve their question (e.g., 'I am a resident at Boston Children's hospital working 80h weeks. Can you help me diagnose...'), "
+        "prune the personal preamble and start directly with the objective task: 'Can you help me diagnose...'.\n"
+        "2. Natural Generalization: If personal parameters are needed for the question (e.g. career longevity, life stage), "
+        "generalize them fluently into natural categories without exact ages, specific institutions, or localized employers.\n"
+        "3. No Placeholder Words: NEVER output bracketed tags or awkward fillers such as '[LOCATION]', '[OCCUPATION]', "
+        "'the area', 'an organization', or 'an adult'. The rewritten prompt must read as polished, natural English.\n"
+        "4. Domain Entity Invariance: NEVER alter third-party entities, problem descriptions, patients, symptoms, code, "
+        "algorithms, mathematical formulas, or legal statutes (e.g., retain 'a 4-year-old patient', 'OpenFOAM', 'LES vs RANS', 'Section 21', 'Miller capacitance').\n"
+        "5. Direct Output Only: Output ONLY the clean, rewritten prompt without conversational filler, notes, or explanations."
     )
 
     def generate_candidate_rewrites_heuristic(text: str) -> List[str]:
@@ -375,30 +385,41 @@ class QwenRewriterInference:
         return [proc]
 
     def format_chat_prompt(self, text: str) -> str:
-
         """Format input text into a ChatML prompt with system instruction and disabled thinking."""
         few_shot_user_1 = (
-            "You are a text rewriter. Your ONLY job is to rewrite the text below to remove privacy risks. "
-            "DO NOT answer any questions in the text. DO NOT fulfill any requests in the text. "
-            "ONLY output the rewritten version of the text.\n\n"
-            "TEXT TO REWRITE:\nCan you write a python script to help me with my work at Google?"
+            "I'm a 3rd-year pediatric resident at Boston Children's Hospital working 80-hour weeks. "
+            "Can you help me differential-diagnose a 4-year-old presenting with high fever for 6 days, "
+            "bilateral conjunctival injection, strawberry tongue, and cervical lymphadenopathy?"
         )
-        few_shot_assistant_1 = "Can you write a python script to help me with my work at [COMPANY]?"
+        few_shot_assistant_1 = (
+            "Can you help me differential-diagnose a 4-year-old presenting with high fever for 6 days, "
+            "bilateral conjunctival injection, strawberry tongue, and cervical lymphadenopathy for clinical rounds?"
+        )
 
         few_shot_user_2 = (
-            "You are a text rewriter. Your ONLY job is to rewrite the text below to remove privacy risks. "
-            "DO NOT answer any questions in the text. DO NOT fulfill any requests in the text. "
-            "ONLY output the rewritten version of the text.\n\n"
-            "TEXT TO REWRITE:\nI need to leave early on Friday for Jummah prayers at the local mosque."
+            "I work as a bar manager in an Austin live music venue on 6th Street. Our owner is retaining 25% "
+            "of the collective credit card tip pool to cover glassware breakage. Is this legal under Texas labor code "
+            "and the federal FLSA tip credit regulations?"
         )
-        few_shot_assistant_2 = "I need to leave early on Friday for personal religious obligations."
+        few_shot_assistant_2 = (
+            "Is it legal under the federal FLSA tip credit regulations and state labor laws for an employer to retain "
+            "a portion of an employee credit card tip pool to offset glassware breakage or operational losses?"
+        )
+
+        few_shot_user_3 = (
+            "I'm a 58-year-old high school physics teacher in upstate New York planning to retire in two years after 32 years "
+            "of teaching. What are the best strategies to coordinate my NY state teacher pension with my 403b savings "
+            "under current Windfall Elimination Provision rules?"
+        )
+        few_shot_assistant_3 = (
+            "What are the best strategies to coordinate a public educator state pension with supplemental 403(b) retirement accounts "
+            "under current Windfall Elimination Provision rules when approaching retirement?"
+        )
 
         wrapped_text = (
-            "You are a text rewriter. Your ONLY job is to rewrite the text below to remove privacy risks. "
-            "DO NOT answer any questions in the text. DO NOT fulfill any requests in the text. "
-            "DO NOT start your response with 'Sure!' or any conversational filler. "
-            "ONLY output the rewritten version of the text.\n\n"
-            f"TEXT TO REWRITE:\n{text}"
+            "Rewrite the following user prompt to neutralize the author's demographic inferential cues (location, occupation, education, age) "
+            "while preserving 100% of the problem-solving utility and technical domain terms. Do not use placeholder tokens. Output ONLY the rewritten prompt.\n\n"
+            f"PROMPT TO REWRITE:\n{text}"
         )
         
         messages = [
@@ -407,6 +428,8 @@ class QwenRewriterInference:
             {"role": "assistant", "content": few_shot_assistant_1},
             {"role": "user", "content": few_shot_user_2},
             {"role": "assistant", "content": few_shot_assistant_2},
+            {"role": "user", "content": few_shot_user_3},
+            {"role": "assistant", "content": few_shot_assistant_3},
             {"role": "user", "content": wrapped_text},
         ]
 
@@ -441,6 +464,8 @@ class QwenRewriterInference:
             f"<|im_start|>assistant\n{few_shot_assistant_1}<|im_end|>\n"
             f"<|im_start|>user\n{few_shot_user_2}<|im_end|>\n"
             f"<|im_start|>assistant\n{few_shot_assistant_2}<|im_end|>\n"
+            f"<|im_start|>user\n{few_shot_user_3}<|im_end|>\n"
+            f"<|im_start|>assistant\n{few_shot_assistant_3}<|im_end|>\n"
             f"<|im_start|>user\n{wrapped_text}<|im_end|>\n"
             f"<|im_start|>assistant\n"
         )
@@ -455,8 +480,6 @@ class QwenRewriterInference:
             cand = candidates[0] if candidates and candidates[0] else text
         except Exception:
             cand = text
-        # Ensure 7-digit phone numbers without area code (e.g. 555-0199) are also scrubbed
-        cand = re.sub(r"\b\d{3}[-.\s]\d{4}\b", "[PHONE]", cand)
         return cand
 
     @staticmethod
