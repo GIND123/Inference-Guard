@@ -259,10 +259,10 @@ def run_comparison(
     return results
 
 
-def format_markdown_report(results: List[Dict[str, Any]], dataset_name: str) -> str:
+def format_markdown_report(results: List[Dict[str, Any]], dataset_name: str = "SynthPAI") -> str:
     """Format comparison results into a clean, legible markdown report."""
     md = []
-    md.append(f"# InferenceGuard: LLM Query Inferential PII Audit ({dataset_name})\n")
+    md.append(f"# InferenceGuard: Inferential PII Detection & LLM Query Audit ({dataset_name})\n")
     md.append(
         "> **Objective**: Protect user privacy when submitting queries to an LLM. "
         "The system must neutralize **inferred demographic context** (Location, Occupation, Education, Age) "

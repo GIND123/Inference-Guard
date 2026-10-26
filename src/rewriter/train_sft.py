@@ -215,7 +215,7 @@ def parse_args():
     )
     parser.add_argument("--output_dir", type=str, default="artifacts/rewriter_qlora", help="Output directory for adapters")
     parser.add_argument("--batch_size", type=int, default=4, help="Per device train batch size")
-    parser.add_argument("--learning_rate", type=float, default=2e-4, help="Learning rate")
+    parser.add_argument("--learning_rate", "--lr", type=float, default=2e-4, help="Learning rate")
     parser.add_argument("--epochs", type=int, default=4, help="Number of training epochs")
     parser.add_argument("--max_length", type=int, default=1024, help="Maximum sequence length")
     parser.add_argument("--lora_r", type=int, default=32, help="LoRA rank dimension (capacity)")

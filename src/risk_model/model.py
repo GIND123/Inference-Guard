@@ -325,6 +325,15 @@ class MultiTaskModernBERTRiskModel(nn.Module):
         """Forward pass through input embeddings and multi-task heads."""
         from src.contracts.schemas import AttributeName
 
+        try:
+            param_device = next(self.parameters()).device
+            if input_ids.device != param_device:
+                input_ids = input_ids.to(param_device)
+            if attention_mask.device != param_device:
+                attention_mask = attention_mask.to(param_device)
+        except StopIteration:
+            pass
+
         embed_fn = getattr(self.encoder, "get_input_embeddings", None)
         if callable(embed_fn):
             embeds = embed_fn()(input_ids)

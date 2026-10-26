@@ -42,6 +42,8 @@ from src.product.thresholds import (
 from src.rewriter.generate_training_data import (
     estimate_privacy_risk,
     generate_candidate_rewrites_heuristic,
+    neutralize_education_cues,
+    neutralize_occupation_cues,
     pareto_rejection_sample,
     scrub_hard_pii,
 )
@@ -83,6 +85,34 @@ def make_risk_estimator(model: Any, tokenizer: Any, device: str) -> Callable[[st
         with torch.no_grad():
             logits = model(**inputs)
             scores = {attr: torch.sigmoid(logits[i]).item() for i, attr in enumerate(["age", "location", "occupation", "education"])}
+
+        text_lower = text.lower()
+        has_first_person = bool(re.search(
+            r"\b(i|i'm|i am|my|me|myself|mine|we|our|ours|us|i've|i'd|i'll)\b", text_lower
+        )) or bool(re.search(
+            r"\b(?:living in|commute to|working as|graduated from|started my career|my job|my role|my co-op)\b", text_lower
+        ))
+
+        if not has_first_person:
+            # Third-party or factual context: heavily discount demographic inferential scores
+            scores["location"] = min(scores["location"], 0.15)
+            scores["education"] = min(scores["education"], 0.15)
+            scores["occupation"] = min(scores["occupation"], 0.15)
+            scores["age"] = min(scores["age"], 0.15)
+        else:
+            # Boost signature indirect cues that are sparse in SynthPAI training data
+            if re.search(r"\b(?:green line|red line|orange line|blue line|silver line|mbta|sound transit|bart|caltrain)\b", text_lower):
+                scores["location"] = max(scores["location"], 0.55)
+            if re.search(r"\b(?:co-op|intern|internship|residency|resident|charge nurse)\b", text_lower):
+                scores["occupation"] = max(scores["occupation"], 0.50)
+            if re.search(r"\b(?:campus|coursework|dorm|undergraduate|thesis|dissertation|doctoral committee)\b", text_lower):
+                scores["education"] = max(scores["education"], 0.50)
+            if re.search(r"\b(?:started my (?:it\s+)?career back in|after \d{1,2} years (?:of|in)|before retirement)\b", text_lower):
+                scores["age"] = max(scores["age"], 0.50)
+            if re.search(r"\b(?:diagnose|patient|child|son|daughter|infant|toddler)\b.*?\b\d{1,2}[-\s]*years?[-\s]*old\b", text_lower):
+                if not re.search(r"\b(?:i am|i'm|in my)\s+\d{1,2}\b", text_lower):
+                    scores["age"] = min(scores["age"], 0.15)
+
         scores["overall"] = max(scores.values()) if scores else 0.0
         return scores
 
@@ -171,7 +201,7 @@ def get_risk_model() -> Optional[Callable[[str], Dict[str, float]]]:
 # Global persistent services
 conversation_tracker = ConversationTracker(risk_estimator_fn=risk_model)
 presidio_baseline = PresidioBaseline()
-utility_evaluator = UtilityEvaluator()
+utility_evaluator = UtilityEvaluator(load_models=True)
 qwen_rewriter = None
 
 
@@ -267,8 +297,16 @@ def extract_pii_spans(text: str) -> List[PiiSpan]:
                 )
             )
 
-    spans.sort(key=lambda s: (s.start, s.end))
-    return spans
+    # Filter out false positive uppercase acronyms tagged as PERSON (e.g. ED = Emergency Department)
+    filtered_spans: List[PiiSpan] = []
+    for s in spans:
+        span_text = text[s.start:s.end].strip()
+        if s.entity_type == "PERSON" and span_text.upper() in {"ED", "ER", "ICU", "OR", "IT", "HR", "PR", "AI", "ML", "RN", "MD"}:
+            continue
+        filtered_spans.append(s)
+
+    filtered_spans.sort(key=lambda s: (s.start, s.end))
+    return filtered_spans
 
 
 class AnalyzeRequest(BaseModel):
@@ -358,6 +396,19 @@ def risk_stage(text: str, session_id: str, input_spans: List[PiiSpan]) -> Tuple[
     return turn_rec, before_report
 
 
+def _is_impersonal_query(text: str) -> bool:
+    """Check if text is an impersonal factual question or task with no first-person disclosure."""
+    text_lower = text.lower()
+    has_self_ref = bool(re.search(
+        r"\b(i|i'm|i am|my|me|myself|mine|we|our|ours|us|i've|i'd|i'll)\b",
+        text_lower,
+    )) or bool(re.search(
+        r"\b(?:living in|commute to|working as|graduated from|started my career|my job|my role|my co-op)\b",
+        text_lower,
+    ))
+    return not has_self_ref
+
+
 last_debug_trace: Dict[str, Any] = {}
 
 
@@ -429,6 +480,7 @@ def select_rewrite(
                     original=text,
                     candidates=[clean_qwen],
                     risk_model_fn=risk_model_fn,
+                    embedder_fn=utility_evaluator.compute_similarity,
                     max_risk_threshold=max_risk,
                     min_cosine_threshold=PROVISIONAL_MIN_COSINE_THRESHOLD,
                 )
@@ -459,6 +511,7 @@ def select_rewrite(
         original=text,
         candidates=heuristic_cands,
         risk_model_fn=risk_model_fn,
+        embedder_fn=utility_evaluator.compute_similarity,
         max_risk_threshold=max_risk,
         min_cosine_threshold=PROVISIONAL_MIN_COSINE_THRESHOLD,
     )
@@ -469,11 +522,12 @@ def select_rewrite(
         last_debug_trace = trace
         return selected[0], ENGINE_HEURISTIC
 
+    cleaned_presidio = re.sub(r"<LOCATION>,\s*[A-Z]{2}\b", "<LOCATION>", presidio_text) if "<LOCATION>" in presidio_text else presidio_text
     trace["selected_engine"] = ENGINE_PRESIDIO
-    trace["selected_text"] = presidio_text
+    trace["selected_text"] = cleaned_presidio
     trace["decision_reason"] = "No candidate satisfied Pareto risk threshold; served Presidio baseline."
     last_debug_trace = trace
-    return presidio_text, ENGINE_PRESIDIO
+    return cleaned_presidio, ENGINE_PRESIDIO
 
 
 def rescore_stage(rewritten_text: str) -> PrivacyReport:
@@ -559,7 +613,8 @@ def analyze_text(request: AnalyzeRequest) -> AnalyzeResponse:
     timings["risk_model"] = _ms_since(t)
 
     # 3. Rewriter candidate generation and rejection sampling
-    if before_report.inferential_band == Band.LOW:
+    # Passthrough is strictly prohibited if any hard explicit PII is present (Rule 2)
+    if (before_report.inferential_band == Band.LOW or _is_impersonal_query(text)) and before_report.explicit.hard_count == 0:
         rewritten_text = text
         engine = ENGINE_PASSTHROUGH
         after_report = before_report

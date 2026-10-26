@@ -106,7 +106,7 @@ def filter_train_records(
 
 
 def scrub_hard_pii(text: str) -> Tuple[str, bool]:
-    """Detect and scrub explicit PII (email, phone, SSN, IP, URLs).
+    """Detect and scrub explicit PII (email, phone, SSN, IP, URLs, and self-identifying names).
 
     Returns:
         Tuple of (scrubbed_text, had_pii).
@@ -137,6 +137,20 @@ def scrub_hard_pii(text: str) -> Tuple[str, bool]:
     if re.search(url_pattern, scrubbed):
         had_pii = True
         scrubbed = re.sub(url_pattern, "[URL]", scrubbed)
+
+    # SSN pattern
+    ssn_pattern = r"\b\d{3}-\d{2}-\d{4}\b"
+    if re.search(ssn_pattern, scrubbed):
+        had_pii = True
+        scrubbed = re.sub(ssn_pattern, "[SSN]", scrubbed)
+
+    # Self-identifying person introduction pattern (e.g. My name is John Doe)
+    name_intro_pattern = r"\b(?:My name is|I am|This is)\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+)?)\b"
+    for m in re.finditer(name_intro_pattern, scrubbed):
+        name_cand = m.group(1).strip()
+        if name_cand.lower() not in {"an adult", "someone", "living", "working", "graduating", "located"}:
+            had_pii = True
+            scrubbed = scrubbed[:m.start(1)] + "[PERSON]" + scrubbed[m.end(1):]
 
     return scrubbed, had_pii
 
@@ -250,7 +264,6 @@ def estimate_privacy_risk(
         return result
 
     # Rule-based inferential cue detector when model is not instantiated
-    # Inspects cues for age, location, occupation, and education
     text_lower = text.lower()
 
     # Disambiguate author age from third-party patient/child references
@@ -259,34 +272,53 @@ def estimate_privacy_risk(
         text_lower,
     ))
 
+    # Check for first-person / self-referential framing
+    has_self_ref = bool(re.search(
+        r"\b(i|i'm|i am|my|me|myself|mine|we|our|ours|us|i've|i'd|i'll)\b",
+        text_lower,
+    )) or bool(re.search(
+        r"\b(?:living in|commute to|working as|graduated from|started my career|my job|my role|my co-op)\b",
+        text_lower,
+    ))
+
+    # If query is purely impersonal / factual without self-reference (e.g. 'What is the capital of France?'),
+    # suppress false positive demographic risks
+    is_impersonal = not has_self_ref and bool(re.match(
+        r"^(?:what|where|who|when|why|how|explain|compare|describe|tell me|is it|can you define)\b",
+        text_lower.strip(),
+    ))
+
+    if is_impersonal:
+        return {"age": 0.05, "location": 0.05, "occupation": 0.05, "education": 0.05, "overall": 0.05}
+
     age_cues = []
     if not is_third_party_age:
         age_cues.extend([
             r"\b\d{1,2}[-\s]*(?:years?[-\s]*old|yo|y/o)\b",
             r"\b(?:in my (?:20s|30s|40s|50s|60s|70s|twenties|thirties|forties))\b",
-            r"\b(?:retired|planning to retire|pensioner|after \d{2} years of (?:teaching|work|career))\b",
-            r"\b(?:started my (?:it|career) back in (?:19\d{2}|200\d))\b",
+            r"\b(?:retired|planning to retire|before retirement|retirement|pensioner|after \d{1,2} years (?:of|in) [a-zA-Z]+)\b",
+            r"\b(?:started my (?:it\s+)?career back in (?:19\d{2}|200\d))\b",
             r"\b(?:high school|college student|freshman|sophomore)\b",
         ])
     else:
         age_cues.extend([
             r"\b(?:in my (?:20s|30s|40s|50s|60s|70s|twenties|thirties|forties))\b",
-            r"\b(?:retired|planning to retire|after \d{2} years of)\b",
+            r"\b(?:retired|planning to retire|before retirement|retirement|after \d{1,2} years (?:of|in))\b",
         ])
 
     location_cues = [
         r"\b(?:living in|moved to|commute to|transit in|downtown|suburbs of|rent an apartment in|bike from)\b",
         r"\b(?:denver|seattle|austin|california|new york|boston|chicago|london|berlin|paris|tokyo|pittsburgh|san francisco|cambridge|somerville|islington)\b",
-        r"\b(?:mbta|mta|bcta|bart|sound transit|metro|longfellow bridge|6th street|fenway)\b",
+        r"\b(?:mbta|mta|bcta|bart|sound transit|metro|longfellow bridge|6th street|fenway|green line|red line|orange line|blue line|silver line)\b",
         r"\b(?:[A-Z]{2}\b|\bco\b|\bwa\b|\btx\b|\bca\b|\bny\b)",
     ]
     occupation_cues = [
         r"\b(?:work as|employed at|my boss|colleagues|software engineer|nurse|doctor|teacher|barista|lawyer|resident|charge nurse|bar manager|principal)\b",
         r"\b(?:tech company|startup|hospital|clinic|law firm|school district|consultancy|tip pool|night shift|trauma center ed|80-hour weeks)\b",
-        r"\b(?:grading papers|grading exams|clinical shift|pediatric resident|dissertation defense)\b",
+        r"\b(?:grading papers|grading exams|clinical shift|pediatric resident|dissertation defense|co-op|internship)\b",
     ]
     education_cues = [
-        r"\b(?:bachelor'?s?|master'?s?|ph\.?d\.?|degree in|undergrad|grad school|alumni|major in|dissertation|doctoral committee)\b",
+        r"\b(?:bachelor'?s?|master'?s?|ph\.?d\.?|degree in|undergrad|grad school|alumni|major in|dissertation|doctoral committee|campus|dorm|coursework)\b",
         r"\b(?:university of|college of|mit|stanford|harvard|berkeley|carnegie mellon|purdue|georgia tech)\b",
         r"\b(?:sophomore studying|first-author acl|undergraduate gpa)\b",
     ]
@@ -313,11 +345,29 @@ def estimate_privacy_risk(
 
 
 def neutralize_age_cues(text: str) -> str:
-    """Neutralize age-related inferential cues."""
+    """Neutralize age-related inferential cues without forbidden fillers ('an adult')."""
+    res = re.sub(
+        r"\bI(?:'m| am)\s+(?:a\s+)?(?:\d{1,2}[-\s]*(?:years?[-\s]*old|yo|y/o)|in my (?:20s|30s|40s|50s|60s|twenties|thirties|forties))\s+living\b",
+        "I live",
+        text,
+        flags=re.IGNORECASE,
+    )
+    res = re.sub(
+        r"\bI(?:'m| am)\s+(?:a\s+)?(?:\d{1,2}[-\s]*(?:years?[-\s]*old|yo|y/o)|in my (?:20s|30s|40s|50s|60s|twenties|thirties|forties))\s+working\b",
+        "I work",
+        res,
+        flags=re.IGNORECASE,
+    )
+    res = re.sub(
+        r"\bI(?:'m| am)\s+(?:a\s+)?(?:\d{1,2}[-\s]*(?:years?[-\s]*old|yo|y/o)|in my (?:20s|30s|40s|50s|60s|twenties|thirties|forties))\b",
+        "I am someone",
+        res,
+        flags=re.IGNORECASE,
+    )
     res = re.sub(
         r"\b(?:\d{1,2}[-\s]*(?:years?[-\s]*old|yo|y/o)|in my (?:20s|30s|40s|50s|60s|twenties|thirties|forties))\b",
-        "an adult",
-        text,
+        "",
+        res,
         flags=re.IGNORECASE,
     )
     res = re.sub(
@@ -326,13 +376,13 @@ def neutralize_age_cues(text: str) -> str:
         res,
         flags=re.IGNORECASE,
     )
-    res = re.sub(r"\ba\s+an\s+adult\b", "an adult", res, flags=re.IGNORECASE)
+    res = re.sub(r"\s+", " ", res).strip()
     return res
 
 
 def neutralize_location_cues(text: str) -> str:
-    """Neutralize location-related inferential cues."""
-    cities = r"Pittsburgh|Denver|Seattle|Austin|New York|Boston|Chicago|San Francisco|London|Paris|Tokyo"
+    """Neutralize location-related inferential cues without forbidden fillers ('the area')."""
+    cities = r"Pittsburgh|Denver|Seattle|Austin|New York|Boston|Chicago|San Francisco|London|Paris|Tokyo|Islington|Somerville|Cambridge"
     res = re.sub(
         rf"\b(?:in|to|from|near|around)\s+(?:{cities})(?:,\s*(?:[A-Za-z]{{4,}}|[A-Z]{{2}}))?\b",
         "locally",
@@ -341,24 +391,27 @@ def neutralize_location_cues(text: str) -> str:
     )
     res = re.sub(
         rf"\b(?:{cities})(?:,\s*(?:[A-Za-z]{{4,}}|[A-Z]{{2}}))?\b",
-        "the area",
+        "locally",
         res,
         flags=re.IGNORECASE,
     )
+    res = re.sub(r"\b(?:the\s+)?(?:Green|Red|Orange|Blue|Silver)\s+Line\b", "public transit", res, flags=re.IGNORECASE)
+    res = re.sub(r"\b(?:MBTA|BART|MTA|Sound Transit|Caltrain)\b", "public transit", res, flags=re.IGNORECASE)
+    res = re.sub(r"\s+", " ", res).strip()
     return res
 
 
 def neutralize_occupation_cues(text: str) -> str:
-    """Neutralize occupation-related inferential cues."""
+    """Neutralize occupation-related inferential cues without forbidden fillers ('an organization')."""
     res = re.sub(
         r"\b(?:work as|employed as|employed at|working as)\s+(?:a\s+|an\s+|my\s+)?(?:software engineer|lawyer|doctor|nurse|barista|consultant|designer|engineer|teacher)\b",
-        "work in a professional role",
+        "work in my profession",
         text,
         flags=re.IGNORECASE,
     )
     res = re.sub(
         r"\b(?:internship in|intern at)\s+(?:a\s+|an\s+|my\s+)?(?:tech|engineering|medicine|law|consulting|design|education|summer internship)\b",
-        "work in a professional role",
+        "work in my field",
         res,
         flags=re.IGNORECASE,
     )
@@ -369,14 +422,14 @@ def neutralize_occupation_cues(text: str) -> str:
         flags=re.IGNORECASE,
     )
     res = re.sub(
-        r"\b(?:summer\s+internship|internship|intern)\b",
-        "role",
+        r"\b(?:summer\s+internship|internship|intern|co-op)\b",
+        "work placement",
         res,
         flags=re.IGNORECASE,
     )
     res = re.sub(
         r"\b(?:tech startup|startup|tech company|firm|clinic|hospital)\b",
-        "an organization",
+        "my workplace",
         res,
         flags=re.IGNORECASE,
     )
@@ -386,14 +439,15 @@ def neutralize_occupation_cues(text: str) -> str:
         res,
         flags=re.IGNORECASE,
     )
+    res = re.sub(r"\s+", " ", res).strip()
     return res
 
 
 def neutralize_education_cues(text: str) -> str:
     """Neutralize education-related inferential cues."""
     res = re.sub(
-        r"\b(?:undergrad at|attending|student at|degree from|graduated from)\s+(?:college|university|(?:[A-Z][a-zA-Z]*(?:\s+[A-Z][a-zA-Z]*)*\s+(?:University|College|Institute))|(?:MIT|CMU|Stanford|Harvard|Berkeley|Carnegie Mellon))\b",
-        "completing higher education",
+        r"\b(?:undergrad at|attending|student at|degree from|graduated from)\s+(?:college|university|(?:[A-Z][a-zA-Z]*(?:\s+[A-Z][a-zA-Z]*)*\s+(?:University|College|Institute))|(?:MIT|CMU|Stanford|Harvard|Berkeley|Carnegie Mellon|Purdue|Georgia Tech))\b",
+        "graduating from university",
         text,
         flags=re.IGNORECASE,
     )
@@ -404,11 +458,13 @@ def neutralize_education_cues(text: str) -> str:
         flags=re.IGNORECASE,
     )
     res = re.sub(
-        r"\b(?:undergrad|college student|Carnegie Mellon|MIT|Stanford|Harvard|Berkeley)\b",
-        "higher education",
+        r"\b(?:Carnegie Mellon|MIT|Stanford|Harvard|Berkeley|Purdue|Georgia Tech)\b",
+        "university",
         res,
         flags=re.IGNORECASE,
     )
+    res = re.sub(r"\bto campus\b", "to class", res, flags=re.IGNORECASE)
+    res = re.sub(r"\s+", " ", res).strip()
     return res
 
 
@@ -472,18 +528,20 @@ def generate_candidate_rewrites_heuristic(text: str) -> List[str]:
         rest = cleaned[m_nurse.end():].strip()
         candidates.append(f"In a trauma center emergency department experiencing a sudden surge: {rest}")
 
-    # Doctoral committee defense preamble
+    # Doctoral committee defense preamble - retain academic context, generalize institution
     m_comm = re.match(
-        r"^My\s+doctoral\s+committee\s+at\s+[^.?!]+?is\s+challenging\s+my\s+dissertation\s+defense\s+on\s+([^.?!]+?)[.?!]\s*(?=How\b|What\b|Can\b)",
+        r"^My\s+doctoral\s+committee\s+at\s+[^.?!]+?\s+is\s+challenging\s+my\s+dissertation\s+defense\s+on\s+([^.?!]+?)[.?!]\s*(?=How\b|What\b|Can\b)",
         cleaned,
         flags=re.IGNORECASE,
     )
     if m_comm:
         topic = m_comm.group(1).strip()
         rest = cleaned[m_comm.end():].strip()
-        candidates.append(f"Regarding {topic}: {rest}")
+        candidates.append(f"How should a doctoral candidate respond during a dissertation defense when challenged on {topic}?")
+        candidates.append(f"When defending a doctoral dissertation on {topic}, how should one respond?")
+        candidates.append(f"My doctoral committee is challenging my dissertation defense on {topic}. {rest}")
 
-    # Career longevity / vintage IT preamble
+    # Career longevity / vintage IT preamble - retain domain transition, drop explicit years
     m_it = re.match(
         r"^I\s+started\s+my\s+IT\s+career\s+back\s+in\s+\d{4}.*?After\s+\d{1,2}\s+years\s+in\s+([^.?!,]+?),?\s*(?=how\b|what\b|can\b)",
         cleaned,
@@ -492,7 +550,27 @@ def generate_candidate_rewrites_heuristic(text: str) -> List[str]:
     if m_it:
         domain = m_it.group(1).strip()
         rest = cleaned[m_it.end():].strip()
+        rest_obj = re.sub(r"\bhow should I\b", "how should one", rest, flags=re.IGNORECASE)
+        candidates.append(f"After a long career in {domain}, {rest_obj}")
+        candidates.append(f"After a long career in {domain}, {rest}")
         candidates.append(f"As an experienced {domain} professional, {rest}")
+
+    # Pediatric resident / clinical doctor preamble pruning (retains patient context per Directive 4)
+    m_ped = re.match(
+        r"^I(?:'m| am)\s+(?:a\s+)?(?:\d{1,2}-year-old\s+)?pediatric\s+resident\s+at\s+[^.?!]+?[.?!]\s*(?=Can\b|How\b|What\b|Could\b)",
+        cleaned,
+        flags=re.IGNORECASE,
+    )
+    if m_ped:
+        rest = cleaned[m_ped.end():].strip()
+        candidates.append(rest)
+
+    # Transit commute and student co-op cues
+    c_transit = re.sub(r"\bthe Green Line\b", "public transit", cleaned, flags=re.IGNORECASE)
+    c_transit = re.sub(r"\bmy co-op\b", "my internship", c_transit, flags=re.IGNORECASE)
+    c_transit = re.sub(r"\bto campus\b", "to class", c_transit, flags=re.IGNORECASE)
+    if c_transit != cleaned:
+        candidates.append(c_transit)
 
     # University graduate applying to PhD
     m_grad = re.match(

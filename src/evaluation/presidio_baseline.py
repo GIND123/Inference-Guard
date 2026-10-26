@@ -69,8 +69,25 @@ class PresidioBaseline:
                     language="en",
                     entities=["PERSON", "LOCATION", "EMAIL_ADDRESS", "PHONE_NUMBER", "IP_ADDRESS", "DATE_TIME"],
                 )
-                anonymized = self.anonymizer.anonymize(text=text, analyzer_results=results)
-                return anonymized.text
+                # Filter out false positive entities
+                filtered_results = []
+                for res in results:
+                    span_text = text[res.start:res.end]
+                    # Filter out medical department acronyms misclassified as PERSON (e.g. ED = Emergency Department)
+                    if res.entity_type == "PERSON" and span_text.strip().upper() in {"ED", "ER", "ICU", "OR", "IT", "HR", "PR", "AI", "ML", "RN", "MD"}:
+                        continue
+                    # Filter out patient/third-party age misclassified as DATE_TIME
+                    if res.entity_type == "DATE_TIME":
+                        surrounding = text[max(0, res.start - 25):min(len(text), res.end + 25)].lower()
+                        if any(term in surrounding for term in ["patient", "child", "son", "daughter", "infant", "toddler", "seizure", "pediatric"]):
+                            continue
+                    filtered_results.append(res)
+
+                anonymized = self.anonymizer.anonymize(text=text, analyzer_results=filtered_results)
+                cleaned = anonymized.text
+                # Clean up orphan state abbreviations after <LOCATION>, e.g. "<LOCATION>, CO" -> "<LOCATION>"
+                cleaned = re.sub(r"<LOCATION>,\s*[A-Z]{2}", "<LOCATION>", cleaned)
+                return cleaned
             except Exception as e:
                 logger.warning(f"Presidio error during anonymization: {e}. Falling back to regex.")
 
@@ -88,6 +105,7 @@ class PresidioBaseline:
             else:
                 redacted = re.sub(pat, f"<{entity_type}>", redacted)
 
+        redacted = re.sub(r"<LOCATION>,\s*[A-Z]{2}", "<LOCATION>", redacted)
         return redacted
 
     def extract_entities(self, text: str) -> List[str]:
@@ -115,8 +133,9 @@ class PresidioBaseline:
             r"\b(?:space needle|rainier|sound transit|pike place)\b",     # Seattle indirect
             r"\b(?:silicon valley|bart|caltrain|bay area)\b",             # Bay Area indirect
             r"\b(?:the tube|oyster card|borough|m25)\b",                  # London indirect
-            r"\b(?:junior year|undergrad|dissertation|advisor|postdoc)\b",# Education indirect
-            r"\b(?:on call|attending physician|rounds|scrubs)\b",         # Medical indirect
+            r"\b(?:green line|red line|orange line|blue line|silver line|mbta)\b", # Boston indirect
+            r"\b(?:junior year|undergrad|dissertation|advisor|postdoc|campus|dorm|coursework)\b",# Education indirect
+            r"\b(?:on call|attending physician|rounds|scrubs|co-op|internship|residency)\b",     # Medical / Career indirect
             r"\b(?:pull request|code review|sprint|standup|prod deployment)\b", # Tech indirect
             r"\b(?:in my 20s|when I was a kid in the 90s|retirement plan)\b",   # Age indirect
         ]
