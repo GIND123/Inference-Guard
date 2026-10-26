@@ -118,3 +118,19 @@ def test_comparative_benchmark_runner_offline_mode():
 
         saved_file = Path(tmpdir) / "comparative_benchmark_val.json"
         assert saved_file.exists()
+
+
+def test_compare_inferential_pii_script():
+    """Verify scripts/compare_inferential_pii.py extracts samples and formats audit report."""
+    from scripts.compare_inferential_pii import (
+        extract_leaking_samples,
+        format_markdown_report,
+        run_comparison,
+    )
+
+    samples = extract_leaking_samples(Path("data/splits/val.jsonl"), max_samples=2)
+    assert len(samples) > 0
+    results = run_comparison(samples, use_neural_rewriter=False)
+    assert len(results) == len(samples)
+    report = format_markdown_report(results)
+    assert "InferenceGuard: Inferential PII Detection" in report
