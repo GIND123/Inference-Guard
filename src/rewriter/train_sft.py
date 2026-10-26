@@ -136,8 +136,12 @@ def train_qlora_rewriter(cfg: RewriterQLoRAConfig) -> None:
     dataset = load_dataset("json", data_files=data_files)
 
     def format_row(example):
+        if "text" in example and example["text"]:
+            return example
         if "prompt" in example and "completion" in example:
             return {"text": example["prompt"] + example["completion"]}
+        if "messages" in example:
+            return {"text": tokenizer.apply_chat_template(example["messages"], tokenize=False)}
         return example
 
     dataset = dataset.map(format_row)
@@ -202,6 +206,13 @@ def parse_args():
         default=default_dataset,
         help="Path to the JSONL dataset (ChatML or Alpaca format)",
     )
+    parser.add_argument(
+        "--val_path",
+        "--val_data",
+        type=str,
+        default=None,
+        help="Path to validation JSONL dataset",
+    )
     parser.add_argument("--output_dir", type=str, default="artifacts/rewriter_qlora", help="Output directory for adapters")
     parser.add_argument("--batch_size", type=int, default=4, help="Per device train batch size")
     parser.add_argument("--learning_rate", type=float, default=2e-4, help="Learning rate")
@@ -240,6 +251,13 @@ def main():
     dataset = load_dataset("json", data_files=args.dataset_path, split="train")
     if "text" not in dataset.column_names:
         dataset = dataset.map(get_formatting_func(tokenizer))
+
+    eval_dataset = None
+    if args.val_path and Path(args.val_path).exists():
+        logger.info(f"Loading validation dataset from {args.val_path}")
+        eval_dataset = load_dataset("json", data_files=args.val_path, split="train")
+        if "text" not in eval_dataset.column_names:
+            eval_dataset = eval_dataset.map(get_formatting_func(tokenizer))
 
     device_map = {"": 0} if torch.cuda.is_available() else "cpu"
     is_cuda = torch.cuda.is_available()
@@ -285,6 +303,17 @@ def main():
     model = get_peft_model(model, peft_config)
     model.print_trainable_parameters()
 
+    # Completion-only loss masking so the model only learns to output clean rewrites
+    collator = None
+    try:
+        from trl import DataCollatorForCompletionOnlyLM
+        collator = DataCollatorForCompletionOnlyLM(
+            response_template="<|im_start|>assistant\n",
+            tokenizer=tokenizer,
+        )
+    except Exception as exc:
+        logger.warning(f"Could not initialize DataCollatorForCompletionOnlyLM: {exc}")
+
     # Handle cross-version compatibility for TRL and Transformers
     try:
         from trl import SFTConfig
@@ -311,6 +340,8 @@ def main():
         trainer = SFTTrainer(
             model=model,
             train_dataset=dataset,
+            eval_dataset=eval_dataset,
+            data_collator=collator,
             processing_class=tokenizer,
             args=training_args,
         )
@@ -336,6 +367,8 @@ def main():
         trainer = SFTTrainer(
             model=model,
             train_dataset=dataset,
+            eval_dataset=eval_dataset,
+            data_collator=collator,
             tokenizer=tokenizer,
             args=training_args,
             dataset_text_field="text",

@@ -324,6 +324,7 @@ class AnalyzeResponse(BaseModel):
     served_text_sha256: str
     # Wall-clock milliseconds per stage; None for a stage that did not run.
     timings_ms: Dict[str, Optional[float]]
+    debug_info: Optional[Dict[str, Any]] = None
 
 
 class RewriteRequest(BaseModel):
@@ -376,6 +377,9 @@ def risk_stage(text: str, session_id: str, input_spans: List[PiiSpan]) -> Tuple[
     return turn_rec, before_report
 
 
+last_debug_trace: Dict[str, Any] = {}
+
+
 def select_rewrite(
     text: str,
     presidio_text: str,
@@ -389,27 +393,56 @@ def select_rewrite(
     a generation failure and returns a plain string, so an output identical
     to that fallback is labelled "heuristic", never "qwen_adapter".
     """
+    global last_debug_trace
+    trace: Dict[str, Any] = {
+        "timestamp": time.time(),
+        "input_text": text,
+        "qwen_adapter_loaded": False,
+        "qwen_output_raw": None,
+        "qwen_clean_output": None,
+        "qwen_error": None,
+        "qwen_is_fallback": False,
+        "qwen_changed": False,
+        "qwen_had_pii": False,
+        "candidates_evaluated": [],
+        "decision_reason": "",
+        "selected_engine": ENGINE_PRESIDIO,
+        "selected_text": presidio_text,
+    }
+
     rewriter = get_qwen_rewriter()
     if rewriter is not None and getattr(rewriter, "is_adapter_loaded", False):
+        trace["qwen_adapter_loaded"] = True
         try:
             qwen_out = rewriter.rewrite(text)
         except Exception as exc:
             logger.warning("Qwen rewriter generation failed: %s", exc)
+            trace["qwen_error"] = str(exc)
             qwen_out = ""
+
+        if not trace["qwen_error"] and hasattr(rewriter, "last_error") and rewriter.last_error:
+            trace["qwen_error"] = rewriter.last_error
 
         is_fallback = (
             hasattr(rewriter, "_heuristic_fallback")
             and qwen_out == rewriter._heuristic_fallback(text)
         )
         engine = ENGINE_HEURISTIC if is_fallback else ENGINE_QWEN
+        trace["qwen_is_fallback"] = is_fallback
+        trace["qwen_output_raw"] = qwen_out
 
         clean_qwen = qwen_out.strip() if qwen_out else ""
+        trace["qwen_clean_output"] = clean_qwen
+        is_changed = rewrite_changed(text, clean_qwen)
+        trace["qwen_changed"] = is_changed
+
         if (
             clean_qwen
             and not check_degeneracy(text, clean_qwen)["degenerate"]
-            and rewrite_changed(text, clean_qwen)
+            and is_changed
         ):
             _, had_pii = scrub_hard_pii(clean_qwen)
+            trace["qwen_had_pii"] = had_pii
             if not had_pii:
                 selected = pareto_rejection_sample(
                     original=text,
@@ -419,27 +452,46 @@ def select_rewrite(
                     min_cosine_threshold=PROVISIONAL_MIN_COSINE_THRESHOLD,
                 )
                 if selected is not None:
+                    trace["selected_engine"] = engine
+                    trace["selected_text"] = selected[0]
+                    trace["decision_reason"] = f"Accepted via Pareto rejection sampling ({engine})."
+                    last_debug_trace = trace
                     return selected[0], engine
 
                 # If Pareto rejected clean_qwen due to strict risk threshold on heuristic regex keywords
-                # (e.g. 0.45 >= max_risk) or task preamble stripping, verify it meets the project utility floor:
+                # or task preamble stripping, verify it meets the project utility floor:
                 if engine == ENGINE_QWEN:
                     util = utility_evaluator.compute_metrics(text, clean_qwen)
                     if (
                         util.get("utility_score", 0.0) >= DEFAULT_UTILITY_FLOOR
                         or util.get("cosine_similarity", 0.0) >= PROVISIONAL_MIN_COSINE_THRESHOLD
                     ):
+                        trace["selected_engine"] = ENGINE_QWEN
+                        trace["selected_text"] = clean_qwen
+                        trace["decision_reason"] = "Accepted via Qwen utility floor fallback."
+                        last_debug_trace = trace
                         return clean_qwen, ENGINE_QWEN
 
+    # Heuristic Candidate Evaluation
+    heuristic_cands = generate_candidate_rewrites_heuristic(text)
     selected = pareto_rejection_sample(
         original=text,
-        candidates=generate_candidate_rewrites_heuristic(text),
+        candidates=heuristic_cands,
         risk_model_fn=risk_model_fn,
         max_risk_threshold=max_risk,
         min_cosine_threshold=PROVISIONAL_MIN_COSINE_THRESHOLD,
     )
     if selected is not None:
+        trace["selected_engine"] = ENGINE_HEURISTIC
+        trace["selected_text"] = selected[0]
+        trace["decision_reason"] = "Heuristic candidate satisfied strict Pareto thresholds."
+        last_debug_trace = trace
         return selected[0], ENGINE_HEURISTIC
+
+    trace["selected_engine"] = ENGINE_PRESIDIO
+    trace["selected_text"] = presidio_text
+    trace["decision_reason"] = "No candidate satisfied Pareto risk threshold; served Presidio baseline."
+    last_debug_trace = trace
     return presidio_text, ENGINE_PRESIDIO
 
 
@@ -496,6 +548,12 @@ def server_status() -> Dict[str, Any]:
         "device": "cuda" if cuda_avail else "cpu",
         "vram_allocated_mb": vram_mb,
     }
+
+
+@app.get("/debug/last_rewrite")
+def get_last_rewrite_debug() -> Dict[str, Any]:
+    """Inspect trace and decisions of the most recent rewrite."""
+    return last_debug_trace or {"status": "no rewrites processed yet"}
 
 
 @app.post("/analyze", response_model=AnalyzeResponse)
@@ -571,6 +629,7 @@ def analyze_text(request: AnalyzeRequest) -> AnalyzeResponse:
         rewrite_changed=rewrite_changed(text, rewritten_text),
         served_text_sha256=served_text_sha256(rewritten_text),
         timings_ms=timings,
+        debug_info=last_debug_trace,
     )
 
 

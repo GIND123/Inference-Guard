@@ -140,6 +140,7 @@ class QwenRewriterInference:
         self.resolved_base_model: str = model_name_or_path
         self.model: Any = None
         self.tokenizer: Any = None
+        self.last_error: Optional[str] = None
 
         # 1. Device auto-resolution
         if device is None:
@@ -635,6 +636,7 @@ class QwenRewriterInference:
         if not self.is_adapter_loaded or self.model is None or self.tokenizer is None:
             return self._heuristic_fallback(text)
 
+        self.last_error = None
         try:
             prompt = self.format_chat_prompt(text)
             inputs = self.tokenizer(
@@ -643,11 +645,14 @@ class QwenRewriterInference:
                 truncation=True,
                 max_length=1024,
             )
-            target_device = (
-                self.model.device
-                if hasattr(self.model, "device")
-                else torch.device(self.device)
-            )
+            try:
+                target_device = next(self.model.parameters()).device
+            except Exception:
+                target_device = (
+                    self.model.device
+                    if hasattr(self.model, "device")
+                    else torch.device(self.device)
+                )
             inputs = {k: v.to(target_device) for k, v in inputs.items()}
 
             gen_kwargs: Dict[str, Any] = {
@@ -695,7 +700,8 @@ class QwenRewriterInference:
             return self.clean_output(raw_text, original_text=text)
 
         except Exception as exc:
-            logger.warning(
+            self.last_error = f"{type(exc).__name__}: {exc}"
+            logger.exception(
                 "Generation failed (%s: %s). Falling back to heuristic rewriter.",
                 type(exc).__name__,
                 exc,

@@ -27,6 +27,17 @@ def test_api_health_endpoint(client):
     assert "version" in data
 
 
+def test_api_debug_last_rewrite_endpoint(client):
+    """Verify /debug/last_rewrite returns diagnostic decision trace."""
+    client.post("/analyze", json={"text": "I am 26 years old living in Denver, CO."})
+    resp = client.get("/debug/last_rewrite")
+    assert resp.status_code == 200
+    data = resp.json()
+    assert "selected_engine" in data
+    assert "input_text" in data
+    assert "decision_reason" in data
+
+
 def test_api_analyze_endpoint_conformance(client):
     """Verify /analyze endpoint returns all required fields in AnalyzeResponse."""
     payload = {

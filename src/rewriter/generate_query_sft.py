@@ -28,6 +28,18 @@ logger = logging.getLogger(__name__)
 CORE_SEED_QUERIES: List[Dict[str, Any]] = [
     # Medical & Healthcare
     {
+        "category": "natural_abstraction",
+        "domain": "software_engineering",
+        "query": "I am 26 years old living in Denver, CO and working as a software engineer after graduating from Carnegie Mellon. Can you help me optimize an SQL query for user analytics?",
+        "target": "Can you help me optimize an SQL query for user analytics?",
+    },
+    {
+        "category": "natural_abstraction",
+        "domain": "software_engineering",
+        "query": "I am 26 years old living in Denver, CO and working as a software engineer after graduating from Carnegie Mellon.",
+        "target": "I work as a software engineer with a computer science background.",
+    },
+    {
         "category": "preamble_pruning",
         "domain": "medical",
         "query": "I'm a 3rd-year pediatric resident at Boston Children's Hospital working 80-hour weeks. Can you help me differential-diagnose a 4-year-old presenting with high fever for 6 days, bilateral conjunctival injection, strawberry tongue, and cervical lymphadenopathy?",
@@ -482,12 +494,18 @@ def build_full_query_dataset(seed: int = 42) -> Tuple[List[Dict[str, Any]], List
     def format_records(raw_list: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
         formatted = []
         for r in raw_list:
+            chatml_text = (
+                f"<|im_start|>system\n{SYSTEM_PROMPT}<|im_end|>\n"
+                f"<|im_start|>user\n{r['query']}<|im_end|>\n"
+                f"<|im_start|>assistant\n{r['target']}<|im_end|>\n"
+            )
             formatted.append({
                 "messages": [
                     {"role": "system", "content": SYSTEM_PROMPT},
                     {"role": "user", "content": r["query"]},
                     {"role": "assistant", "content": r["target"]},
                 ],
+                "text": chatml_text,
                 "category": r["category"],
                 "domain": r["domain"],
             })
