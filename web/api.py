@@ -89,10 +89,50 @@ def make_risk_estimator(model: Any, tokenizer: Any, device: str) -> Callable[[st
     return ml_risk_estimator
 
 
+REPO_ROOT = Path(__file__).resolve().parent.parent
+
+
+def find_adapter_path() -> Optional[Path]:
+    """Find the rewriter adapter directory across common execution contexts."""
+    env_path = os.environ.get("REWRITER_ADAPTER_PATH")
+    candidates: List[Path] = []
+    if env_path:
+        candidates.append(Path(env_path))
+    candidates.extend([
+        REPO_ROOT / "artifacts" / "rewriter_qlora",
+        Path("artifacts/rewriter_qlora"),
+        Path("/content/drive/MyDrive/Inference-Guard/artifacts/rewriter_qlora"),
+        Path("/content/Inference-Guard/artifacts/rewriter_qlora"),
+        Path("/content/artifacts/rewriter_qlora"),
+    ])
+    for p in candidates:
+        if p.exists() and ((p / "adapter_config.json").exists() or p.is_dir()):
+            return p.resolve()
+    return None
+
+
+def find_risk_model_path() -> Optional[Path]:
+    """Find the ModernBERT risk classifier directory across common execution contexts."""
+    env_path = os.environ.get("RISK_MODEL_PATH")
+    candidates: List[Path] = []
+    if env_path:
+        candidates.append(Path(env_path))
+    candidates.extend([
+        REPO_ROOT / "artifacts" / "risk_model" / "best_model",
+        Path("artifacts/risk_model/best_model"),
+        Path("/content/drive/MyDrive/Inference-Guard/artifacts/risk_model/best_model"),
+        Path("/content/Inference-Guard/artifacts/risk_model/best_model"),
+    ])
+    for p in candidates:
+        if p.exists() and ((p / "config.json").exists() or p.is_dir()):
+            return p.resolve()
+    return None
+
+
 # Load trained ModernBERT if available
 risk_model = None
-model_path = Path(os.environ.get("RISK_MODEL_PATH", "artifacts/risk_model/best_model"))
-if model_path.exists():
+model_path = find_risk_model_path()
+if model_path is not None:
     try:
         from transformers import AutoTokenizer
         logger.info("Loading trained ModernBERT risk classifier from '%s'...", model_path)
@@ -112,8 +152,8 @@ def get_risk_model() -> Optional[Callable[[str], Dict[str, float]]]:
     global risk_model
     if risk_model is not None:
         return risk_model
-    m_path = Path(os.environ.get("RISK_MODEL_PATH", "artifacts/risk_model/best_model"))
-    if m_path.exists():
+    m_path = find_risk_model_path()
+    if m_path is not None:
         try:
             from transformers import AutoTokenizer
             logger.info("Dynamically loading trained ModernBERT from '%s'...", m_path)
@@ -137,15 +177,18 @@ logger.info("Initializing Qwen Rewriter Inference Engine...")
 qwen_rewriter = None
 try:
     from src.rewriter import DEFAULT_BASE_MODEL, QwenRewriterInference
-    adapter_p = Path(os.environ.get("REWRITER_ADAPTER_PATH", "artifacts/rewriter_qlora"))
-    if adapter_p.exists() and (adapter_p.is_dir() or (adapter_p / "adapter_config.json").exists()):
+    adapter_p = find_adapter_path()
+    if adapter_p is not None:
+        device = "cuda" if torch.cuda.is_available() else "cpu"
         qwen_rewriter = QwenRewriterInference(
             model_name_or_path=DEFAULT_BASE_MODEL,
             adapter_path=str(adapter_p),
+            device=device,
+            load_in_4bit=torch.cuda.is_available(),
         )
         logger.info("Qwen Rewriter successfully initialized! Adapter loaded: %s", qwen_rewriter.is_adapter_loaded)
     else:
-        logger.info("Adapter '%s' not found on disk yet. Dynamic loading enabled.", adapter_p)
+        logger.info("Rewriter adapter not found on disk yet. Dynamic loading enabled.")
 except Exception as e:
     logger.warning(f"Failed to initialize Qwen Rewriter: {e}")
     qwen_rewriter = None
@@ -157,14 +200,17 @@ def get_qwen_rewriter():
     if qwen_rewriter is not None and getattr(qwen_rewriter, "is_adapter_loaded", False):
         return qwen_rewriter
 
-    adapter_p = Path(os.environ.get("REWRITER_ADAPTER_PATH", "artifacts/rewriter_qlora"))
-    if adapter_p.exists() and (adapter_p.is_dir() or (adapter_p / "adapter_config.json").exists()):
+    adapter_p = find_adapter_path()
+    if adapter_p is not None:
         try:
             from src.rewriter import DEFAULT_BASE_MODEL, QwenRewriterInference
             logger.info("Loading Qwen Rewriter from '%s'...", adapter_p)
+            device = "cuda" if torch.cuda.is_available() else "cpu"
             qwen_rewriter = QwenRewriterInference(
                 model_name_or_path=DEFAULT_BASE_MODEL,
                 adapter_path=str(adapter_p),
+                device=device,
+                load_in_4bit=torch.cuda.is_available(),
             )
             logger.info("Qwen Rewriter loaded dynamically! is_adapter_loaded: %s", qwen_rewriter.is_adapter_loaded)
         except Exception as exc:
@@ -422,6 +468,34 @@ def _ms_since(start: float) -> float:
 def health_check() -> Dict[str, str]:
     """Health check endpoint."""
     return {"status": "ok", "version": "1.0.0"}
+
+
+@app.get("/status")
+def server_status() -> Dict[str, Any]:
+    """Diagnostic status endpoint inspecting loaded neural engines, adapter paths, and VRAM."""
+    rewriter = get_qwen_rewriter()
+    rm = get_risk_model()
+    adapter_p = find_adapter_path()
+    risk_p = find_risk_model_path()
+
+    cuda_avail = torch.cuda.is_available()
+    vram_mb = None
+    if cuda_avail:
+        try:
+            vram_mb = round(torch.cuda.memory_allocated() / (1024 * 1024), 2)
+        except Exception:
+            pass
+
+    return {
+        "status": "ok",
+        "qwen_adapter_loaded": bool(rewriter and getattr(rewriter, "is_adapter_loaded", False)),
+        "qwen_adapter_path": str(adapter_p) if adapter_p else None,
+        "risk_model_loaded": bool(rm is not None),
+        "risk_model_path": str(risk_p) if risk_p else None,
+        "cuda_available": cuda_avail,
+        "device": "cuda" if cuda_avail else "cpu",
+        "vram_allocated_mb": vram_mb,
+    }
 
 
 @app.post("/analyze", response_model=AnalyzeResponse)

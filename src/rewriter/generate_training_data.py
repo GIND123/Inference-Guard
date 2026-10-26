@@ -610,6 +610,11 @@ def generate_candidate_rewrites_heuristic(text: str) -> List[str]:
     if c_loc_edu not in candidates:
         candidates.append(c_loc_edu)
 
+    # Tier D: Full demographic neutralization across all four attributes
+    c_all = neutralize_education_cues(neutralize_occupation_cues(neutralize_location_cues(c_age)))
+    if c_all != base_text and c_all not in candidates:
+        candidates.append(c_all)
+
     # Deduplicate while strictly preserving insertion order
     unique_cands: List[str] = []
     for c in candidates:
