@@ -835,7 +835,7 @@ class QwenPrivacyRewriterService:
             try:
                 from peft import PeftModel
                 from transformers import AutoModelForCausalLM, BitsAndBytesConfig
-                is_cuda = self.device == "cuda" and torch.cuda.is_available()
+                is_cuda = "cuda" in str(self.device).lower() and torch.cuda.is_available()
                 use_bf16 = is_cuda and torch.cuda.is_bf16_supported()
                 bnb_config = None
                 if is_cuda:

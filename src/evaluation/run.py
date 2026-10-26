@@ -228,6 +228,7 @@ def run_comparative_benchmark(
     base_model_name: Optional[str] = None,
     device: Optional[str] = None,
     strict: bool = False,
+    adversary_model_name: Optional[str] = None,
 ) -> Dict[str, Any]:
     """Execute four-way comparative evaluation benchmark across privacy-preserving methods."""
     from src.contracts.schemas import AttributeName, ConversationState, RewriteMode
@@ -278,7 +279,11 @@ def run_comparative_benchmark(
 
     pseudonym_mgr = DeterministicPseudonymManager()
     utility_eval = BidirectionalUtilityEvaluator(load_models=use_heavy_models, device=device)
-    adversary = HeldOutPhi4Adversary(load_model=use_heavy_models, device=device)
+    adversary = HeldOutPhi4Adversary(
+        model_name=adversary_model_name or "microsoft/Phi-4-mini-instruct",
+        load_model=use_heavy_models,
+        device=device,
+    )
     rewriter = QwenPrivacyRewriterService(
         base_model_name=base_model_name or DEFAULT_BASE_MODEL,
         adapter_dir=effective_adapter,
@@ -392,6 +397,7 @@ def main() -> None:
     parser.add_argument("--base_model_name", type=str, default=None, help="Base causal LLM model name")
     parser.add_argument("--device", type=str, default=None, help="Device placement (cuda/cpu)")
     parser.add_argument("--strict", action="store_true", help="Raise if heavy models fail to load")
+    parser.add_argument("--adversary_model", type=str, default="microsoft/Phi-4-mini-instruct", help="Held-out adversary model identifier")
     args = parser.parse_args()
 
     print(f"Executing 4-way comparative benchmark on split '{args.split}' for methods: {args.methods}")
@@ -406,6 +412,7 @@ def main() -> None:
         base_model_name=args.base_model_name,
         device=args.device,
         strict=args.strict,
+        adversary_model_name=args.adversary_model,
     )
     print("\n" + "=" * 78)
     print(f"{'Method':<18} | {'Attacker Acc (v)':<16} | {'Abstain % (^)':<13} | {'Bi-NLI (^)':<11} | {'p95 Lat (ms)':<12}")
@@ -421,6 +428,8 @@ def main() -> None:
     print(f"Adversary Mode: {results['adversary_mode']} | Rewriter Engine: {results['rewriter_engine']} | Utility: {results['utility_mode']}")
     if not args.use_heavy_models:
         print("[NOTE] Running in offline heuristic mode. To evaluate trained neural weights, pass --use_heavy_models --adapter_dir <path>")
+    elif results["adversary_mode"] != "model":
+        print(f"[NOTE] Adversary loaded in 'heuristic' fallback mode. Model weights for '{args.adversary_model}' were not active. Pass --strict to see exact load traceback or specify --adversary_model.")
 
 
 if __name__ == "__main__":
