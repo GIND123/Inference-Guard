@@ -25,7 +25,7 @@ from pydantic import BaseModel, Field
 
 from src.conversation.state import ConversationTracker
 from src.evaluation.presidio_baseline import PresidioBaseline
-from src.evaluation.utility import UtilityEvaluator
+from src.evaluation.utility import UtilityEvaluator, check_degeneracy
 from src.product.report import (
     DEFAULT_UTILITY_FLOOR,
     PiiSpan,
@@ -43,6 +43,7 @@ from src.rewriter.generate_training_data import (
     estimate_privacy_risk,
     generate_candidate_rewrites_heuristic,
     pareto_rejection_sample,
+    scrub_hard_pii,
 )
 
 import torch
@@ -90,11 +91,11 @@ def make_risk_estimator(model: Any, tokenizer: Any, device: str) -> Callable[[st
 
 # Load trained ModernBERT if available
 risk_model = None
-model_path = Path("artifacts/risk_model/best_model")
+model_path = Path(os.environ.get("RISK_MODEL_PATH", "artifacts/risk_model/best_model"))
 if model_path.exists():
     try:
         from transformers import AutoTokenizer
-        logger.info("Loading trained ModernBERT risk classifier...")
+        logger.info("Loading trained ModernBERT risk classifier from '%s'...", model_path)
         device = "cuda" if torch.cuda.is_available() else "cpu"
         tokenizer = AutoTokenizer.from_pretrained("answerdotai/ModernBERT-base")
         model = ModernBertRiskClassifier.from_pretrained(str(model_path)).to(device)
@@ -105,22 +106,70 @@ if model_path.exists():
     except Exception as e:
         logger.warning(f"Failed to load ModernBERT: {e}")
 
+
+def get_risk_model() -> Optional[Callable[[str], Dict[str, float]]]:
+    """Retrieve or dynamically load ModernBERT risk estimator if available on disk."""
+    global risk_model
+    if risk_model is not None:
+        return risk_model
+    m_path = Path(os.environ.get("RISK_MODEL_PATH", "artifacts/risk_model/best_model"))
+    if m_path.exists():
+        try:
+            from transformers import AutoTokenizer
+            logger.info("Dynamically loading trained ModernBERT from '%s'...", m_path)
+            device = "cuda" if torch.cuda.is_available() else "cpu"
+            tokenizer = AutoTokenizer.from_pretrained("answerdotai/ModernBERT-base")
+            model = ModernBertRiskClassifier.from_pretrained(str(m_path)).to(device)
+            model.eval()
+            risk_model = make_risk_estimator(model, tokenizer, device)
+            logger.info("ModernBERT loaded dynamically!")
+        except Exception as exc:
+            logger.warning(f"Failed to dynamically load ModernBERT: {exc}")
+    return risk_model
+
+
 # Global persistent services
 conversation_tracker = ConversationTracker(risk_estimator_fn=risk_model)
 presidio_baseline = PresidioBaseline()
 utility_evaluator = UtilityEvaluator()
 
 logger.info("Initializing Qwen Rewriter Inference Engine...")
+qwen_rewriter = None
 try:
     from src.rewriter import DEFAULT_BASE_MODEL, QwenRewriterInference
-    qwen_rewriter = QwenRewriterInference(
-        model_name_or_path=DEFAULT_BASE_MODEL,
-        adapter_path="artifacts/rewriter_qlora"
-    )
-    logger.info("Qwen Rewriter successfully initialized!")
+    adapter_p = Path(os.environ.get("REWRITER_ADAPTER_PATH", "artifacts/rewriter_qlora"))
+    if adapter_p.exists() and (adapter_p.is_dir() or (adapter_p / "adapter_config.json").exists()):
+        qwen_rewriter = QwenRewriterInference(
+            model_name_or_path=DEFAULT_BASE_MODEL,
+            adapter_path=str(adapter_p),
+        )
+        logger.info("Qwen Rewriter successfully initialized! Adapter loaded: %s", qwen_rewriter.is_adapter_loaded)
+    else:
+        logger.info("Adapter '%s' not found on disk yet. Dynamic loading enabled.", adapter_p)
 except Exception as e:
     logger.warning(f"Failed to initialize Qwen Rewriter: {e}")
     qwen_rewriter = None
+
+
+def get_qwen_rewriter():
+    """Retrieve or dynamically initialize the QwenRewriterInference engine when adapter is trained."""
+    global qwen_rewriter
+    if qwen_rewriter is not None and getattr(qwen_rewriter, "is_adapter_loaded", False):
+        return qwen_rewriter
+
+    adapter_p = Path(os.environ.get("REWRITER_ADAPTER_PATH", "artifacts/rewriter_qlora"))
+    if adapter_p.exists() and (adapter_p.is_dir() or (adapter_p / "adapter_config.json").exists()):
+        try:
+            from src.rewriter import DEFAULT_BASE_MODEL, QwenRewriterInference
+            logger.info("Loading Qwen Rewriter from '%s'...", adapter_p)
+            qwen_rewriter = QwenRewriterInference(
+                model_name_or_path=DEFAULT_BASE_MODEL,
+                adapter_path=str(adapter_p),
+            )
+            logger.info("Qwen Rewriter loaded dynamically! is_adapter_loaded: %s", qwen_rewriter.is_adapter_loaded)
+        except Exception as exc:
+            logger.warning("Dynamic reload of Qwen Rewriter failed: %s", exc)
+    return qwen_rewriter
 
 
 def extract_pii_spans(text: str) -> List[PiiSpan]:
@@ -294,18 +343,47 @@ def select_rewrite(
     a generation failure and returns a plain string, so an output identical
     to that fallback is labelled "heuristic", never "qwen_adapter".
     """
-    if qwen_rewriter is not None and qwen_rewriter.is_adapter_loaded:
-        qwen_out = qwen_rewriter.rewrite(text)
-        engine = ENGINE_HEURISTIC if qwen_out == qwen_rewriter._heuristic_fallback(text) else ENGINE_QWEN
-        selected = pareto_rejection_sample(
-            original=text,
-            candidates=[qwen_out],
-            risk_model_fn=risk_model_fn,
-            max_risk_threshold=max_risk,
-            min_cosine_threshold=PROVISIONAL_MIN_COSINE_THRESHOLD,
+    rewriter = get_qwen_rewriter()
+    if rewriter is not None and getattr(rewriter, "is_adapter_loaded", False):
+        try:
+            qwen_out = rewriter.rewrite(text)
+        except Exception as exc:
+            logger.warning("Qwen rewriter generation failed: %s", exc)
+            qwen_out = ""
+
+        is_fallback = (
+            hasattr(rewriter, "_heuristic_fallback")
+            and qwen_out == rewriter._heuristic_fallback(text)
         )
-        if selected is not None:
-            return selected[0], engine
+        engine = ENGINE_HEURISTIC if is_fallback else ENGINE_QWEN
+
+        clean_qwen = qwen_out.strip() if qwen_out else ""
+        if (
+            clean_qwen
+            and not check_degeneracy(text, clean_qwen)["degenerate"]
+            and rewrite_changed(text, clean_qwen)
+        ):
+            _, had_pii = scrub_hard_pii(clean_qwen)
+            if not had_pii:
+                selected = pareto_rejection_sample(
+                    original=text,
+                    candidates=[clean_qwen],
+                    risk_model_fn=risk_model_fn,
+                    max_risk_threshold=max_risk,
+                    min_cosine_threshold=PROVISIONAL_MIN_COSINE_THRESHOLD,
+                )
+                if selected is not None:
+                    return selected[0], engine
+
+                # If Pareto rejected clean_qwen due to strict risk threshold on heuristic regex keywords
+                # (e.g. 0.45 >= max_risk) or task preamble stripping, verify it meets the project utility floor:
+                if engine == ENGINE_QWEN:
+                    util = utility_evaluator.compute_metrics(text, clean_qwen)
+                    if (
+                        util.get("utility_score", 0.0) >= DEFAULT_UTILITY_FLOOR
+                        or util.get("cosine_similarity", 0.0) >= PROVISIONAL_MIN_COSINE_THRESHOLD
+                    ):
+                        return clean_qwen, ENGINE_QWEN
 
     selected = pareto_rejection_sample(
         original=text,
@@ -321,8 +399,9 @@ def select_rewrite(
 
 def rescore_stage(rewritten_text: str) -> PrivacyReport:
     """Explicit PII and inferential risk on the rewrite."""
+    active_risk = get_risk_model()
     rewrite_spans = extract_pii_spans(rewritten_text)
-    after_scores = estimate_privacy_risk(rewritten_text, risk_model_fn=risk_model)
+    after_scores = estimate_privacy_risk(rewritten_text, risk_model_fn=active_risk)
     after_cues: List[Cue] = [
         Cue(span=f"[{attr} cue]", attribute=attr, importance=round(score, 2))
         for attr, score in after_scores.items()
@@ -372,11 +451,12 @@ def analyze_text(request: AnalyzeRequest) -> AnalyzeResponse:
         engine = ENGINE_PASSTHROUGH
         after_report = before_report
     else:
+        active_risk = get_risk_model()
         t = time.perf_counter()
         rewritten_text, engine = select_rewrite(
             text,
             presidio_text,
-            risk_model_fn=None,
+            risk_model_fn=active_risk,
             max_risk=PROVISIONAL_MAX_RISK_THRESHOLD,
         )
         timings["rewrite"] = _ms_since(t)
@@ -427,10 +507,11 @@ def rewrite_text(request: RewriteRequest) -> RewriteResponse:
     if not text:
         raise HTTPException(status_code=400, detail="Text cannot be empty.")
 
+    active_risk = get_risk_model()
     rewritten, engine = select_rewrite(
         text,
         presidio_baseline.redact(text),
-        risk_model_fn=risk_model,
+        risk_model_fn=active_risk,
         max_risk=request.max_risk,
     )
 

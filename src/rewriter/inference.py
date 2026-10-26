@@ -432,6 +432,13 @@ class QwenRewriterInference:
             cand = candidates[0] if candidates and candidates[0] else text
         except Exception:
             cand = text
+        # Scrub explicit hard PII from heuristic fallback
+        try:
+            from src.rewriter.generate_training_data import scrub_hard_pii
+            cand, _ = scrub_hard_pii(cand)
+        except Exception:
+            pass
+        cand = re.sub(r"\b\d{3}[-.\s]\d{4}\b", "[PHONE]", cand)
         return cand
 
     @staticmethod

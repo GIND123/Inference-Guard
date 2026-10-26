@@ -9,7 +9,7 @@ from __future__ import annotations
 import os
 import uvicorn
 
-from src.api.app import app
+from web.api import app
 
 if __name__ == "__main__":
     # Hugging Face Spaces runs by default on port 7860; local dev defaults to 8000
