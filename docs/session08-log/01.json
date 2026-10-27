@@ -1,0 +1,159 @@
+{
+  "session_id": "01",
+  "user_id": "demo_user",
+  "input_text": "My manager keeps giving the client-facing assignments to colleagues with master's degrees, even though I've been on the team for seven years and regularly train new staff. I don't have a postgraduate degree. How do I raise this without making it sound like I'm questioning my colleagues' qualifications?",
+  "exported_at": "2026-10-27T01:53:07.301Z",
+  "client_latency_seconds": 0.9175999999046326,
+  "response": {
+    "risk_summary": {
+      "overall": 0.75,
+      "overall_band": "HIGH",
+      "primary": "occupation",
+      "secondary": [
+        "education"
+      ],
+      "bands": {
+        "age": "LOW",
+        "location": "LOW",
+        "occupation": "HIGH",
+        "education": "MEDIUM"
+      },
+      "scores": {
+        "age": 0.05,
+        "location": 0.05,
+        "occupation": 0.75,
+        "education": 0.45
+      },
+      "cues": [
+        {
+          "span": "[occupation cue]",
+          "attribute": "occupation",
+          "importance": 0.75
+        },
+        {
+          "span": "[education cue]",
+          "attribute": "education",
+          "importance": 0.45
+        }
+      ],
+      "leakage_delta": 0.75
+    },
+    "rewritten_text": "My manager keeps giving the client-facing assignments to colleagues with master's degrees, even though I've been on the team for <DATE_TIME> and regularly train new staff. I don't have a postgraduate degree. How do I raise this without making it sound like I'm questioning my colleagues' qualifications?",
+    "presidio_text": "My manager keeps giving the client-facing assignments to colleagues with master's degrees, even though I've been on the team for <DATE_TIME> and regularly train new staff. I don't have a postgraduate degree. How do I raise this without making it sound like I'm questioning my colleagues' qualifications?",
+    "utility_metrics": {
+      "cosine_similarity": 0.9787,
+      "nli_forward": 0.9783,
+      "nli_backward": 0.9574,
+      "contradiction": 0,
+      "utility_score": 0.9733,
+      "degenerate": false,
+      "degenerate_reason": null,
+      "utility_backend": "fallback"
+    },
+    "turn_record": {
+      "turn_number": 1,
+      "session_id": "01",
+      "raw_text": "My manager keeps giving the client-facing assignments to colleagues with master's degrees, even though I've been on the team for seven years and regularly train new staff. I don't have a postgraduate degree. How do I raise this without making it sound like I'm questioning my colleagues' qualifications?",
+      "turn_scores": {
+        "age": 0.05,
+        "location": 0.05,
+        "occupation": 0.75,
+        "education": 0.45
+      },
+      "cumulative_scores": {
+        "age": 0.05,
+        "location": 0.05,
+        "occupation": 0.75,
+        "education": 0.45
+      },
+      "overall_turn_risk": 0.75,
+      "overall_cumulative_risk": 0.75,
+      "joint_entropy": 2.7,
+      "leakage_delta": 0.75,
+      "is_breached": true,
+      "risk_band": "HIGH",
+      "residual_anonymity_capacity": 2.7
+    },
+    "privacy_report": {
+      "explicit": {
+        "count": 1,
+        "hard_count": 0,
+        "by_type": {
+          "DATE_TIME": 1
+        },
+        "spans": [
+          {
+            "type": "DATE_TIME",
+            "start": 129,
+            "end": 140
+          }
+        ]
+      },
+      "inferential": {
+        "overall": 0.75,
+        "overall_band": "HIGH",
+        "primary": "occupation",
+        "secondary": [
+          "education"
+        ],
+        "bands": {
+          "age": "LOW",
+          "location": "LOW",
+          "occupation": "HIGH",
+          "education": "MEDIUM"
+        },
+        "scores": {
+          "age": 0.05,
+          "location": 0.05,
+          "occupation": 0.75,
+          "education": 0.45
+        },
+        "cues": [
+          {
+            "span": "[occupation cue]",
+            "attribute": "occupation",
+            "importance": 0.75
+          },
+          {
+            "span": "[education cue]",
+            "attribute": "education",
+            "importance": 0.45
+          }
+        ],
+        "leakage_delta": 0.75
+      }
+    },
+    "comparison": {
+      "verdict": "no_change",
+      "inferential_before": 0.75,
+      "inferential_after": 0.75,
+      "inferential_delta": 0,
+      "per_attribute_delta": {
+        "age": 0,
+        "education": 0,
+        "location": 0,
+        "occupation": 0
+      },
+      "explicit_before": 1,
+      "explicit_after": 0,
+      "hard_pii_remaining": 0,
+      "utility": 0.9733,
+      "utility_floor": 0.7,
+      "notes": [],
+      "is_win": false
+    },
+    "verdict": "no_change",
+    "is_win": false,
+    "rewrite_engine": "presidio_fallback",
+    "rewrite_changed": true,
+    "served_text_sha256": "9c1707c7ba4dceb7d87d28c46a83e95186d7ed88548914a4500af515654e1753",
+    "timings_ms": {
+      "presidio": 49.201,
+      "risk_model": 0.231,
+      "rewrite": 1.054,
+      "rescore": 141.557,
+      "utility": 0.369,
+      "total": 192.463
+    }
+  }
+}
