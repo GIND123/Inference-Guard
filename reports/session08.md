@@ -170,7 +170,13 @@ the held-out Phi-4 evaluation across `data/splits/test.jsonl` to report final at
   - [To be filled by Yiwei]
 
 - **Bingqi Lian (Operations):**
-  - [To be filled by Bingqi]
+  - **Bingqi Lian (Operations):**
+  - **Evaluation readiness and artifact-provenance gate (PR #72):** Extended the Session 08 Operations framework from deciding whether completed results are reportable to deciding whether the underlying trained artifact chain is ready for formal held-out evaluation.
+  - Added provenance checks for the teacher SFT dataset, train/test split hashes, active student base model, student adapter artifacts, held-out attacker configuration, and utility-model configuration.
+  - Added student-adapter registration support that records the exact base model, SFT dataset SHA-256, teacher-manifest SHA-256, adapter-file hashes, and associated git commit in a reproducible training manifest.
+  - Implemented explicit `READY` / `BLOCKED` preflight status so diagnostic development can continue without allowing incomplete artifacts to produce headline held-out claims. On the current repository state, all readiness stages pass except Student Adapter, correctly blocking formal evaluation until a trained adapter is registered.
+  - Added readiness and registration regression coverage. Final validation passed 11 readiness tests, 32 existing Operations tests, and 479 repository tests with 2 skipped; `git diff --check` was clean.
+  - (evidence: PR #72, `configs/experiments/session08.yaml`, `scripts/check_eval_readiness.py`, `tests/test_eval_readiness.py`)
 
 ## Lean canvas changes (if any)
 
