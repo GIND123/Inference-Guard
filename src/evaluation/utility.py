@@ -151,11 +151,46 @@ class UtilityEvaluator:
             from sentence_transformers import SentenceTransformer
             self.similarity_model = SentenceTransformer(self.similarity_model_name)
         except Exception as e:
-            logger.info(f"SentenceTransformer not loaded ({e}). Using deterministic token embedding.")
+            logger.info(f"SentenceTransformer not loaded ({e}). Attempting transformers AutoModel fallback.")
+            try:
+                from transformers import AutoModel, AutoTokenizer
+                import torch
+
+                class _HFSimilarityModel:
+                    def __init__(self, model_name: str):
+                        try:
+                            self.tokenizer = AutoTokenizer.from_pretrained(model_name, local_files_only=True)
+                            self.model = AutoModel.from_pretrained(model_name, local_files_only=True)
+                        except Exception:
+                            self.tokenizer = AutoTokenizer.from_pretrained(model_name)
+                            self.model = AutoModel.from_pretrained(model_name)
+                        self.model.eval()
+
+                    def encode(self, text: str, convert_to_tensor: bool = True):
+                        inputs = self.tokenizer(text, padding=True, truncation=True, max_length=512, return_tensors="pt")
+                        with torch.no_grad():
+                            out = self.model(**inputs)
+                            mask = inputs["attention_mask"].unsqueeze(-1)
+                            emb = (out[0] * mask).sum(dim=1) / torch.clamp(mask.sum(dim=1), min=1e-9)
+                            emb = torch.nn.functional.normalize(emb, p=2, dim=1)
+                            return emb.squeeze(0) if convert_to_tensor else emb.squeeze(0).cpu().numpy()
+
+                self.similarity_model = _HFSimilarityModel(self.similarity_model_name)
+                logger.info(f"Loaded similarity model via transformers: {self.similarity_model_name}")
+            except Exception as exc:
+                logger.info(f"Similarity model not loaded ({exc}). Using deterministic token embedding.")
 
         try:
+            import os
             from transformers import pipeline
-            self.nli_pipeline = pipeline("text-classification", model=self.nli_model_name)
+            # Check local files first to prevent unauthenticated multi-GB download hangs
+            try:
+                self.nli_pipeline = pipeline("text-classification", model=self.nli_model_name, model_kwargs={"local_files_only": True})
+            except Exception:
+                if os.environ.get("IG_DOWNLOAD_LARGE_MODELS", "0") == "1":
+                    self.nli_pipeline = pipeline("text-classification", model=self.nli_model_name)
+                else:
+                    logger.info("NLI cross-encoder not cached locally. Using deterministic NLI logic.")
         except Exception as e:
             logger.info(f"NLI cross-encoder not loaded ({e}). Using deterministic NLI logic.")
 

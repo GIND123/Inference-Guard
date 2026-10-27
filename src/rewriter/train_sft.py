@@ -23,26 +23,71 @@ from trl import SFTTrainer
 
 from src.rewriter.inference import DEFAULT_BASE_MODEL
 
+# Guard against PEFT dispatch bug when incompatible torchao (< 0.16.0) is pre-installed in Colab
+try:
+    import peft.import_utils
+    _orig_is_torchao = getattr(peft.import_utils, "is_torchao_available", None)
+    if _orig_is_torchao is not None:
+        def _safe_is_torchao_available() -> bool:
+            try:
+                return bool(_orig_is_torchao())
+            except ImportError:
+                return False
+
+        peft.import_utils.is_torchao_available = _safe_is_torchao_available
+        try:
+            import peft.tuners.lora.torchao as _tao
+            _tao.is_torchao_available = _safe_is_torchao_available
+        except Exception:
+            pass
+except Exception:
+    pass
+
 logger = logging.getLogger(__name__)
 
 @dataclass
 class RewriterQLoRAConfig:
     """Configuration parameters for QLoRA fine-tuning with completion-only loss masking."""
     base_model_name: str = DEFAULT_BASE_MODEL
-    train_jsonl_path: str = "data/sft/train_pareto_sft.jsonl"
-    val_jsonl_path: Optional[str] = "data/sft/val_pareto_sft.jsonl"
-    output_adapter_dir: str = "models/qwen35_08b_qlora_sft"
-    lora_r: int = 16
-    lora_alpha: int = 32
-    lora_dropout: float = 0.05
+    train_jsonl_path: str = "data/sft/train_queries_sft.jsonl"
+    val_jsonl_path: Optional[str] = "data/sft/val_queries_sft.jsonl"
+    output_adapter_dir: str = "artifacts/rewriter_qlora"
+    lora_r: int = 32
+    lora_alpha: int = 64
+    lora_dropout: float = 0.10
+    weight_decay: float = 0.01
     max_seq_length: int = 1024
     per_device_train_batch_size: int = 4
     gradient_accumulation_steps: int = 4
     learning_rate: float = 2e-4
-    num_train_epochs: int = 3
-    warmup_ratio: float = 0.08
+    num_train_epochs: int = 4
+    warmup_ratio: float = 0.05
     neftune_noise_alpha: float = 5.0
     seed: int = 42
+
+
+def get_warmup_kwargs(config_cls: Any, ratio: float = 0.05) -> Dict[str, Any]:
+    """Provide cross-version compatible warmup argument (ratio in v4 vs float steps in v5)."""
+    import inspect
+    try:
+        params = inspect.signature(config_cls.__init__).parameters
+        if "warmup_ratio" in params:
+            return {"warmup_ratio": ratio}
+    except Exception:
+        pass
+    return {"warmup_steps": ratio}
+
+
+def filter_supported_kwargs(config_cls: Any, kwargs: Dict[str, Any]) -> Dict[str, Any]:
+    """Filter kwargs to only those accepted by config_cls.__init__ across TRL/Transformers versions."""
+    import inspect
+    try:
+        params = inspect.signature(config_cls.__init__).parameters
+        if any(p.kind == inspect.Parameter.VAR_KEYWORD for p in params.values()):
+            return kwargs
+        return {k: v for k, v in kwargs.items() if k in params}
+    except Exception:
+        return kwargs
 
 
 def train_qlora_rewriter(cfg: RewriterQLoRAConfig) -> None:
@@ -91,8 +136,12 @@ def train_qlora_rewriter(cfg: RewriterQLoRAConfig) -> None:
     dataset = load_dataset("json", data_files=data_files)
 
     def format_row(example):
+        if "text" in example and example["text"]:
+            return example
         if "prompt" in example and "completion" in example:
             return {"text": example["prompt"] + example["completion"]}
+        if "messages" in example:
+            return {"text": tokenizer.apply_chat_template(example["messages"], tokenize=False)}
         return example
 
     dataset = dataset.map(format_row)
@@ -103,24 +152,26 @@ def train_qlora_rewriter(cfg: RewriterQLoRAConfig) -> None:
         tokenizer=tokenizer,
     )
 
-    sft_args = SFTConfig(
-        output_dir=cfg.output_adapter_dir,
-        dataset_text_field="text",
-        max_length=cfg.max_seq_length,
-        per_device_train_batch_size=cfg.per_device_train_batch_size,
-        gradient_accumulation_steps=cfg.gradient_accumulation_steps,
-        learning_rate=cfg.learning_rate,
-        num_train_epochs=cfg.num_train_epochs,
-        warmup_ratio=cfg.warmup_ratio,
-        lr_scheduler_type="cosine",
-        weight_decay=0.01,
-        logging_steps=10,
-        bf16=is_cuda and torch.cuda.is_bf16_supported(),
-        fp16=is_cuda and not torch.cuda.is_bf16_supported(),
-        neftune_noise_alpha=cfg.neftune_noise_alpha,
-        seed=cfg.seed,
-        report_to="none",
-    )
+    sft_kwargs = {
+        "output_dir": cfg.output_adapter_dir,
+        "dataset_text_field": "text",
+        "max_length": cfg.max_seq_length,
+        "per_device_train_batch_size": cfg.per_device_train_batch_size,
+        "gradient_accumulation_steps": cfg.gradient_accumulation_steps,
+        "learning_rate": cfg.learning_rate,
+        "num_train_epochs": cfg.num_train_epochs,
+        "lr_scheduler_type": "cosine",
+        "weight_decay": 0.01,
+        "logging_steps": 10,
+        "bf16": is_cuda and torch.cuda.is_bf16_supported(),
+        "fp16": is_cuda and not torch.cuda.is_bf16_supported(),
+        "use_cpu": not is_cuda,
+        "neftune_noise_alpha": cfg.neftune_noise_alpha,
+        "seed": cfg.seed,
+        "report_to": "none",
+        **get_warmup_kwargs(SFTConfig, cfg.warmup_ratio),
+    }
+    sft_args = SFTConfig(**filter_supported_kwargs(SFTConfig, sft_kwargs))
 
     trainer = SFTTrainer(
         model=base_model,
@@ -139,15 +190,38 @@ def train_qlora_rewriter(cfg: RewriterQLoRAConfig) -> None:
 
 
 def parse_args():
+    default_dataset = (
+        "data/sft/train_queries_sft.jsonl"
+        if Path("data/sft/train_queries_sft.jsonl").exists()
+        else "artifacts/rewriter_sft_chatml.jsonl"
+    )
     parser = argparse.ArgumentParser(description="QLoRA Fine-tuning for InferenceGuard Rewriter")
     parser.add_argument("--model_name", "--base_model", type=str, default=DEFAULT_BASE_MODEL,
                         help="Base model name. Must match what inference loads: see DEFAULT_BASE_MODEL.")
-    parser.add_argument("--dataset_path", "--train_path", type=str, required=True, help="Path to the JSONL dataset (ChatML or Alpaca format)")
+    parser.add_argument(
+        "--dataset_path",
+        "--train_path",
+        "--train_data",
+        type=str,
+        default=default_dataset,
+        help="Path to the JSONL dataset (ChatML or Alpaca format)",
+    )
+    parser.add_argument(
+        "--val_path",
+        "--val_data",
+        type=str,
+        default=None,
+        help="Path to validation JSONL dataset",
+    )
     parser.add_argument("--output_dir", type=str, default="artifacts/rewriter_qlora", help="Output directory for adapters")
     parser.add_argument("--batch_size", type=int, default=4, help="Per device train batch size")
-    parser.add_argument("--learning_rate", type=float, default=2e-4, help="Learning rate")
-    parser.add_argument("--epochs", type=int, default=3, help="Number of training epochs")
+    parser.add_argument("--learning_rate", "--lr", type=float, default=2e-4, help="Learning rate")
+    parser.add_argument("--epochs", type=int, default=4, help="Number of training epochs")
     parser.add_argument("--max_length", type=int, default=1024, help="Maximum sequence length")
+    parser.add_argument("--lora_r", type=int, default=32, help="LoRA rank dimension (capacity)")
+    parser.add_argument("--lora_alpha", type=int, default=64, help="LoRA alpha scaling parameter")
+    parser.add_argument("--lora_dropout", type=float, default=0.10, help="LoRA dropout rate (regularization)")
+    parser.add_argument("--weight_decay", type=float, default=0.01, help="AdamW weight decay parameter")
     return parser.parse_args()
 
 
@@ -178,15 +252,25 @@ def main():
     if "text" not in dataset.column_names:
         dataset = dataset.map(get_formatting_func(tokenizer))
 
+    eval_dataset = None
+    if args.val_path and Path(args.val_path).exists():
+        logger.info(f"Loading validation dataset from {args.val_path}")
+        eval_dataset = load_dataset("json", data_files=args.val_path, split="train")
+        if "text" not in eval_dataset.column_names:
+            eval_dataset = eval_dataset.map(get_formatting_func(tokenizer))
+
     device_map = {"": 0} if torch.cuda.is_available() else "cpu"
+    is_cuda = torch.cuda.is_available()
+    use_bf16 = is_cuda and torch.cuda.is_bf16_supported()
+    use_fp16 = is_cuda and not torch.cuda.is_bf16_supported()
     
-    if torch.cuda.is_available():
+    if is_cuda:
         logger.info("Configuring 4-bit quantization")
         bnb_config = BitsAndBytesConfig(
             load_in_4bit=True,
             bnb_4bit_use_double_quant=True,
             bnb_4bit_quant_type="nf4",
-            bnb_4bit_compute_dtype=torch.bfloat16
+            bnb_4bit_compute_dtype=torch.bfloat16 if use_bf16 else torch.float16
         )
         logger.info("Loading base model with quantization")
         model = AutoModelForCausalLM.from_pretrained(
@@ -194,7 +278,7 @@ def main():
             quantization_config=bnb_config,
             device_map=device_map,
             trust_remote_code=True,
-            torch_dtype=torch.bfloat16
+            torch_dtype=torch.bfloat16 if use_bf16 else torch.float16
         )
         model = prepare_model_for_kbit_training(model)
     else:
@@ -209,9 +293,9 @@ def main():
     model.config.use_cache = False
 
     peft_config = LoraConfig(
-        r=16,
-        lora_alpha=32,
-        lora_dropout=0.05,
+        r=args.lora_r,
+        lora_alpha=args.lora_alpha,
+        lora_dropout=args.lora_dropout,
         bias="none",
         task_type="CAUSAL_LM",
         target_modules=["q_proj", "k_proj", "v_proj", "o_proj", "gate_proj", "up_proj", "down_proj"]
@@ -219,48 +303,75 @@ def main():
     model = get_peft_model(model, peft_config)
     model.print_trainable_parameters()
 
-    # Handle cross-version compatibility for TRL
+    # Completion-only loss masking so the model only learns to output clean rewrites
+    collator = None
+    try:
+        from trl import DataCollatorForCompletionOnlyLM
+        collator = DataCollatorForCompletionOnlyLM(
+            response_template="<|im_start|>assistant\n",
+            tokenizer=tokenizer,
+        )
+    except Exception as exc:
+        logger.warning(f"Could not initialize DataCollatorForCompletionOnlyLM: {exc}")
+
+    # Handle cross-version compatibility for TRL and Transformers
     try:
         from trl import SFTConfig
-        training_args = SFTConfig(
-            output_dir=args.output_dir,
-            per_device_train_batch_size=args.batch_size,
-            gradient_accumulation_steps=4,
-            learning_rate=args.learning_rate,
-            num_train_epochs=args.epochs,
-            logging_steps=10,
-            save_strategy="epoch",
-            optim="paged_adamw_32bit",
-            bf16=True,
-            gradient_checkpointing=True,
-            max_length=args.max_length,
-            dataset_text_field="text"
-        )
+        sft_kwargs = {
+            "output_dir": args.output_dir,
+            "per_device_train_batch_size": args.batch_size,
+            "gradient_accumulation_steps": 4,
+            "learning_rate": args.learning_rate,
+            "num_train_epochs": args.epochs,
+            "weight_decay": args.weight_decay,
+            "lr_scheduler_type": "cosine",
+            "logging_steps": 10,
+            "save_strategy": "epoch",
+            "optim": "paged_adamw_32bit",
+            "bf16": use_bf16,
+            "fp16": use_fp16,
+            "use_cpu": not is_cuda,
+            "gradient_checkpointing": True,
+            "max_length": args.max_length,
+            "dataset_text_field": "text",
+            **get_warmup_kwargs(SFTConfig, 0.05),
+        }
+        training_args = SFTConfig(**filter_supported_kwargs(SFTConfig, sft_kwargs))
         trainer = SFTTrainer(
             model=model,
             train_dataset=dataset,
+            eval_dataset=eval_dataset,
+            data_collator=collator,
             processing_class=tokenizer,
-            args=training_args
+            args=training_args,
         )
-    except ImportError:
-        training_args = TrainingArguments(
-            output_dir=args.output_dir,
-            per_device_train_batch_size=args.batch_size,
-            gradient_accumulation_steps=4,
-            learning_rate=args.learning_rate,
-            num_train_epochs=args.epochs,
-            logging_steps=10,
-            save_strategy="epoch",
-            optim="paged_adamw_32bit",
-            bf16=True,
-            gradient_checkpointing=True,
-        )
+    except (ImportError, TypeError):
+        t_kwargs = {
+            "output_dir": args.output_dir,
+            "per_device_train_batch_size": args.batch_size,
+            "gradient_accumulation_steps": 4,
+            "learning_rate": args.learning_rate,
+            "num_train_epochs": args.epochs,
+            "weight_decay": args.weight_decay,
+            "lr_scheduler_type": "cosine",
+            "logging_steps": 10,
+            "save_strategy": "epoch",
+            "optim": "paged_adamw_32bit",
+            "bf16": use_bf16,
+            "fp16": use_fp16,
+            "use_cpu": not is_cuda,
+            "gradient_checkpointing": True,
+            **get_warmup_kwargs(TrainingArguments, 0.05),
+        }
+        training_args = TrainingArguments(**filter_supported_kwargs(TrainingArguments, t_kwargs))
         trainer = SFTTrainer(
             model=model,
             train_dataset=dataset,
+            eval_dataset=eval_dataset,
+            data_collator=collator,
             tokenizer=tokenizer,
             args=training_args,
-            dataset_text_field="text"
+            dataset_text_field="text",
         )
 
     logger.info("Starting QLoRA fine-tuning")
