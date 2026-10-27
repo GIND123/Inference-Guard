@@ -11,6 +11,7 @@ dataset:
 split_provenance:
   profile_split_file: artifacts/profile_splits.json
   manifest_file: data/manifests/split_manifest.json
+  test_split_file: data/splits/test.jsonl
   expected_seed: 42
   require_profile_disjoint: true
   require_manifest_hashes: true
@@ -24,6 +25,25 @@ risk_model:
 rewriter:
   name: Qwen/Qwen2.5-1.5B-Instruct
   checkpoint: artifacts/rewriter_qlora
+
+training_provenance:
+  teacher_manifest_file: data/sft/teacher_v1/manifest_train.json
+  training_dataset_file: data/sft/teacher_v1/train.jsonl
+  require_teacher_manifest_clean_git: true
+  require_training_dataset_hash_match: true
+  require_train_split_hash_match: true
+  forbid_attacker_as_teacher: true
+  require_teacher_revision: true
+
+student_provenance:
+  active_base_model: Qwen/Qwen2.5-1.5B-Instruct
+  adapter_dir: artifacts/rewriter_qlora
+  adapter_manifest_file: artifacts/rewriter_qlora/training_manifest.json
+  require_adapter_manifest: true
+  require_base_model_match: true
+  require_training_dataset_hash_match: true
+  require_teacher_manifest_hash_match: true
+  require_adapter_file_hashes: true
 
 attacker:
   name: microsoft/Phi-4-mini-instruct
@@ -81,6 +101,11 @@ metrics:
     - split_name
     - split_manifest_sha256
     - git_commit_sha
+    - student_base_model_id
+    - student_adapter_manifest_sha256
+    - training_dataset_sha256
+    - teacher_manifest_sha256
+    - readiness_artifact_sha256
 
   performance:
     - presidio_ms
@@ -94,6 +119,7 @@ output:
   root: experiments/session08_heldout_eval_v1
   raw_dir: experiments/session08_heldout_eval_v1/raw
   derived_dir: experiments/session08_heldout_eval_v1/derived
+  readiness_file: experiments/session08_heldout_eval_v1/readiness.json
 
 validation:
   fail_on_missing_required_fields: true
