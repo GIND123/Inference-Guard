@@ -41,20 +41,24 @@ python -m src.risk_model.train \
     --epochs 3
 ```
 
-### 2. Generate SFT Dataset
-To generate the Supervised Fine-Tuning dataset for the Qwen rewriter using Pareto Rejection Sampling:
-```python
-from src.rewriter.generate_training_data import generate_sft_dataset
+### 2. Build the rewriter SFT set
+The profile-disjoint splits are committed under `data/splits/` and hashed in
+`data/manifests/split_manifest.json`. Nothing needs downloading first. If they
+are ever missing, `python -m src.data.splits` regenerates them from the pinned
+SynthPAI revision, and `python scripts/check_splits.py` checks them.
 
-sft_metrics = generate_sft_dataset(
-    synthpai_path="data/raw/synthpai.jsonl",
-    splits_path="artifacts/profile_splits.json",
-    output_chatml_path="artifacts/rewriter_sft_chatml.jsonl",
-    output_alpaca_path="artifacts/rewriter_sft_alpaca.json",
-    max_risk_threshold=0.30,
-    min_cosine_threshold=0.50
-)
+The SFT targets come from a local teacher LLM (Qwen3-4B, thinking off). Each
+rewrite is kept only if it passes a verbatim leak check against the author's
+true attributes, the degeneracy rule, and NLI entailment. The held-out Phi-4
+attacker is never used. See the docstring of `src/rewriter/teacher_sft.py`.
+```bash
+python -m src.rewriter.teacher_sft --split train --device cuda --out-dir data/sft/teacher_v1   # or --device mps / cpu
 ```
+It writes `train.jsonl` (rows in the exact prompt format inference serves),
+`candidates_train.jsonl` (every teacher output with its verdict), and
+`manifest_train.json`. The run resumes from the candidates file if
+interrupted. Train the adapter on it with
+`python -m src.rewriter.train_sft --dataset_path data/sft/teacher_v1/train.jsonl`.
 
 ### 3. Launch the Web UI
 To spin up the live interactive web UI inside Colab and test your trained models:
