@@ -380,6 +380,9 @@ def presidio_stage(text: str) -> Tuple[List[PiiSpan], str]:
 
 def risk_stage(text: str, session_id: str, input_spans: List[PiiSpan]) -> Tuple[Any, PrivacyReport]:
     """Multi-turn tracking and inferential risk (the risk model runs inside add_turn)."""
+    active_rm = get_risk_model()
+    if active_rm is not None:
+        conversation_tracker.risk_estimator_fn = active_rm
     turn_rec = conversation_tracker.add_turn(raw_text=text, session_id=session_id)
     cues_list: List[Cue] = []
     for attr, score in turn_rec.turn_scores.items():
@@ -491,19 +494,7 @@ def select_rewrite(
                     last_debug_trace = trace
                     return selected[0], engine
 
-                # If Pareto rejected clean_qwen due to strict risk threshold on heuristic regex keywords
-                # or task preamble stripping, verify it meets the project utility floor:
-                if engine == ENGINE_QWEN:
-                    util = utility_evaluator.compute_metrics(text, clean_qwen)
-                    if (
-                        util.get("utility_score", 0.0) >= DEFAULT_UTILITY_FLOOR
-                        or util.get("cosine_similarity", 0.0) >= PROVISIONAL_MIN_COSINE_THRESHOLD
-                    ):
-                        trace["selected_engine"] = ENGINE_QWEN
-                        trace["selected_text"] = clean_qwen
-                        trace["decision_reason"] = "Accepted via Qwen utility floor fallback."
-                        last_debug_trace = trace
-                        return clean_qwen, ENGINE_QWEN
+
 
     # Heuristic Candidate Evaluation
     heuristic_cands = generate_candidate_rewrites_heuristic(text)

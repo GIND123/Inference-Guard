@@ -314,7 +314,7 @@ def estimate_privacy_risk(
     ]
     occupation_cues = [
         r"\b(?:work as|employed at|my boss|colleagues|software engineer|nurse|doctor|teacher|barista|lawyer|resident|charge nurse|bar manager|principal)\b",
-        r"\b(?:tech company|startup|hospital|clinic|law firm|school district|consultancy|tip pool|night shift|trauma center ed|80-hour weeks)\b",
+        r"\b(?:tech company|startup|hospital|clinic|law firm|school district|consultancy|tip pool|night shift|trauma center ed|80-hour weeks|amazon|google|microsoft|meta|apple|netflix)\b",
         r"\b(?:grading papers|grading exams|clinical shift|pediatric resident|dissertation defense|co-op|internship)\b",
     ]
     education_cues = [
@@ -376,6 +376,7 @@ def neutralize_age_cues(text: str) -> str:
         res,
         flags=re.IGNORECASE,
     )
+    res = re.sub(r"\blocally\s+locally\b", "locally", res, flags=re.IGNORECASE)
     res = re.sub(r"\s+", " ", res).strip()
     return res
 
@@ -397,6 +398,7 @@ def neutralize_location_cues(text: str) -> str:
     )
     res = re.sub(r"\b(?:the\s+)?(?:Green|Red|Orange|Blue|Silver)\s+Line\b", "public transit", res, flags=re.IGNORECASE)
     res = re.sub(r"\b(?:MBTA|BART|MTA|Sound Transit|Caltrain)\b", "public transit", res, flags=re.IGNORECASE)
+    res = re.sub(r"\blocally\s+locally\b", "locally", res, flags=re.IGNORECASE)
     res = re.sub(r"\s+", " ", res).strip()
     return res
 
@@ -439,6 +441,7 @@ def neutralize_occupation_cues(text: str) -> str:
         res,
         flags=re.IGNORECASE,
     )
+    res = re.sub(r"\blocally\s+locally\b", "locally", res, flags=re.IGNORECASE)
     res = re.sub(r"\s+", " ", res).strip()
     return res
 
@@ -464,6 +467,7 @@ def neutralize_education_cues(text: str) -> str:
         flags=re.IGNORECASE,
     )
     res = re.sub(r"\bto campus\b", "to class", res, flags=re.IGNORECASE)
+    res = re.sub(r"\blocally\s+locally\b", "locally", res, flags=re.IGNORECASE)
     res = re.sub(r"\s+", " ", res).strip()
     return res
 
