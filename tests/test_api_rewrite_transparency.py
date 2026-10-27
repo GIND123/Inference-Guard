@@ -11,6 +11,11 @@ from __future__ import annotations
 import hashlib
 
 import pytest
+
+pytest.importorskip(
+    "fastapi",
+    reason="needs the optional fastapi dependency; see tests/README.md",
+)
 from fastapi.testclient import TestClient
 
 from web import api

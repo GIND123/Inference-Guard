@@ -9,6 +9,11 @@ from __future__ import annotations
 
 import pytest
 
+pytest.importorskip(
+    "pydantic",
+    reason="needs the optional pydantic dependency; see tests/README.md",
+)
+
 from src.contracts.schemas import AttributeName
 from src.risk_model.attribution import SyntaxAlignedCueAttributor
 from src.risk_model.calibrate import AttributeTemperatureScaler

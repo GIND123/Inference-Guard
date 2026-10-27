@@ -10,6 +10,11 @@ import json
 import tempfile
 from pathlib import Path
 import pytest
+
+pytest.importorskip(
+    "pydantic",
+    reason="needs the optional pydantic dependency; see tests/README.md",
+)
 from pydantic import ValidationError
 
 from src.schemas.user_study import (

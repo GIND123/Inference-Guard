@@ -13,6 +13,11 @@ import tempfile
 from pathlib import Path
 import pytest
 
+pytest.importorskip(
+    "numpy",
+    reason="needs the optional numpy dependency; see tests/README.md",
+)
+
 from src.data.splits import create_profile_disjoint_splits, extract_profile_id
 
 

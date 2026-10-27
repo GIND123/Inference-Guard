@@ -10,6 +10,11 @@ from __future__ import annotations
 import tempfile
 from pathlib import Path
 import pytest
+
+pytest.importorskip(
+    "fastapi",
+    reason="needs the optional fastapi dependency; see tests/README.md",
+)
 from fastapi.testclient import TestClient
 from pydantic import ValidationError
 

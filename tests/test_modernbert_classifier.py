@@ -8,6 +8,11 @@ from pathlib import Path
 from typing import Optional
 
 import pytest
+
+pytest.importorskip(
+    "torch",
+    reason="needs the optional torch dependency; see tests/README.md",
+)
 import torch
 import torch.nn as nn
 
