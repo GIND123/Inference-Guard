@@ -187,3 +187,50 @@ def test_committed_user_study_records_are_parseable():
             json.loads(path.read_text(encoding="utf-8"))
         except json.JSONDecodeError as exc:
             raise AssertionError(f"{path.relative_to(ROOT)} is not valid JSON: {exc}")
+
+
+# --- stdlib APIs newer than our declared floor ----------------------------
+
+# (pattern, first version that has it, what to use instead). One entry today;
+# the shape is here so the next one is a line rather than a new test.
+VERSION_GATED_APIS = [
+    (
+        re.compile(r"\.write_text\([^)]*\bnewline\s*="),
+        (3, 10),
+        "Path.write_bytes(text.encode('utf-8')), or open(..., newline=...)",
+    ),
+]
+
+
+def _declared_python_floor() -> tuple[int, int]:
+    """Lowest Python pyproject.toml claims to support.
+
+    Read with a regex rather than tomllib, which is itself 3.11+ — a version
+    check that only runs on new Pythons would miss the thing it is checking.
+    """
+    text = (ROOT / "pyproject.toml").read_text(encoding="utf-8")
+    m = re.search(r'requires-python\s*=\s*["\']>=\s*(\d+)\.(\d+)', text)
+    assert m, "pyproject.toml does not declare requires-python"
+    return int(m.group(1)), int(m.group(2))
+
+
+def test_source_does_not_use_apis_newer_than_the_declared_python_floor():
+    """CI runs one Python version, so version drift is invisible to it.
+
+    `src/data/splits.py` called `Path.write_text(..., newline="\\n")`, which
+    arrived in 3.10, while pyproject declared >=3.9. CI on 3.11 passed, and
+    the failure only appeared on a developer machine running the version we
+    claim to support. A static check is the cheapest way to catch the class.
+    """
+    floor = _declared_python_floor()
+    offenders = []
+    for path in sorted(ROOT.glob("src/**/*.py")) + sorted(ROOT.glob("scripts/*.py")):
+        source = path.read_text(encoding="utf-8")
+        for pattern, added_in, alternative in VERSION_GATED_APIS:
+            if added_in > floor and pattern.search(source):
+                offenders.append(
+                    f"{path.relative_to(ROOT)} uses an API added in "
+                    f"{added_in[0]}.{added_in[1]}, but requires-python is "
+                    f">={floor[0]}.{floor[1]} — use {alternative}"
+                )
+    assert not offenders, "\n".join(offenders)
