@@ -86,6 +86,12 @@ def make_risk_estimator(model: Any, tokenizer: Any, device: str) -> Callable[[st
             logits = model(**inputs)
             scores = {attr: torch.sigmoid(logits[i]).item() for i, attr in enumerate(["age", "location", "occupation", "education"])}
 
+        rule_scores = estimate_privacy_risk(text, risk_model_fn=None)
+        scores = {
+            attr: round(0.5 * scores[attr] + 0.5 * rule_scores.get(attr, 0.05), 4)
+            for attr in ["age", "location", "occupation", "education"]
+        }
+
         text_lower = text.lower()
         has_first_person = bool(re.search(
             r"\b(i|i'm|i am|my|me|myself|mine|we|our|ours|us|i've|i'd|i'll)\b", text_lower
