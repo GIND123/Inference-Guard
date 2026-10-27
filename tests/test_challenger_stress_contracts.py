@@ -10,6 +10,11 @@ Executed by challenger_2 to verify:
 from __future__ import annotations
 
 import pytest
+
+pytest.importorskip(
+    "fastapi",
+    reason="needs the optional fastapi dependency; see tests/README.md",
+)
 from fastapi.testclient import TestClient
 
 from src.product.thresholds import PROVISIONAL_MAX_RISK_THRESHOLD

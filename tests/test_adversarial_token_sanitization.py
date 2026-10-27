@@ -13,6 +13,11 @@ Bombards clean_output across 8 vulnerability surfaces:
 """
 
 import pytest
+
+pytest.importorskip(
+    "torch",
+    reason="needs the optional torch dependency; see tests/README.md",
+)
 from src.rewriter.inference import QwenRewriterInference
 
 

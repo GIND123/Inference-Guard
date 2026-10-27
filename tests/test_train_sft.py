@@ -1,4 +1,11 @@
+
+import pytest
 import sys
+
+pytest.importorskip(
+    "torch",
+    reason="needs the optional torch dependency; see tests/README.md",
+)
 from unittest.mock import patch
 from src.rewriter.train_sft import parse_args, get_formatting_func
 from src.rewriter.constants import DEFAULT_BASE_MODEL

@@ -19,6 +19,11 @@ from typing import Any, Dict, List, Sequence
 from unittest.mock import MagicMock, patch
 
 import pytest
+
+pytest.importorskip(
+    "torch",
+    reason="needs the optional torch dependency; see tests/README.md",
+)
 import torch
 
 from src.rewriter.inference import (

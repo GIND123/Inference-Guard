@@ -3,11 +3,17 @@
 
 from __future__ import annotations
 
+import pytest
+
+# Guard before the heavy imports below, so a machine without the model
+# stack reports these as skipped rather than failing to collect.
+pytest.importorskip("numpy", reason="needs optional numpy; see tests/README.md")
+pytest.importorskip("torch", reason="needs optional torch; see tests/README.md")
+
 import tempfile
 from pathlib import Path
 
 import numpy as np
-import pytest
 import torch
 
 from src.product.risk_bands import ATTRIBUTES, Band, band_for, summarize

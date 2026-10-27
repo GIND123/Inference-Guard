@@ -7,10 +7,16 @@ entropy and probability margin calculations, and UI monotonic threshold mapping.
 
 from __future__ import annotations
 
+import pytest
+
+# Guard before the heavy imports below, so a machine without the model
+# stack reports these as skipped rather than failing to collect.
+pytest.importorskip("numpy", reason="needs optional numpy; see tests/README.md")
+pytest.importorskip("torch", reason="needs optional torch; see tests/README.md")
+
 import tempfile
 from pathlib import Path
 import numpy as np
-import pytest
 import torch
 import torch.nn.functional as F
 
