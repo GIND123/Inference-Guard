@@ -139,13 +139,19 @@ def create_profile_disjoint_splits(
             "profile_ids": sorted(pid_set),
         }
 
-    # Write manifest in output_dir and data/manifests
+    # Write manifest in output_dir and data/manifests.
+    # write_bytes rather than write_text(newline="\n"): that keyword only
+    # exists on Python 3.10+, and pyproject declares requires-python >=3.9.
+    # Writing encoded bytes gets the same result -- no newline translation on
+    # Windows -- on every supported version, which matters because the SHA-256
+    # in this manifest is compared across machines.
     manifest_json = json.dumps(manifest_hashes, indent=2)
-    (output_dir / "split_manifest.json").write_text(manifest_json, encoding="utf-8", newline="\n")
+    manifest_bytes = manifest_json.encode("utf-8")
+    (output_dir / "split_manifest.json").write_bytes(manifest_bytes)
 
     target_manifest_dir = manifest_dir or (Path("data") / "manifests")
     target_manifest_dir.mkdir(parents=True, exist_ok=True)
-    (target_manifest_dir / "split_manifest.json").write_text(manifest_json, encoding="utf-8", newline="\n")
+    (target_manifest_dir / "split_manifest.json").write_bytes(manifest_bytes)
 
     return manifest_hashes
 
