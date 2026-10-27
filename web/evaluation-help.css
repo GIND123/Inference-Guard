@@ -1,0 +1,48 @@
+
+.ig-help-button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 18px;
+    height: 18px;
+    padding: 0;
+    margin-left: 5px;
+    border: 1px solid #64748b;
+    border-radius: 50%;
+    background: #ffffff;
+    color: #475569;
+    font: 600 12px/1 system-ui;
+    vertical-align: middle;
+    cursor: help;
+}
+
+.ig-help-button:hover {
+    color: #1d4ed8;
+    border-color: #2563eb;
+    background: #eff6ff;
+}
+
+.ig-help-button:focus-visible {
+    outline: 2px solid #2563eb;
+    outline-offset: 3px;
+}
+
+#ig-evaluation-tooltip {
+    position: fixed;
+    z-index: 10000;
+    width: 320px;
+    max-width: calc(100vw - 24px);
+    max-height: calc(100vh - 24px);
+    overflow: auto;
+    padding: 12px 14px;
+    border-radius: 8px;
+    background: #0f172a;
+    color: #ffffff;
+    box-shadow: 0 6px 24px #0f172a33;
+    font: 400 13px/1.6 system-ui;
+    text-align: left;
+}
+
+#ig-evaluation-tooltip[hidden] {
+    display: none;
+}
