@@ -25,16 +25,46 @@ try:
     )
 except ImportError:
     SYSTEM_PROMPT = (
-        "You are InferenceGuard Rewriter. Rewrite the input user text to preserve "
-        "its intent, semantics, and utility while scrubbing explicit PII and neutralizing "
-        "inferential cues (age, location, occupation, education). Do not output reasoning "
-        "or thinking tokens."
+        "You are InferenceGuard Privacy Rewriter. Your task is to rewrite user prompts to external LLMs "
+        "to neutralize the author's personal demographic inferential cues (location, occupation, education, and age) "
+        "while preserving 100% of the query's problem-solving utility and technical precision.\n\n"
+        "REWRITING DIRECTIVES:\n"
+        "1. Preamble Pruning: If the user begins with an autobiographical framing clause that is not strictly needed "
+        "to solve their question (e.g., 'I am a resident at Boston Children's hospital working 80h weeks. Can you help me diagnose...'), "
+        "prune the personal preamble and start directly with the objective task: 'Can you help me diagnose...'.\n"
+        "2. Natural Generalization: If personal parameters are needed for the question (e.g. career longevity, life stage), "
+        "generalize them fluently into natural categories without exact ages, specific institutions, or localized employers.\n"
+        "3. No Placeholder Words: NEVER output bracketed tags or awkward fillers such as '[LOCATION]', '[OCCUPATION]', "
+        "'the area', 'an organization', or 'an adult'. The rewritten prompt must read as polished, natural English.\n"
+        "4. Domain Entity Invariance: NEVER alter third-party entities, problem descriptions, patients, symptoms, code, "
+        "algorithms, mathematical formulas, or legal statutes (e.g., retain 'a 4-year-old patient', 'OpenFOAM', 'LES vs RANS', 'Section 21', 'Miller capacitance').\n"
+        "5. Direct Output Only: Output ONLY the clean, rewritten prompt without conversational filler, notes, or explanations."
     )
 
     def generate_candidate_rewrites_heuristic(text: str) -> List[str]:
         return [text]
 
 logger = logging.getLogger(__name__)
+
+# Guard against PEFT dispatch bug when incompatible torchao (< 0.16.0) is pre-installed in Colab
+try:
+    import peft.import_utils
+    _orig_is_torchao = getattr(peft.import_utils, "is_torchao_available", None)
+    if _orig_is_torchao is not None:
+        def _safe_is_torchao_available() -> bool:
+            try:
+                return bool(_orig_is_torchao())
+            except ImportError:
+                return False
+
+        peft.import_utils.is_torchao_available = _safe_is_torchao_available
+        try:
+            import peft.tuners.lora.torchao as _tao
+            _tao.is_torchao_available = _safe_is_torchao_available
+        except Exception:
+            pass
+except Exception:
+    pass
 
 
 def clean_gpu_memory() -> None:
@@ -112,6 +142,7 @@ class QwenRewriterInference:
         self.resolved_base_model: str = model_name_or_path
         self.model: Any = None
         self.tokenizer: Any = None
+        self.last_error: Optional[str] = None
 
         # 1. Device auto-resolution
         if device is None:
@@ -315,8 +346,6 @@ class QwenRewriterInference:
             "<|thought|>",
             "</thought>",
             "<|im_start|>",
-            "<|im_end|>",
-            "<|endoftext|>",
         ]
         banned_ids: List[List[int]] = []
         for phrase in banned_phrases:
@@ -341,7 +370,7 @@ class QwenRewriterInference:
         for seq in self._get_banned_token_ids():
             if len(seq) == 1:
                 flat_ids.add(seq[0])
-        for token_str in ["<think>", "</think>", "<|thought|>", "</thought>", "<|im_start|>", "<|im_end|>", "<|endoftext|>"]:
+        for token_str in ["<think>", "</think>", "<|thought|>", "</thought>", "<|im_start|>"]:
             if hasattr(self.tokenizer, "convert_tokens_to_ids"):
                 try:
                     tid = self.tokenizer.convert_tokens_to_ids(token_str)
@@ -359,7 +388,6 @@ class QwenRewriterInference:
         return [proc]
 
     def format_chat_prompt(self, text: str) -> str:
-
         """Format input text into a ChatML prompt with system instruction and disabled thinking.
 
         The messages come from src.rewriter.prompting, which SFT data
@@ -407,7 +435,12 @@ class QwenRewriterInference:
             cand = candidates[0] if candidates and candidates[0] else text
         except Exception:
             cand = text
-        # Ensure 7-digit phone numbers without area code (e.g. 555-0199) are also scrubbed
+        # Scrub explicit hard PII from heuristic fallback
+        try:
+            from src.rewriter.generate_training_data import scrub_hard_pii
+            cand, _ = scrub_hard_pii(cand)
+        except Exception:
+            pass
         cand = re.sub(r"\b\d{3}[-.\s]\d{4}\b", "[PHONE]", cand)
         return cand
 
@@ -495,7 +528,27 @@ class QwenRewriterInference:
         # 7. Strip any stray think tags
         text = re.sub(r"</?think>", "", text, flags=re.IGNORECASE)
 
-        # 8. Strip ChatML and special control tokens
+        # 8. Early truncation at generation stop delimiters, tool calls, notes, and chatter
+        for stop_pat in [
+            r"<\|im_end\|>",
+            r"<\|endoftext\|>",
+            r"<\|im_start\|>",
+            r"<tool_call>",
+            r"\[REDACTED\](?:\s*\[REDACTED\]){2,}",
+            r"(?:\n|\A|\s*)(?:\*\*)?Note(?:\*\*)?:\s*This rewrite",
+            r"(?:\n|\A|\s*)(?:\*\*)?Note(?:\*\*)?:",
+            r";?\s*Sure!\s*I'm here to help",
+            r"#include\s*<iostream>",
+            r"istringstream\b",
+            r"\}\}\}\}\}",
+            r"<form\b",
+            r"Login failed\.\s*Please try again",
+        ]:
+            m = re.search(stop_pat, text, flags=re.IGNORECASE)
+            if m:
+                text = text[:m.start()]
+
+        # 9. Strip ChatML and special control tokens
         text = re.sub(r"<\|im_start\|>|<\|im_end\|>|<\|endoftext\|>", "", text)
         text = re.sub(r"<\|.*?\|>", "", text)
 
@@ -541,10 +594,15 @@ class QwenRewriterInference:
                     stripped_any = True
                     break
 
-        # 11. Normalize whitespace
+        # 11. Strip trailing hashtags and runaway emoji bursts
+        text = re.sub(r'(\s*#\w+.*)$', '', text)
+        text = re.sub(r'(\s*[\U0001F000-\U0001FAFF\U00002700-\U000027BF\U00002600-\U000026FF]){2,}.*$', '', text)
+        text = re.sub(r'([.!?]\s*)(?:[\U0001F000-\U0001FAFF\U00002700-\U000027BF\U00002600-\U000026FF\s.!?]+)$', r'\1', text)
+
+        # 12. Normalize whitespace
         text = re.sub(r"\s+", " ", text).strip()
 
-        # 12. Minimal length guard: if sanitized text is empty or degenerate, fall back
+        # 13. Minimal length guard: if sanitized text is empty or degenerate, fall back
         is_degenerate = (
             len(text) < 3
             or text.lower() in {"none", "n/a", "null", "empty", "...", "."}
@@ -580,6 +638,7 @@ class QwenRewriterInference:
         if not self.is_adapter_loaded or self.model is None or self.tokenizer is None:
             return self._heuristic_fallback(text)
 
+        self.last_error = None
         try:
             prompt = self.format_chat_prompt(text)
             inputs = self.tokenizer(
@@ -588,11 +647,14 @@ class QwenRewriterInference:
                 truncation=True,
                 max_length=1024,
             )
-            target_device = (
-                self.model.device
-                if hasattr(self.model, "device")
-                else torch.device(self.device)
-            )
+            try:
+                target_device = next(self.model.parameters()).device
+            except Exception:
+                target_device = (
+                    self.model.device
+                    if hasattr(self.model, "device")
+                    else torch.device(self.device)
+                )
             inputs = {k: v.to(target_device) for k, v in inputs.items()}
 
             gen_kwargs: Dict[str, Any] = {
@@ -607,8 +669,21 @@ class QwenRewriterInference:
                 gen_kwargs["logits_processor"] = logits_proc
             if self.tokenizer.pad_token_id is not None:
                 gen_kwargs["pad_token_id"] = self.tokenizer.pad_token_id
+            
+            eos_ids: List[int] = []
             if self.tokenizer.eos_token_id is not None:
-                gen_kwargs["eos_token_id"] = self.tokenizer.eos_token_id
+                if isinstance(self.tokenizer.eos_token_id, list):
+                    eos_ids.extend(self.tokenizer.eos_token_id)
+                else:
+                    eos_ids.append(self.tokenizer.eos_token_id)
+            if hasattr(self.tokenizer, "convert_tokens_to_ids"):
+                for stop_tok in ["<|im_end|>", "<|endoftext|>"]:
+                    tid = self.tokenizer.convert_tokens_to_ids(stop_tok)
+                    if isinstance(tid, int) and tid > 0 and tid not in eos_ids:
+                        eos_ids.append(tid)
+            if eos_ids:
+                gen_kwargs["eos_token_id"] = eos_ids if len(eos_ids) > 1 else eos_ids[0]
+            gen_kwargs["repetition_penalty"] = 1.15
             if do_sample and temperature > 0.0:
                 gen_kwargs["temperature"] = temperature
 
@@ -627,7 +702,8 @@ class QwenRewriterInference:
             return self.clean_output(raw_text, original_text=text)
 
         except Exception as exc:
-            logger.warning(
+            self.last_error = f"{type(exc).__name__}: {exc}"
+            logger.exception(
                 "Generation failed (%s: %s). Falling back to heuristic rewriter.",
                 type(exc).__name__,
                 exc,
@@ -784,11 +860,22 @@ class QwenPrivacyRewriterService:
         elif load_model:
             try:
                 from peft import PeftModel
-                from transformers import AutoModelForCausalLM
+                from transformers import AutoModelForCausalLM, BitsAndBytesConfig
+                is_cuda = "cuda" in str(self.device).lower() and torch.cuda.is_available()
+                use_bf16 = is_cuda and torch.cuda.is_bf16_supported()
+                bnb_config = None
+                if is_cuda:
+                    bnb_config = BitsAndBytesConfig(
+                        load_in_4bit=True,
+                        bnb_4bit_quant_type="nf4",
+                        bnb_4bit_use_double_quant=True,
+                        bnb_4bit_compute_dtype=torch.bfloat16 if use_bf16 else torch.float16,
+                    )
                 base = AutoModelForCausalLM.from_pretrained(
                     base_model_name,
-                    torch_dtype=torch.bfloat16 if (torch.cuda.is_available() and torch.cuda.is_bf16_supported()) else torch.float32,
-                    device_map="auto" if self.device == "cuda" else None,
+                    quantization_config=bnb_config,
+                    torch_dtype=torch.bfloat16 if use_bf16 else (torch.float16 if is_cuda else torch.float32),
+                    device_map="auto" if is_cuda else None,
                     trust_remote_code=True,
                 )
                 if adapter_dir and Path(adapter_dir).exists():
@@ -798,7 +885,12 @@ class QwenPrivacyRewriterService:
                     self.model = base
                     self.has_adapter = False
                 self.model.eval()
-            except Exception:
+            except Exception as exc:
+                logger.warning(
+                    "Failed to initialize QwenPrivacyRewriterService model (%s: %s). Operating in heuristic mode.",
+                    type(exc).__name__,
+                    exc,
+                )
                 self.model = None
         else:
             self.model = None
@@ -811,10 +903,9 @@ class QwenPrivacyRewriterService:
         conversation_state: Any,
         mode: Any = "balanced_sft",
     ) -> Tuple[str, float]:
-        """Protect text by cue-conditioned rewriting or safe pass-through with latency profiling."""
+        """Protect text with generalized privacy rewriting or safe pass-through with latency profiling."""
         import time
         from src.contracts.schemas import RewriteMode, RiskBand
-        from src.rewriter.generate_training_data import format_cue_conditioned_instruction
 
         start_ts = time.perf_counter()
         mode_val = getattr(mode, "value", str(mode))
@@ -849,16 +940,31 @@ class QwenPrivacyRewriterService:
             elapsed_ms = (time.perf_counter() - start_ts) * 1000.0
             return chosen, round(elapsed_ms, 2)
 
-        active_tokens = [
-            tok for tok in getattr(conversation_state, "reverse_entity_map", {}).keys()
-            if tok in pseudonymized_text
+        # Generalized ChatML prompt without demographic cue conditioning
+        messages = [
+            {"role": "system", "content": SYSTEM_PROMPT},
+            {"role": "user", "content": pseudonymized_text},
         ]
-        prompt = format_cue_conditioned_instruction(
-            pseudonymized_text=pseudonymized_text,
-            risk_report=risk_report,
-            mode=mode,
-            active_pseudonyms=active_tokens,
-        )
+        if hasattr(self.tokenizer, "apply_chat_template"):
+            try:
+                prompt = self.tokenizer.apply_chat_template(
+                    messages,
+                    tokenize=False,
+                    add_generation_prompt=True,
+                    enable_thinking=False,
+                )
+            except TypeError:
+                prompt = self.tokenizer.apply_chat_template(
+                    messages,
+                    tokenize=False,
+                    add_generation_prompt=True,
+                )
+        else:
+            prompt = (
+                f"<|im_start|>system\n{SYSTEM_PROMPT}<|im_end|>\n"
+                f"<|im_start|>user\n{pseudonymized_text}<|im_end|>\n"
+                f"<|im_start|>assistant\n"
+            )
 
         inputs = self.tokenizer(prompt, return_tensors="pt")
         target_device = getattr(self.model, "device", self.device)
@@ -866,34 +972,43 @@ class QwenPrivacyRewriterService:
         input_len = inputs["input_ids"].shape[1]
         max_new_tokens = min(256, int(input_len * 1.4) + 24)
 
+        eos_ids: List[int] = []
+        if getattr(self.tokenizer, "eos_token_id", None) is not None:
+            e_id = self.tokenizer.eos_token_id
+            if isinstance(e_id, list):
+                eos_ids.extend(e_id)
+            else:
+                eos_ids.append(e_id)
+        if hasattr(self.tokenizer, "convert_tokens_to_ids"):
+            for stop_tok in ["<|im_end|>", "<|endoftext|>"]:
+                tid = self.tokenizer.convert_tokens_to_ids(stop_tok)
+                if isinstance(tid, int) and tid > 0 and tid not in eos_ids:
+                    eos_ids.append(tid)
+        gen_eos = eos_ids if len(eos_ids) > 1 else (eos_ids[0] if eos_ids else None)
+
         if mode_val == "prompt_baseline" and self.has_adapter and hasattr(self.model, "disable_adapter"):
             with self.model.disable_adapter():
                 outputs = self.model.generate(
                     **inputs,
                     max_new_tokens=max_new_tokens,
                     do_sample=False,
-                    repetition_penalty=1.08,
-                    pad_token_id=getattr(self.tokenizer, "eos_token_id", None),
+                    repetition_penalty=1.12,
+                    pad_token_id=getattr(self.tokenizer, "pad_token_id", None) or getattr(self.tokenizer, "eos_token_id", None),
+                    eos_token_id=gen_eos,
                 )
         else:
             outputs = self.model.generate(
                 **inputs,
                 max_new_tokens=max_new_tokens,
                 do_sample=False,
-                repetition_penalty=1.05,
-                pad_token_id=getattr(self.tokenizer, "eos_token_id", None),
+                repetition_penalty=1.12,
+                pad_token_id=getattr(self.tokenizer, "pad_token_id", None) or getattr(self.tokenizer, "eos_token_id", None),
+                eos_token_id=gen_eos,
             )
 
         gen_ids = outputs[0][input_len:]
         rewritten = self.tokenizer.decode(gen_ids, skip_special_tokens=True).strip()
-        rewritten = re.sub(r"<\|im_end\|>.*$", "", rewritten, flags=re.DOTALL).strip()
-        rewritten = re.sub(
-            r"^(Here is the (protected |rewritten )?(message|text|version):\s*)",
-            "",
-            rewritten,
-            flags=re.IGNORECASE,
-        ).strip(' "')
-
+        rewritten = QwenRewriterInference.clean_output(rewritten, original_text=pseudonymized_text)
         if not rewritten:
             rewritten = pseudonymized_text
 

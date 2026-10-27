@@ -177,12 +177,13 @@ try:
     from src.risk_model.model import MultiTaskModernBERTRiskModel
     logger.info("Initializing MultiTaskModernBERTRiskModel backbone...")
     tokenizer = AutoTokenizer.from_pretrained("answerdotai/ModernBERT-base")
-    modernbert_model = MultiTaskModernBERTRiskModel(model_name="answerdotai/ModernBERT-base")
+    device = "cuda" if torch.cuda.is_available() else "cpu"
+    modernbert_model = MultiTaskModernBERTRiskModel(model_name="answerdotai/ModernBERT-base").to(device)
     risk_estimator = CalibratedRiskPredictor(
         model=modernbert_model,
         tokenizer=tokenizer,
         scaler=scaler,
-        device="cpu",
+        device=device,
     )
     cue_attributor = SyntaxAlignedCueAttributor(
         model=modernbert_model,

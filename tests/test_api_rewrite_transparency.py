@@ -27,6 +27,13 @@ HEURISTIC_OK = "I am 26 years old living in Denver, CO."
 UNCHANGED_HIGH = "I work as a nurse and my boss keeps changing the rota."
 
 
+@pytest.fixture(autouse=True)
+def _isolate_transparency(monkeypatch):
+    """Isolate transparency tests from persistent global neural rewriter adapters."""
+    monkeypatch.setattr(api, "qwen_rewriter", None)
+    monkeypatch.setattr(api, "get_qwen_rewriter", lambda: api.qwen_rewriter)
+
+
 @pytest.fixture
 def client():
     return TestClient(app)

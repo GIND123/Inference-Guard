@@ -58,13 +58,22 @@ class SyntaxAlignedCueAttributor:
         if not text.strip() or not target_attributes:
             return []
 
-        encoding = self.tokenizer(
-            text,
-            return_tensors="pt",
-            return_offsets_mapping=True,
-            truncation=True,
-            max_length=512,
-        )
+        if self.tokenizer is None or self.model is None:
+            return self._heuristic_fallback_cues(text, target_attributes)
+
+        try:
+            encoding = self.tokenizer(
+                text,
+                return_tensors="pt",
+                return_offsets_mapping=True,
+                truncation=True,
+                max_length=512,
+            )
+        except Exception:
+            return self._heuristic_fallback_cues(text, target_attributes)
+
+        if not isinstance(encoding, dict) or "input_ids" not in encoding or "offset_mapping" not in encoding:
+            return self._heuristic_fallback_cues(text, target_attributes)
         input_ids = encoding["input_ids"].to(self.device)
         attention_mask = encoding["attention_mask"].to(self.device)
         offsets: List[Tuple[int, int]] = encoding["offset_mapping"][0].tolist()
