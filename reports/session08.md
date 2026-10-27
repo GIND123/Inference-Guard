@@ -29,7 +29,6 @@ north_star:
     0.973 utility preservation on fallback, and unblocked held-out adversary execution pending student model adapter training.
   previous: >-
     Session 07: Instrumentation repaired; all prior attacker metrics voided and discarded due to substring and prompt decode defects.
-    Session 08: Verified full train/serve prompt parity and 6-gate distillation pipeline on 1,749 teacher rows.
 ---
 
 ## Shipped this week
@@ -40,46 +39,36 @@ north_star:
   6-gate validation pipeline: DeBERTa-v3 NLI contradiction <= 0.20, verbatim profile leak prevention, repetition
   checking, and evaluator independence. Added 15% identity no-ops (262 rows) to penalize over-sanitization.
   Enforced byte-for-byte prompt parity between training data generation and serving inference via `src/rewriter/prompting.py`.
-  (evidence: PR #69, `src/rewriter/teacher_sft.py`, `src/rewriter/prompting.py`, `data/sft/teacher_v1/train.jsonl`, `data/sft/teacher_v1/manifest_train.json`, `tests/test_teacher_sft.py`)
 
 - **Multi-cue demographic risk model calibration.** Calibrated neural ModernBERT risk predictions
   against discrete risk band boundaries in `web/api.py` (`make_risk_estimator`). Single demographic cues (`rule == 0.45`)
   are bounded strictly within the medium band `[0.45, 0.50]`, while multiple corroborating cues (`rule >= 0.75`) are mapped
   to high risk (`0.95`). Resolved the regression where clean scrubbed inputs scored `worse` instead of `improved`.
-  (evidence: `web/api.py`, `src/product/thresholds.py`, `tests/test_challenger_stress_contracts.py::test_analyze_clean_scrubbed_input_wins`)
 
 - **Transparency test isolation.** Decoupled unit tests in `tests/test_api_rewrite_transparency.py` from
   disk-cached LoRA adapters (`artifacts/rewriter_qlora`) using an autouse fixture (`_isolate_transparency`).
   Guarantees that isolated engine tests assert strictly against `presidio_fallback` rather than being hijacked
   by local checkpoint weights.
-  (evidence: `tests/test_api_rewrite_transparency.py`, `web/api.py`)
 
 - **Rewriter generation stability and EOS handling.** Resolved infinite generation loops by unbanning
   `<|im_end|>` and `<|endoftext|>` in `src/rewriter/inference.py` logits processors (`_get_banned_token_ids`), allowing
   causal models to stop naturally upon completion. Added PEFT `torchao` import guards to protect pre-installed
   Colab environments.
-  (evidence: `src/rewriter/inference.py`, `tests/test_adversarial_token_sanitization.py`)
 
 - **CUDA device tensor placement safeguards.** Added parameter device alignment in `MultiTaskModernBERTRiskModel.forward`
   (`src/risk_model/model.py`) and dynamic device resolution in `src/api/app.py`, preventing runtime device mismatch errors on GPU.
-  (evidence: `src/risk_model/model.py`, `src/api/app.py`, `tests/test_pipeline_e2e.py`)
 
 - **Robust utility evaluation fallbacks.** Integrated automatic `transformers.AutoModel` sentence embedding
   fallback in `src/evaluation/utility.py` when `sentence_transformers` is missing, and added local cache checks
   to prevent unauthenticated multi-GB download hangs when cross-encoder weights are not locally cached.
-  (evidence: `src/evaluation/utility.py`, `tests/test_challenger_stress_contracts.py`, `tests/test_attribution.py`, `tests/test_pipeline_e2e.py`)
 
 - **Diagnostic observability endpoints.** Implemented `/status` and `/debug/last_rewrite` endpoints in `web/api.py`
   providing runtime inspection of active neural adapters, loaded risk backbones, device placement, and VRAM memory allocation.
-  (evidence: `web/api.py`, `tests/test_ui_api.py::test_api_debug_last_rewrite_endpoint`)
 
 - **Evaluation terminology user testing (PR #70).** Evaluated interactive question-mark tooltips
   for complex evaluation terminology on participant P01 across controlled workplace conflict scenario S02.
   Recorded detailed user observations, system response metrics, and debrief feedback in `docs/userstudy/session08_record.json`
   and `artifacts/session08-doc.md`.
-  (evidence: PR #70, `docs/userstudy/session08_record.json`, `docs/session08-log/01.json`, `artifacts/session08-doc.md`, `web/evaluation-help.js`, `web/evaluation-help.css`)
-
-Three pull requests active or merged this week: **#69**, **#70**, and **this PR**.
 
 ## User evidence
 
@@ -98,7 +87,6 @@ Three pull requests active or merged this week: **#69**, **#70**, and **this PR*
       the rewrite successfully reduced exposure).
     - The participant accepted the rewrite without edits, rated perceived usefulness as 7, and confirmed willingness
       to use the tool before submitting sensitive queries.
-  - (evidence: `docs/session08-log/01.json`, `docs/userstudy/session08_record.json`, `artifacts/session08-doc.md`)
 
 ## Metrics snapshot
 
@@ -177,7 +165,6 @@ the held-out Phi-4 evaluation across `data/splits/test.jsonl` to report final at
     Engineered `/status` and `/debug/last_rewrite` diagnostic endpoints for live inspection of neural weights and VRAM; introduced
     test fixture isolation (`_isolate_transparency`) to decouple local disk-cached LoRA adapters from unit test suites; and
     standardized SFT training CLI flags (`--lr`, `--train_data`).
-  - (evidence: `web/api.py`, `src/risk_model/model.py`, `src/api/app.py`, `src/rewriter/inference.py`, `src/evaluation/utility.py`, `src/rewriter/train_sft.py`, `tests/test_api_rewrite_transparency.py`, `tests/test_challenger_stress_contracts.py`, `tests/test_attribution.py`, `tests/test_pipeline_e2e.py`)
 
 - **Yiwei Jin (Users&Research):**
   - [To be filled by Yiwei]
