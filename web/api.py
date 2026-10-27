@@ -84,13 +84,22 @@ def make_risk_estimator(model: Any, tokenizer: Any, device: str) -> Callable[[st
         inputs = tokenizer(text, return_tensors="pt", max_length=512, truncation=True).to(device)
         with torch.no_grad():
             logits = model(**inputs)
-            scores = {attr: torch.sigmoid(logits[i]).item() for i, attr in enumerate(["age", "location", "occupation", "education"])}
+            ml_scores = {attr: torch.sigmoid(logits[i]).item() for i, attr in enumerate(["age", "location", "occupation", "education"])}
 
         rule_scores = estimate_privacy_risk(text, risk_model_fn=None)
-        scores = {
-            attr: round(0.5 * scores[attr] + 0.5 * rule_scores.get(attr, 0.05), 4)
-            for attr in ["age", "location", "occupation", "education"]
-        }
+        scores: Dict[str, float] = {}
+        for attr in ["age", "location", "occupation", "education"]:
+            r = rule_scores.get(attr, 0.05)
+            m = ml_scores.get(attr, 0.05)
+            if r >= 0.75:
+                # Corroborating multiple cues: strictly high risk
+                scores[attr] = round(max(m, r), 4)
+            elif r == 0.45:
+                # Single demographic cue: bounded within the medium band
+                scores[attr] = round(min(max(m, 0.45), 0.50), 4)
+            else:
+                # No explicit cues detected by rules: bounded unless neural model flags strong indirect evidence
+                scores[attr] = round(min(m, 0.15) if m < 0.50 else min(m, 0.50), 4)
 
         text_lower = text.lower()
         has_first_person = bool(re.search(
