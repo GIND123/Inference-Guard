@@ -388,7 +388,7 @@ class HFTeacher:
             model_id, dtype=getattr(torch, dtype), device_map=None if device == "cpu" else device
         )
         self.model.eval()
-        self.revision = getattr(self.model.config, "_commit_hash", None)
+        self.revision = getattr(self.model.config, "_commit_hash", None) or _hub_revision(model_id)
         self.tokens_generated = 0
         self._torch = torch
 
@@ -478,7 +478,9 @@ class HFNLI:
         self.model_id = model_id
         self.evaluator = UtilityEvaluator(nli_model_name=model_id)
         self.evaluator.nli_pipeline = pipeline("text-classification", model=model_id, device=device)
-        self.revision = getattr(self.evaluator.nli_pipeline.model.config, "_commit_hash", None)
+        # The pipeline's config does not always carry the commit hash; the
+        # teacher_v1 manifest recorded null here before this fallback existed.
+        self.revision = getattr(self.evaluator.nli_pipeline.model.config, "_commit_hash", None) or _hub_revision(model_id)
 
     def __call__(self, premise: str, hypothesis: str) -> Dict[str, float]:
         probs, backend = self.evaluator._nli_with_backend(premise, hypothesis)
