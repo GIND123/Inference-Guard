@@ -67,7 +67,7 @@ north_star:
 - **Robust utility evaluation fallbacks.** Integrated automatic `transformers.AutoModel` sentence embedding
   fallback in `src/evaluation/utility.py` when `sentence_transformers` is missing, and added local cache checks
   to prevent unauthenticated multi-GB download hangs when cross-encoder weights are not locally cached.
-  (evidence: `src/evaluation/utility.py`, `tests/test_challenger_stress_contracts.py`)
+  (evidence: `src/evaluation/utility.py`, `tests/test_challenger_stress_contracts.py`, `tests/test_attribution.py`, `tests/test_pipeline_e2e.py`)
 
 - **Diagnostic observability endpoints.** Implemented `/status` and `/debug/last_rewrite` endpoints in `web/api.py`
   providing runtime inspection of active neural adapters, loaded risk backbones, device placement, and VRAM memory allocation.
@@ -163,20 +163,21 @@ the held-out Phi-4 evaluation across `data/splits/test.jsonl` to report final at
   - [To be filled by Govind]
 
 - **Anna Thomas (Data&Eval):**
-  - **Multi-Cue Neural Risk Calibration (`web/api.py`, `tests/test_challenger_stress_contracts.py`):** Calibrated ModernBERT
+  - **Multi-Cue Neural Risk Calibration (`web/api.py`, `tests/test_challenger_stress_contracts.py`, `tests/test_attribution.py`, `tests/test_pipeline_e2e.py`):** Calibrated ModernBERT
     predictions against discrete risk bands, bounding isolated single cues (`0.45`) to Medium risk and multi-cue corroborating
     evidence (`0.75+`) to High risk (`0.95`), resolving the `test_analyze_clean_scrubbed_input_wins` contract regression.
   - **Rewriter Generation Stability & Token Loop Mitigation (`src/rewriter/inference.py`, `tests/test_adversarial_token_sanitization.py`):**
     Eliminated infinite generation runaway loops by unbanning natural EOS stop tokens (`<|im_end|>`, `<|endoftext|>`) in rewriter
     logits processing, and patched PEFT `torchao` import dispatch to ensure runtime stability across Colab GPU environments.
-  - **GPU Device Placement & Utility Fallback Hardening (`src/risk_model/model.py`, `src/api/app.py`, `src/evaluation/utility.py`):**
-    Resolved CUDA device tensor mismatch crashes via dynamic parameter-device alignment, and implemented a standalone `transformers.AutoModel`
-    sentence embedding fallback and local cache checks to prevent multi-GB unauthenticated network hangs.
+  - **GPU Device Placement, Attributor Fallback & Utility Hardening (`src/risk_model/model.py`, `src/api/app.py`, `src/risk_model/attribution.py`, `src/evaluation/utility.py`):**
+    Resolved CUDA device tensor mismatch crashes via dynamic parameter-device alignment; fixed uninitialized `NoneType` tokenizer
+    crashes in `SyntaxAlignedCueAttributor.extract_cues` with automatic heuristic cue fallback; and implemented a standalone
+    `transformers.AutoModel` sentence embedding fallback and local cache checks to prevent multi-GB unauthenticated network hangs.
   - **API Observability & Test Fixture Isolation (`web/api.py`, `tests/test_api_rewrite_transparency.py`, `src/rewriter/train_sft.py`):**
     Engineered `/status` and `/debug/last_rewrite` diagnostic endpoints for live inspection of neural weights and VRAM; introduced
     test fixture isolation (`_isolate_transparency`) to decouple local disk-cached LoRA adapters from unit test suites; and
     standardized SFT training CLI flags (`--lr`, `--train_data`).
-  - (evidence: `web/api.py`, `src/risk_model/model.py`, `src/api/app.py`, `src/rewriter/inference.py`, `src/evaluation/utility.py`, `src/rewriter/train_sft.py`, `tests/test_api_rewrite_transparency.py`, `tests/test_challenger_stress_contracts.py`)
+  - (evidence: `web/api.py`, `src/risk_model/model.py`, `src/api/app.py`, `src/rewriter/inference.py`, `src/evaluation/utility.py`, `src/rewriter/train_sft.py`, `tests/test_api_rewrite_transparency.py`, `tests/test_challenger_stress_contracts.py`, `tests/test_attribution.py`, `tests/test_pipeline_e2e.py`)
 
 - **Yiwei Jin (Users&Research):**
   - [To be filled by Yiwei]

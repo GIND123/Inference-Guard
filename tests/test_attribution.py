@@ -124,3 +124,17 @@ def test_empty_and_stopword_text_returns_empty_cues():
     assert attributor.extract_cues("", [AttributeName.LOCATION]) == []
     assert attributor.extract_cues("   ", [AttributeName.LOCATION]) == []
     assert attributor.extract_cues("it is what it is and so on", [AttributeName.LOCATION]) == []
+
+
+def test_attributor_fallback_when_tokenizer_or_model_is_none():
+    """Verify that attributor gracefully falls back to heuristic cues when tokenizer/model is None."""
+    scaler = AttributeTemperatureScaler()
+    attributor = SyntaxAlignedCueAttributor(
+        model=None,
+        tokenizer=None,
+        scaler=scaler,
+    )
+
+    cues = attributor.extract_cues("Contact me in Seattle.", [AttributeName.LOCATION])
+    assert len(cues) > 0
+    assert any("seattle" in c.span_text.lower() for c in cues)
