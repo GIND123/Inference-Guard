@@ -1,0 +1,80 @@
+{
+  "created_at": "2026-10-26T22:53:59",
+  "split": "train",
+  "source_records": 5232,
+  "inferable_records": 1827,
+  "teacher_inputs": 1827,
+  "limit": null,
+  "outcomes": {
+    "accepted": 1487,
+    "unchanged": 163,
+    "drifted": 40,
+    "contradiction": 132,
+    "leak": 5
+  },
+  "acceptance_rate": 0.8139,
+  "accepted_by_attribute": {
+    "age": 269,
+    "location": 190,
+    "occupation": 1000,
+    "education": 444
+  },
+  "verbatim_leaks_by_attribute": {
+    "age": 1,
+    "location": 1,
+    "occupation": 3,
+    "education": 0
+  },
+  "identity_noops": 262,
+  "rows": 1749,
+  "thresholds": {
+    "max_contradiction_either_direction": 0.2,
+    "min_forward_entailment_or": 0.5,
+    "min_token_cosine": 0.5,
+    "identity_ratio": 0.15,
+    "min_noop_words": 5,
+    "seed": 42
+  },
+  "generation_seconds_this_run": 1529.2,
+  "outputs": {
+    "sft": {
+      "path": "data/sft/teacher_v1/train.jsonl",
+      "sha256": "8cc33c669b8323e80f30efed4bd152594109adacbe65e944ea06d107dc9f4ce8"
+    },
+    "candidates": {
+      "path": "data/sft/teacher_v1/candidates_train.jsonl",
+      "sha256": "b8accfec8a2cd2b5843bc1281f52fb62b89b310fb336f4cf735253b0ad2ea30e"
+    }
+  },
+  "selection_independence": "Targets are selected by verbatim-leak, degeneracy and NLI checks only. Neither our risk model nor the held-out attacker is used to generate, select or filter rows.",
+  "command": "python -m src.rewriter.teacher_sft --split train --backend mlx --batch-size 8 --out-dir data/sft/teacher_v1",
+  "git_commit": "a04835315abeabd1533cccb6bbc5263dc82ef175",
+  "git_dirty": false,
+  "input": {
+    "path": "data/splits/train.jsonl",
+    "sha256": "c566c415d13b4a38801e1d0a2c1ab676793146a6e66e613f8631b54f31d8071d"
+  },
+  "teacher": {
+    "model_id": "mlx-community/Qwen2.5-7B-Instruct-4bit",
+    "revision": "c26a38f6a37d0a51b4e9a1eb3026530fa35d9fed",
+    "backend": "mlx",
+    "dtype": "mlx-4bit",
+    "decoding": "greedy",
+    "enable_thinking": false
+  },
+  "nli": {
+    "model_id": "cross-encoder/nli-deberta-v3-large",
+    "revision": null,
+    "device": "cpu"
+  },
+  "student_prompt": "src.rewriter.prompting.build_rewrite_messages with generate_training_data.SYSTEM_PROMPT",
+  "hardware": {
+    "device": "cpu",
+    "platform": "macOS-26.6.2-arm64-arm-64bit",
+    "python": "3.11.14",
+    "torch": "2.14.1",
+    "transformers": "5.20.1"
+  },
+  "teacher_tokens_generated_this_run": 42508,
+  "wall_seconds_this_run": 1529.3
+}
