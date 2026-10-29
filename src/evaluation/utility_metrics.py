@@ -14,8 +14,19 @@ import logging
 import math
 import os
 import re
+import sys
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Sequence, Tuple
+
+# Guard against broken torchvision binary mismatch in Colab (operator torchvision::nms does not exist)
+try:
+    import torchvision
+except Exception:
+    sys.modules["torchvision"] = None
+    for mod in list(sys.modules.keys()):
+        if mod.startswith("torchvision."):
+            del sys.modules[mod]
+
 import torch
 import torch.nn.functional as F
 
