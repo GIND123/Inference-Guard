@@ -15,14 +15,15 @@ import sys
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Sequence, Set
 
-# Guard against broken torchvision binary mismatch in Colab (operator torchvision::nms does not exist)
-try:
-    import torchvision
-except Exception:
-    sys.modules["torchvision"] = None
-    for mod in list(sys.modules.keys()):
-        if mod.startswith("torchvision."):
-            del sys.modules[mod]
+# Guard against broken multimodal C++ binary extensions in Colab (torchvision, torchaudio CUDA mismatches)
+for _broken_pkg in ("torchvision", "torchaudio"):
+    try:
+        __import__(_broken_pkg)
+    except Exception:
+        sys.modules[_broken_pkg] = None
+        for _mod in list(sys.modules.keys()):
+            if _mod.startswith(f"{_broken_pkg}."):
+                del sys.modules[_mod]
 
 import torch
 
