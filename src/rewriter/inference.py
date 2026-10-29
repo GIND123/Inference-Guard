@@ -17,13 +17,18 @@ from typing import Any, Dict, List, Optional, Sequence, Set
 
 # Guard against broken multimodal C++ binary extensions in Colab (torchvision, torchaudio CUDA mismatches)
 for _broken_pkg in ("torchvision", "torchaudio"):
-    try:
-        __import__(_broken_pkg)
-    except Exception:
-        sys.modules[_broken_pkg] = None
-        for _mod in list(sys.modules.keys()):
-            if _mod.startswith(f"{_broken_pkg}."):
-                del sys.modules[_mod]
+    sys.modules[_broken_pkg] = None
+    for _mod in list(sys.modules.keys()):
+        if _mod.startswith(f"{_broken_pkg}."):
+            del sys.modules[_mod]
+
+try:
+    import transformers.utils.import_utils as _iu
+
+    _iu.is_torchvision_available = lambda: False
+    _iu.is_torchaudio_available = lambda: False
+except Exception:
+    pass
 
 import torch
 
@@ -220,38 +225,45 @@ class QwenRewriterInference:
             )
             return
 
-        # Extract base model identifier from PeftConfig
+        # Extract base model identifier from adapter_config.json or fallback to PeftConfig
         resolved_base_model = self.model_name_or_path
-        try:
-            from peft import PeftConfig
+        cfg_file = adapter_p / "adapter_config.json"
+        extracted_base = None
+        if cfg_file.exists():
+            try:
+                import json
 
-            peft_cfg = PeftConfig.from_pretrained(str(adapter_p))
-            extracted_base = getattr(peft_cfg, "base_model_name_or_path", None)
-            if extracted_base:
-                # The adapter is the only authority on what it was trained
-                # against. This used to apply only when the caller had left
-                # model_name_or_path at its default, which meant the guard was
-                # skipped by precisely the two call sites that passed a
-                # different model explicitly. Trust the adapter always, and say
-                # so out loud when the caller disagreed.
-                if extracted_base != self.model_name_or_path:
-                    logger.warning(
-                        "Adapter at '%s' was trained on '%s', but '%s' was requested. "
-                        "Loading the adapter's own base model; the requested one would "
-                        "fail to accept these weights.",
-                        self.adapter_path,
-                        extracted_base,
-                        self.model_name_or_path,
-                    )
-                resolved_base_model = extracted_base
-                self.resolved_base_model = extracted_base
-        except Exception as exc:
-            logger.warning(
-                "Could not parse PeftConfig from '%s': %s. Operating in heuristic fallback mode.",
-                self.adapter_path,
-                exc,
-            )
-            return
+                cfg_data = json.loads(cfg_file.read_text(encoding="utf-8"))
+                extracted_base = cfg_data.get("base_model_name_or_path")
+            except Exception as exc:
+                logger.warning("Could not read JSON from '%s': %s", cfg_file, exc)
+
+        if not extracted_base:
+            try:
+                from peft import PeftConfig
+
+                peft_cfg = PeftConfig.from_pretrained(str(adapter_p))
+                extracted_base = getattr(peft_cfg, "base_model_name_or_path", None)
+            except Exception as exc:
+                logger.warning(
+                    "Could not extract base model from '%s': %s. Using default '%s'.",
+                    self.adapter_path,
+                    exc,
+                    resolved_base_model,
+                )
+
+        if extracted_base:
+            if extracted_base != self.model_name_or_path:
+                logger.warning(
+                    "Adapter at '%s' was trained on '%s', but '%s' was requested. "
+                    "Loading the adapter's own base model; the requested one would "
+                    "fail to accept these weights.",
+                    self.adapter_path,
+                    extracted_base,
+                    self.model_name_or_path,
+                )
+            resolved_base_model = extracted_base
+            self.resolved_base_model = extracted_base
 
         # 5. Initialize Tokenizer and Base Model
         try:

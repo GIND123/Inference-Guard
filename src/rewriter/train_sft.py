@@ -15,13 +15,18 @@ from typing import Any, Callable, Dict, List, Optional
 
 # Guard against broken multimodal C++ binary extensions in Colab (torchvision, torchaudio CUDA mismatches)
 for _broken_pkg in ("torchvision", "torchaudio"):
-    try:
-        __import__(_broken_pkg)
-    except Exception:
-        sys.modules[_broken_pkg] = None
-        for _mod in list(sys.modules.keys()):
-            if _mod.startswith(f"{_broken_pkg}."):
-                del sys.modules[_mod]
+    sys.modules[_broken_pkg] = None
+    for _mod in list(sys.modules.keys()):
+        if _mod.startswith(f"{_broken_pkg}."):
+            del sys.modules[_mod]
+
+try:
+    import transformers.utils.import_utils as _iu
+
+    _iu.is_torchvision_available = lambda: False
+    _iu.is_torchaudio_available = lambda: False
+except Exception:
+    pass
 
 import torch
 from datasets import load_dataset
