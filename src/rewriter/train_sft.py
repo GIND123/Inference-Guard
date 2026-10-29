@@ -289,12 +289,13 @@ def train_qlora_rewriter(cfg: RewriterQLoRAConfig) -> None:
 def parse_args():
     default_dataset = get_default_dataset_path()
     parser = argparse.ArgumentParser(description="QLoRA Fine-tuning for InferenceGuard Rewriter")
-    parser.add_argument("--model_name", "--base_model", type=str, default=DEFAULT_BASE_MODEL,
+    parser.add_argument("--model_name", "--base_model", "--model_name_or_path", type=str, default=DEFAULT_BASE_MODEL,
                         help="Base model name or alias (e.g. qwen-0.6b, Qwen/Qwen2.5-0.5B-Instruct, Qwen/Qwen2.5-1.5B-Instruct).")
     parser.add_argument(
         "--dataset_path",
         "--train_path",
         "--train_data",
+        "--train_file",
         type=str,
         default=default_dataset,
         help="Path to the JSONL dataset (ChatML or Alpaca format)",
@@ -302,6 +303,7 @@ def parse_args():
     parser.add_argument(
         "--val_path",
         "--val_data",
+        "--val_file",
         type=str,
         default=None,
         help="Path to validation JSONL dataset",
@@ -312,10 +314,11 @@ def parse_args():
     parser.add_argument("--save_strategy", type=str, default="steps", choices=["steps", "epoch", "no"], help="Checkpoint save strategy")
     parser.add_argument("--save_steps", type=int, default=50, help="Checkpoint save step frequency")
     parser.add_argument("--save_total_limit", type=int, default=3, help="Max checkpoints to retain on disk/drive")
-    parser.add_argument("--batch_size", type=int, default=4, help="Per device train batch size")
+    parser.add_argument("--batch_size", "--per_device_train_batch_size", type=int, default=4, help="Per device train batch size")
+    parser.add_argument("--gradient_accumulation_steps", type=int, default=4, help="Number of updates steps to accumulate")
     parser.add_argument("--learning_rate", "--lr", type=float, default=2e-4, help="Learning rate")
-    parser.add_argument("--epochs", type=int, default=4, help="Number of training epochs")
-    parser.add_argument("--max_length", type=int, default=1024, help="Maximum sequence length")
+    parser.add_argument("--epochs", "--num_train_epochs", type=int, default=4, help="Number of training epochs")
+    parser.add_argument("--max_length", "--max_seq_length", type=int, default=1024, help="Maximum sequence length")
     parser.add_argument("--max_steps", type=int, default=None, help="Maximum training steps (useful for verification)")
     parser.add_argument("--lora_r", type=int, default=32, help="LoRA rank dimension (capacity)")
     parser.add_argument("--lora_alpha", type=int, default=64, help="LoRA alpha scaling parameter")
@@ -432,7 +435,7 @@ def main():
         sft_kwargs = {
             "output_dir": args.output_dir,
             "per_device_train_batch_size": args.batch_size,
-            "gradient_accumulation_steps": 4,
+            "gradient_accumulation_steps": args.gradient_accumulation_steps,
             "learning_rate": args.learning_rate,
             "num_train_epochs": args.epochs,
             "weight_decay": args.weight_decay,
@@ -466,7 +469,7 @@ def main():
         t_kwargs = {
             "output_dir": args.output_dir,
             "per_device_train_batch_size": args.batch_size,
-            "gradient_accumulation_steps": 4,
+            "gradient_accumulation_steps": args.gradient_accumulation_steps,
             "learning_rate": args.learning_rate,
             "num_train_epochs": args.epochs,
             "weight_decay": args.weight_decay,
