@@ -1,0 +1,55 @@
+{
+  "schema_version": "session08_eval_readiness_v1",
+  "overall_status": "READY",
+  "checks": {
+    "config_contract": {
+      "status": "PASS",
+      "blocking_reasons": [],
+      "warnings": []
+    },
+    "training_dataset": {
+      "status": "PASS",
+      "blocking_reasons": [],
+      "warnings": [
+        "Teacher manifest does not pin the NLI model revision; exact teacher-selection replay is incomplete"
+      ]
+    },
+    "student_adapter": {
+      "status": "PASS",
+      "blocking_reasons": [],
+      "warnings": []
+    },
+    "test_split": {
+      "status": "PASS",
+      "blocking_reasons": [],
+      "warnings": []
+    },
+    "attacker_configuration": {
+      "status": "PASS",
+      "blocking_reasons": [],
+      "warnings": []
+    },
+    "utility_configuration": {
+      "status": "PASS",
+      "blocking_reasons": [],
+      "warnings": []
+    }
+  },
+  "provenance": {
+    "teacher_model_id": "mlx-community/Qwen2.5-7B-Instruct-4bit",
+    "teacher_model_revision": "c26a38f6a37d0a51b4e9a1eb3026530fa35d9fed",
+    "training_dataset_sha256": "8cc33c669b8323e80f30efed4bd152594109adacbe65e944ea06d107dc9f4ce8",
+    "teacher_manifest_sha256": "e9d128410408c43234abd9a9eab3b83dfcbba0b74f330dd6afb488dda6ed295a",
+    "train_split_sha256": "c566c415d13b4a38801e1d0a2c1ab676793146a6e66e613f8631b54f31d8071d",
+    "student_adapter_manifest_sha256": "901479c448e32336af2a3b1bc5e8ded375355eba700dada41f5470ba944e4be4",
+    "student_base_model_id": "Qwen/Qwen2.5-0.5B-Instruct",
+    "test_split_sha256": "8874e24c20c52b999fc9fb707f96d770817b67decaa2522072af9955f2d1499d",
+    "split_manifest_sha256": "c10437c15970c6cbee4f7800581c7d5214fd1bde85fd1feabadb6072f9c7d2bb",
+    "attacker_model_id": "microsoft/Phi-4-mini-instruct",
+    "utility_nli_model_id": "cross-encoder/nli-deberta-v3-large"
+  },
+  "blocking_reasons": [],
+  "warnings": [
+    "training_dataset: Teacher manifest does not pin the NLI model revision; exact teacher-selection replay is incomplete"
+  ]
+}

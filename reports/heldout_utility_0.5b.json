@@ -1,0 +1,35 @@
+{
+  "test_split_path": "data\\splits\\test.jsonl",
+  "num_evaluated_samples": 2,
+  "static_prompt_baseline": {
+    "total_samples": 2,
+    "mean_semantic_similarity": 0.3406,
+    "mean_bidirectional_entailment": 0.5603,
+    "mean_forward_entailment": 0.5603,
+    "mean_backward_entailment": 0.5603,
+    "mean_contradiction_prob": 0.0659,
+    "mean_token_edit_ratio": 0.7278,
+    "utility_preservation_rate": 0.0,
+    "degeneracy_rate": 0.0,
+    "utility_backend": "fallback"
+  },
+  "teacher_distilled_student": {
+    "total_samples": 2,
+    "mean_semantic_similarity": 0.5684,
+    "mean_bidirectional_entailment": 0.6305,
+    "mean_forward_entailment": 0.6305,
+    "mean_backward_entailment": 0.6305,
+    "mean_contradiction_prob": 0.0432,
+    "mean_token_edit_ratio": 0.5027,
+    "utility_preservation_rate": 0.5,
+    "degeneracy_rate": 0.0,
+    "utility_backend": "fallback"
+  },
+  "delta": {
+    "bidirectional_entailment_gain": 0.0702,
+    "contradiction_drop": 0.0227,
+    "utility_preservation_gain": 0.5,
+    "semantic_similarity_delta": 0.2278
+  },
+  "generalization_improved": true
+}
