@@ -32,29 +32,29 @@ FEW_SHOT: List[Dict[str, str]] = [
     # 1. Preamble Pruning (Front): Personal context irrelevant to the technical task
     {
         "role": "user",
-        "content": _INSTRUCTION + "I am a 62-year-old retired cardiologist living in Miami Beach. What is the latest guideline for SGLT2 inhibitors in heart failure with preserved ejection fraction?",
+        "content": _INSTRUCTION + "I am a 48-year-old high school physics teacher in Chicago. Can you explain the difference between special and general relativity?",
     },
     {
         "role": "assistant",
-        "content": "What is the latest guideline for SGLT2 inhibitors in heart failure with preserved ejection fraction?",
+        "content": "Can you explain the difference between special and general relativity?",
     },
     # 2. Postamble Pruning (Back): Personal context provided after asking the query
     {
         "role": "user",
-        "content": _INSTRUCTION + "Can you explain the epsilon-delta definition of a limit with an intuitive diagram? FYI, I am an 18-year-old freshman at MIT struggling with 18.01 calculus.",
+        "content": _INSTRUCTION + "How do I configure a distributed Ray cluster on AWS? FYI, I am a junior developer at a startup in Austin.",
     },
     {
         "role": "assistant",
-        "content": "Can you explain the epsilon-delta definition of a limit with an intuitive diagram?",
+        "content": "How do I configure a distributed Ray cluster on AWS?",
     },
     # 3. Natural Parameter Generalization: When persona traits are needed as advisory parameters
     {
         "role": "user",
-        "content": _INSTRUCTION + "I am a software engineer at a mid-sized tech company in Seattle earning $180k. Can you help me optimize my 401(k) asset allocation between VOO and VXUS?",
+        "content": _INSTRUCTION + "I work as a freelance graphic designer in London making 50k a year. How should I structure my emergency fund?",
     },
     {
         "role": "assistant",
-        "content": "For someone in the $180k income bracket, how can I optimize my 401(k) asset allocation between VOO and VXUS?",
+        "content": "For someone with variable freelance income around 50k, how should an emergency fund be structured?",
     },
 ]
 
