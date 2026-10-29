@@ -598,6 +598,14 @@ class QwenRewriterInference:
             flags=re.IGNORECASE,
         )
 
+        # 10. Strip conversational filler (e.g. "Sure!", "Certainly!", "Here is...")
+        text = re.sub(
+            r"^(?:Sure!?|Certainly!?|Of course!?|Here is.*?:\s*|Here's.*?:\s*|Okay,?|Alright,?)\s*",
+            "",
+            text.strip(),
+            flags=re.IGNORECASE,
+        )
+
         # 10. Repeatedly strip markdown code blocks and surrounding balanced quotes/backticks
         stripped_any = True
         quotes = [
@@ -649,6 +657,20 @@ class QwenRewriterInference:
             if original_text and original_text.strip():
                 return QwenRewriterInference._heuristic_fallback(original_text)
             return text
+
+        # 14. Persona pruning safety post-guard: Neutralize any autobiographical framing
+        try:
+            from src.rewriter.prompting import prune_persona_bidirectional
+
+            pruned = prune_persona_bidirectional(text)
+            if pruned and len(pruned) >= 5:
+                text = pruned
+        except Exception:
+            pass
+
+        # 15. Echo guard: If generated text is an unchanged verbatim identity echo of the input, fall back
+        if original_text and text.strip().lower() == original_text.strip().lower():
+            return QwenRewriterInference._heuristic_fallback(original_text)
 
         return text
 
@@ -721,7 +743,7 @@ class QwenRewriterInference:
                         eos_ids.append(tid)
             if eos_ids:
                 gen_kwargs["eos_token_id"] = eos_ids if len(eos_ids) > 1 else eos_ids[0]
-            gen_kwargs["repetition_penalty"] = 1.15
+            gen_kwargs["repetition_penalty"] = 1.05
             if do_sample and temperature > 0.0:
                 gen_kwargs["temperature"] = temperature
 
