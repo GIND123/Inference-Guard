@@ -3,8 +3,14 @@
 from __future__ import annotations
 
 import json
+import sys
 from pathlib import Path
 from typing import Dict, List, Any
+
+# Ensure repository root is in sys.path regardless of working directory
+REPO_ROOT = Path(__file__).resolve().parent.parent
+if str(REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(REPO_ROOT))
 
 from src.rewriter.inference import QwenRewriterInference
 
