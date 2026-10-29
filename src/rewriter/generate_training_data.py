@@ -349,7 +349,7 @@ def neutralize_occupation_cues(text: str) -> str:
     )
     res = re.sub(
         r"\b(?:tech startup|startup|tech company|firm|clinic|hospital)\b",
-        "an organization",
+        "company",
         res,
         flags=re.IGNORECASE,
     )
@@ -371,7 +371,7 @@ def neutralize_education_cues(text: str) -> str:
         flags=re.IGNORECASE,
     )
     res = re.sub(
-        r"\b(?:bachelor'?s?|master'?s?|ph\.?d\.?|doctorate)\s*(?:degree)?\b",
+        r"\b(?:bachelor'?s?|master'?s?|ph\.?d\.?|doctorate)(?:\s+degree)?\b",
         "degree",
         res,
         flags=re.IGNORECASE,
@@ -501,15 +501,13 @@ def generate_candidate_rewrites_heuristic(text: str) -> List[str]:
     if check_degeneracy(text, cand1)["degenerate"]:
         return list(dict.fromkeys(c for c in candidates if c))
 
-    # Cand 4: placeholder tags derived from base
-    cand4 = re.sub(r"\b(?:\d{1,2}[-\s]*(?:years?[-\s]*old|yo|y/o)|in my (?:20s|30s|40s|50s|60s|twenties|thirties|forties))\b", "[AGE]", base_text, flags=re.IGNORECASE)
-    cand4 = re.sub(r"\b(?:in|to|from)\s+(?:Pittsburgh|Denver|Seattle|Austin|New York|Boston|Chicago|San Francisco|London|Paris|Tokyo)[,\sA-Z]*\b", "living in [LOCATION]", cand4, flags=re.IGNORECASE)
-    cand4 = re.sub(r"\b(?:Pittsburgh|Denver|Seattle|Austin|New York|Boston|Chicago|San Francisco)[,\sA-Z]*\b", "[LOCATION]", cand4, flags=re.IGNORECASE)
-    cand4 = re.sub(r"\b(?:work as|employed as|employed at|working as|internship in|intern at)\s+(?:a\s+|an\s+|my\s+)?(?:software engineer|lawyer|doctor|nurse|barista|consultant|designer|engineer|teacher|summer internship)\b", "work as [OCCUPATION]", cand4, flags=re.IGNORECASE)
-    cand4 = re.sub(r"\b(?:software engineer|lawyer|doctor|nurse|barista|consultant|designer)\b", "[OCCUPATION]", cand4, flags=re.IGNORECASE)
-    cand4 = re.sub(r"\b(?:undergrad at|attending|student at|degree from|graduated from)\s+[A-Za-z\s]+(?:University|College|Mellon|MIT)?\b", "after getting my [EDUCATION]", cand4, flags=re.IGNORECASE)
-    cand4 = re.sub(r"\b(?:undergrad|Carnegie Mellon|MIT|Stanford|Harvard|Berkeley)\b", "[EDUCATION]", cand4, flags=re.IGNORECASE)
-    candidates.append(cand4.strip())
+    # Cand 4: natural generalization without bracketed placeholders
+    cand4 = neutralize_age_cues(base_text)
+    cand4 = neutralize_location_cues(cand4)
+    cand4 = neutralize_occupation_cues(cand4)
+    cand4 = neutralize_education_cues(cand4)
+    cand4 = re.sub(r"\s+", " ", cand4).strip()
+    candidates.append(cand4)
 
     # Cand 5: age + occupation
     cand5 = re.sub(r"\b(?:\d{1,2}[-\s]*(?:years?[-\s]*old|yo|y/o)|in my (?:20s|30s|40s|50s|60s|twenties|thirties|forties))\b", "an adult", base_text, flags=re.IGNORECASE)
@@ -556,7 +554,7 @@ def generate_diverse_teacher_candidates(text: str) -> List[str]:
     prof = neutralize_location_cues(prof)
     prof = neutralize_occupation_cues(prof)
     prof = neutralize_education_cues(prof)
-    prof = re.sub(r"\b(?:tech company|startup|firm)\b", "an organization", prof, flags=re.IGNORECASE)
+    prof = re.sub(r"\b(?:tech company|startup|firm)\b", "company", prof, flags=re.IGNORECASE)
     prof = re.sub(r"\bmy (?:boss|manager|director)\b", "management", prof, flags=re.IGNORECASE)
     prof = re.sub(r"\bmy colleagues\b", "team members", prof, flags=re.IGNORECASE)
     prof = re.sub(r"\s+", " ", prof).strip()
@@ -1129,10 +1127,10 @@ class ParetoSFTDatasetBuilder:
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="Generate SFT dataset for InferenceGuard Rewriter")
-    parser.add_argument("-i", "--input", "--input_file", type=str, default="data/splits/train.jsonl", help="Path to SynthPAI dataset or train split")
-    parser.add_argument("-s", "--splits", "--splits_file", type=str, default="artifacts/profile_splits.json", help="Path to profile_splits.json")
-    parser.add_argument("-c", "-o", "--output", "--output_chatml", type=str, default="artifacts/rewriter_sft_chatml.jsonl", help="ChatML output path")
-    parser.add_argument("-a", "--output_alpaca", type=str, default="artifacts/rewriter_sft_alpaca.jsonl", help="Alpaca output path")
+    parser.add_argument("-i", "--input", "--input_file", "--input_path", type=str, default="data/splits/train.jsonl", help="Path to SynthPAI dataset or train split")
+    parser.add_argument("-s", "--splits", "--splits_file", "--splits_path", type=str, default="artifacts/profile_splits.json", help="Path to profile_splits.json")
+    parser.add_argument("-c", "-o", "--output", "--output_chatml", "--chatml_output", type=str, default="artifacts/rewriter_sft_chatml.jsonl", help="ChatML output path")
+    parser.add_argument("-a", "--output_alpaca", "--alpaca_output", type=str, default="artifacts/rewriter_sft_alpaca.jsonl", help="Alpaca output path")
     parser.add_argument("-n", "--max_samples", type=int, default=1000, help="Max accepted samples")
     parser.add_argument("--teacher_model", "--teacher", type=str, default="gpt-4", help="Teacher model name (e.g. gpt-4, gpt-4o, Qwen/Qwen2.5-7B-Instruct)")
     parser.add_argument("--api_key", type=str, default=None, help="Optional API key for teacher model")
