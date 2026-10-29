@@ -390,10 +390,19 @@ def main() -> None:
 
     evaluator = BidirectionalUtilityEvaluator()
 
+    student_rewriter = None
+    if args.adapter_dir or args.base_model:
+        from src.rewriter.inference import DEFAULT_BASE_MODEL, QwenRewriterInference
+        student_rewriter = QwenRewriterInference(
+            model_name_or_path=args.base_model or DEFAULT_BASE_MODEL,
+            adapter_path=args.adapter_dir,
+        )
+
     if args.compare_baseline:
         print(f"Comparing Student Model vs Prompt Baseline on {args.test_split} ({args.num_samples} samples)...")
         results = compare_held_out_generalization(
             test_split_path=args.test_split,
+            student_rewriter=student_rewriter,
             evaluator=evaluator,
             num_samples=args.num_samples,
         )
@@ -401,6 +410,7 @@ def main() -> None:
         print(f"Evaluating Student Model on {args.test_split} ({args.num_samples} samples)...")
         results = evaluate_held_out_split(
             test_split_path=args.test_split,
+            rewriter=student_rewriter,
             evaluator=evaluator,
             num_samples=args.num_samples,
         )
