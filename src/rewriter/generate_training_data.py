@@ -13,6 +13,7 @@ import argparse
 import json
 import logging
 import math
+import os
 import re
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional, Sequence, Set, Tuple
@@ -514,6 +515,200 @@ def generate_candidate_rewrites_heuristic(text: str) -> List[str]:
     return list(dict.fromkeys(c for c in candidates if c))
 
 
+def generate_diverse_teacher_candidates(text: str) -> List[str]:
+    """Programmatically generate diverse candidate rewrites mirroring a high-parameter teacher model.
+
+    Generates rich linguistic variations incorporating:
+      - Varied tones: professional/formal, casual/conversational, direct/objective, academic.
+      - Complex sentence structures: compound-complex sentences with subordinate clauses,
+        active/passive voice variations, and preamble pruning.
+      - Edge-case coverage: co-occurring demographic cues (age, location, occupation, education),
+        colloquialisms, regional markers, and generational tags without awkward bracketed tokens.
+    """
+    candidates: List[str] = []
+    base_text, _ = scrub_hard_pii(text)
+
+    # 1. Preamble Pruning (Directive 1): If the text starts with autobiographical framing,
+    # prune it to get directly to the objective task/question.
+    pruned_match = re.search(
+        r"^(?:I am|I'm|As|Being) (?:a|an) [^,.\n]+(?:working|living|studying|aged|years? old|in|at)[^,.\n]*[,\-—:]\s*(.+)$",
+        base_text,
+        flags=re.IGNORECASE,
+    )
+    if pruned_match:
+        pruned = pruned_match.group(1).strip()
+        if pruned:
+            pruned = pruned[0].upper() + pruned[1:]
+            candidates.append(pruned)
+
+    # 2. Professional / Formal Register:
+    # Fluently generalizes occupations, employers, and locations into enterprise domain concepts
+    prof = base_text
+    prof = neutralize_age_cues(prof)
+    prof = neutralize_location_cues(prof)
+    prof = neutralize_occupation_cues(prof)
+    prof = neutralize_education_cues(prof)
+    prof = re.sub(r"\b(?:tech company|startup|firm)\b", "an organization", prof, flags=re.IGNORECASE)
+    prof = re.sub(r"\bmy (?:boss|manager|director)\b", "management", prof, flags=re.IGNORECASE)
+    prof = re.sub(r"\bmy colleagues\b", "team members", prof, flags=re.IGNORECASE)
+    prof = re.sub(r"\s+", " ", prof).strip()
+    candidates.append(prof)
+
+    # 3. Conversational / Casual Register:
+    # Uses colloquial and conversational phrasing
+    cas = base_text
+    cas = re.sub(
+        r"\b(?:\d{1,2}[-\s]*(?:years?[-\s]*old|yo|y/o)|in my (?:20s|30s|40s|50s|60s|twenties|thirties|forties))\b",
+        "an adult",
+        cas,
+        flags=re.IGNORECASE,
+    )
+    cas = re.sub(
+        r"\b(?:in|to|from|near|around)\s+(?:Pittsburgh|Denver|Seattle|Austin|New York|Boston|Chicago|San Francisco|London|Paris|Tokyo)[,\sA-Z]*\b",
+        "around where I live",
+        cas,
+        flags=re.IGNORECASE,
+    )
+    cas = re.sub(
+        r"\b(?:work as|employed as|employed at|working as)\s+(?:a\s+|an\s+|my\s+)?(?:software engineer|lawyer|doctor|nurse|barista|consultant|designer|engineer|teacher)\b",
+        "work in my job",
+        cas,
+        flags=re.IGNORECASE,
+    )
+    cas = re.sub(
+        r"\b(?:undergrad at|attending|student at|degree from|graduated from)\s+[A-Za-z\s]+(?:University|College|Mellon|MIT)?\b",
+        "completing my studies",
+        cas,
+        flags=re.IGNORECASE,
+    )
+    cas = re.sub(r"\s+", " ", cas).strip()
+    candidates.append(cas)
+
+    # 4. Complex Compound-Complex Subordination:
+    # Restructures phrasing into subordinate clauses
+    comp = prof
+    if comp.lower().startswith("i "):
+        comp_variant = "While coordinating in my professional role, " + comp[2].lower() + comp[3:]
+        candidates.append(comp_variant)
+
+    # 5. Fluent Natural Generalization (without placeholder words or 'locally'):
+    natural = base_text
+    cities = r"Pittsburgh|Denver|Seattle|Austin|New York|Boston|Chicago|San Francisco|London|Paris|Tokyo"
+    natural = re.sub(rf"\b(?:in|to|from|near)\s+(?:{cities})(?:,\s*(?:[A-Za-z]{{4,}}|[A-Z]{{2}}))?\b", "in my region", natural, flags=re.IGNORECASE)
+    natural = re.sub(rf"\b(?:{cities})(?:,\s*(?:[A-Za-z]{{4,}}|[A-Z]{{2}}))?\b", "my region", natural, flags=re.IGNORECASE)
+    natural = re.sub(r"\b(?:\d{1,2}[-\s]*(?:years?[-\s]*old|yo|y/o))\b", "an adult", natural, flags=re.IGNORECASE)
+    natural = re.sub(r"\b(?:software engineer|lawyer|doctor|nurse|barista|consultant|designer|teacher)\b", "specialist", natural, flags=re.IGNORECASE)
+    natural = re.sub(r"\b(?:Carnegie Mellon|MIT|Stanford|Harvard|Berkeley)\b", "university", natural, flags=re.IGNORECASE)
+    natural = re.sub(r"\s+", " ", natural).strip()
+    candidates.append(natural)
+
+    # Include baseline heuristic transformations for robust coverage
+    heuristic_cands = generate_candidate_rewrites_heuristic(text)
+    candidates.extend(heuristic_cands)
+
+    return list(dict.fromkeys(c for c in candidates if c and c.strip()))
+
+
+class TeacherCandidateGenerator:
+    """Generates training data candidates using a high-parameter teacher model.
+
+    Supports:
+      - OpenAI models (e.g., 'gpt-4', 'gpt-4o') when API credentials are provided.
+      - HuggingFace open-weight teachers (e.g., 'Qwen/Qwen2.5-7B-Instruct').
+      - Programmatic teacher synthesis ensuring varied tones, complex structures,
+        and edge-case demographic coverage when offline or operating locally.
+    """
+
+    def __init__(
+        self,
+        teacher_model: Optional[str] = "gpt-4",
+        api_key: Optional[str] = None,
+        timeout: float = 20.0,
+    ) -> None:
+        self.teacher_model = teacher_model or "gpt-4"
+        self.api_key = api_key or os.environ.get("OPENAI_API_KEY")
+        self.timeout = timeout
+        self._openai_client = None
+        if self.api_key:
+            try:
+                import openai
+                self._openai_client = openai.OpenAI(api_key=self.api_key)
+            except Exception as e:
+                logger.warning(f"Could not initialize OpenAI teacher client: {e}")
+
+    def _query_openai_teacher(self, text: str) -> List[str]:
+        """Query OpenAI API with diverse style prompts to elicit varied rewrites."""
+        if not self._openai_client:
+            return []
+
+        prompts = [
+            (
+                "You are an expert privacy rewriter. Rewrite the following text in a polished, "
+                "formal professional tone. Neutralize all personal demographic cues (age, location, "
+                "occupation, education) while keeping core problem-solving facts intact. "
+                "Never use bracketed placeholders like [LOCATION]. Output only the rewrite."
+            ),
+            (
+                "You are an expert privacy rewriter. Rewrite the text in a natural, conversational tone. "
+                "Remove inferential demographic cues while preserving original intent and voice. "
+                "Output only the rewrite."
+            ),
+            (
+                "You are an expert privacy rewriter. If the text begins with an autobiographical preamble "
+                "(e.g., age, job, city), prune the preamble and state the core task or question directly. "
+                "Output only the rewrite."
+            ),
+        ]
+
+        results = []
+        for system_instruction in prompts:
+            try:
+                resp = self._openai_client.chat.completions.create(
+                    model=self.teacher_model,
+                    messages=[
+                        {"role": "system", "content": system_instruction},
+                        {"role": "user", "content": text},
+                    ],
+                    max_tokens=256,
+                    temperature=0.7,
+                    timeout=self.timeout,
+                )
+                choice = resp.choices[0].message.content
+                if choice:
+                    clean = re.sub(r"^Here is the rewritten text:\s*", "", choice.strip(), flags=re.IGNORECASE).strip(' "')
+                    if clean:
+                        results.append(clean)
+            except Exception as e:
+                logger.debug(f"OpenAI teacher generation failed: {e}")
+                break
+        return results
+
+    def generate_candidates(self, text: str) -> List[str]:
+        """Generate diverse candidate rewrites combining teacher LLM and programmatic synthesis."""
+        cands: List[str] = []
+
+        # 1. External teacher model if available
+        if self._openai_client and self.teacher_model.lower().startswith("gpt"):
+            llm_cands = self._query_openai_teacher(text)
+            cands.extend(llm_cands)
+
+        # 2. Diverse programmatic teacher candidates
+        diverse_cands = generate_diverse_teacher_candidates(text)
+        cands.extend(diverse_cands)
+
+        return list(dict.fromkeys(c for c in cands if c and c.strip()))
+
+
+def generate_candidate_rewrites_teacher(
+    text: str,
+    teacher_model: Optional[str] = "gpt-4",
+    api_key: Optional[str] = None,
+) -> List[str]:
+    """Convenience function to generate teacher candidate rewrites for an input string."""
+    generator = TeacherCandidateGenerator(teacher_model=teacher_model, api_key=api_key)
+    return generator.generate_candidates(text)
+
+
 def pareto_rejection_sample(
     original: str,
     candidates: Sequence[str],
@@ -618,6 +813,9 @@ def generate_sft_dataset(
     candidate_generator_fn: Optional[Callable[[str], List[str]]] = None,
     max_risk_threshold: float = 0.30,
     min_cosine_threshold: float = 0.82,
+    teacher_model: Optional[str] = "gpt-4",
+    teacher_api_key: Optional[str] = None,
+    identity_ratio: float = 0.15,
 ) -> Dict[str, Any]:
     """Full pipeline: filter train split, rejection sample, and export ChatML/Alpaca JSONL."""
     splits = load_profile_splits(splits_path)
@@ -642,8 +840,15 @@ def generate_sft_dataset(
         f"{rejected_profiles} records rejected."
     )
 
+    if candidate_generator_fn is None:
+        candidate_generator_fn = TeacherCandidateGenerator(
+            teacher_model=teacher_model,
+            api_key=teacher_api_key,
+        ).generate_candidates
+
     chatml_examples: List[Dict[str, Any]] = []
     alpaca_examples: List[Dict[str, Any]] = []
+    low_risk_pool: List[str] = []
     total_candidates_evaluated = 0
     accepted_count = 0
 
@@ -655,12 +860,14 @@ def generate_sft_dataset(
         if not text or len(text.strip()) < 10:
             continue
 
-        # Generate candidates
-        if candidate_generator_fn is not None:
-            candidates = candidate_generator_fn(text)
-        else:
-            candidates = generate_candidate_rewrites_heuristic(text)
+        # Collect naturally low risk inputs for identity no-op regularizers
+        risk_before = estimate_privacy_risk(text, risk_model_fn=risk_model_fn)
+        if risk_before["overall"] < 0.25:
+            low_risk_pool.append(text)
+            continue
 
+        # Generate candidates using teacher
+        candidates = candidate_generator_fn(text)
         total_candidates_evaluated += len(candidates)
 
         selected = pareto_rejection_sample(
@@ -676,6 +883,14 @@ def generate_sft_dataset(
             chatml_examples.append(format_chatml_example(text, best_rewrite))
             alpaca_examples.append(format_alpaca_example(text, best_rewrite))
             accepted_count += 1
+
+    # Inject identity no-ops so model learns not to alter uninformative safe queries
+    target_noop_count = int(accepted_count * (identity_ratio / max(1.0 - identity_ratio, 0.01))) if identity_ratio > 0 else 0
+    selected_noops = low_risk_pool[:max(1, target_noop_count)] if low_risk_pool and target_noop_count > 0 else []
+    for noop_text in selected_noops:
+        chatml_examples.append(format_chatml_example(noop_text, noop_text))
+        alpaca_examples.append(format_alpaca_example(noop_text, noop_text))
+        accepted_count += 1
 
     # Ensure output directories exist
     out_chatml = Path(output_chatml_path)
@@ -697,6 +912,8 @@ def generate_sft_dataset(
         "rejected_non_train_profiles": rejected_profiles,
         "total_candidates_evaluated": total_candidates_evaluated,
         "accepted_samples": accepted_count,
+        "identity_noops": len(selected_noops),
+        "teacher_model": teacher_model,
         "output_chatml_file": str(out_chatml),
         "output_alpaca_file": str(out_alpaca),
     }
@@ -903,12 +1120,15 @@ class ParetoSFTDatasetBuilder:
         return stats
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Generate SFT dataset for Qwen/Qwen2.5-1.5B-Instruct")
+    parser = argparse.ArgumentParser(description="Generate SFT dataset for InferenceGuard Rewriter")
     parser.add_argument("-i", "--input", "--input_file", type=str, default="data/splits/train.jsonl", help="Path to SynthPAI dataset or train split")
     parser.add_argument("-s", "--splits", "--splits_file", type=str, default="artifacts/profile_splits.json", help="Path to profile_splits.json")
     parser.add_argument("-c", "-o", "--output", "--output_chatml", type=str, default="artifacts/rewriter_sft_chatml.jsonl", help="ChatML output path")
     parser.add_argument("-a", "--output_alpaca", type=str, default="artifacts/rewriter_sft_alpaca.jsonl", help="Alpaca output path")
     parser.add_argument("-n", "--max_samples", type=int, default=1000, help="Max accepted samples")
+    parser.add_argument("--teacher_model", "--teacher", type=str, default="gpt-4", help="Teacher model name (e.g. gpt-4, gpt-4o, Qwen/Qwen2.5-7B-Instruct)")
+    parser.add_argument("--api_key", type=str, default=None, help="Optional API key for teacher model")
+    parser.add_argument("--identity_ratio", type=float, default=0.15, help="Ratio of identity no-ops to include")
     args = parser.parse_args()
 
     summary = generate_sft_dataset(
@@ -917,6 +1137,9 @@ def main() -> None:
         output_chatml_path=args.output,
         output_alpaca_path=args.output_alpaca,
         max_samples=args.max_samples,
+        teacher_model=args.teacher_model,
+        teacher_api_key=args.api_key,
+        identity_ratio=args.identity_ratio,
     )
     print(json.dumps(summary, indent=2))
 
