@@ -400,9 +400,19 @@ def main() -> None:
 
     if args.compare_baseline:
         print(f"Comparing Student Model vs Prompt Baseline on {args.test_split} ({args.num_samples} samples)...")
+        baseline_rewriter = None
+        try:
+            from src.rewriter.prompt_baseline import PromptBaselineRewriter
+            from src.rewriter.inference import DEFAULT_BASE_MODEL
+            baseline_rewriter = PromptBaselineRewriter(
+                model_name=args.base_model or DEFAULT_BASE_MODEL,
+            )
+        except Exception:
+            pass
         results = compare_held_out_generalization(
             test_split_path=args.test_split,
             student_rewriter=student_rewriter,
+            baseline_rewriter=baseline_rewriter,
             evaluator=evaluator,
             num_samples=args.num_samples,
         )

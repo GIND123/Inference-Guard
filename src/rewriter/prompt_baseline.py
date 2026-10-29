@@ -22,7 +22,7 @@ class PromptBaselineRewriter:
 
     def __init__(
         self,
-        model_name: str = "Qwen/Qwen3.5-0.8B",
+        model_name: str = DEFAULT_BASE_MODEL,
         device: Optional[str] = None,
         base_model: Optional[object] = None,
         tokenizer: Optional[object] = None,
