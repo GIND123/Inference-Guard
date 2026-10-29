@@ -14,6 +14,7 @@ from pathlib import Path
 from unittest.mock import patch
 import pytest
 
+from src.rewriter.prompting import is_personal_disclosure, prune_persona_bidirectional
 from src.rewriter.generate_training_data import (
     TeacherCandidateGenerator,
     generate_candidate_rewrites_teacher,
@@ -178,3 +179,55 @@ def test_compare_held_out_generalization_synthetic():
         assert "delta" in comparison
         assert comparison["teacher_distilled_student"]["mean_semantic_similarity"] >= comparison["static_prompt_baseline"]["mean_semantic_similarity"]
         assert comparison["generalization_improved"] is True
+
+
+def test_bidirectional_persona_pruning():
+    """Verify bidirectional persona pruning strips disclosures in preambles, postambles, and parentheticals."""
+    # 1. Preamble (front)
+    front = (
+        "I am a 62-year-old retired cardiologist living in Miami Beach. "
+        "What is the latest guideline for SGLT2 inhibitors in heart failure with preserved ejection fraction?"
+    )
+    assert prune_persona_bidirectional(front) == (
+        "What is the latest guideline for SGLT2 inhibitors in heart failure with preserved ejection fraction?"
+    )
+
+    # 2. Postamble (back)
+    back = (
+        "What is the latest guideline for SGLT2 inhibitors in heart failure with preserved ejection fraction? "
+        "I am a 62-year-old retired cardiologist living in Miami Beach."
+    )
+    assert prune_persona_bidirectional(back) == (
+        "What is the latest guideline for SGLT2 inhibitors in heart failure with preserved ejection fraction?"
+    )
+
+    # 3. Introductory clause (front) with decimal preservation (18.01)
+    clause = (
+        "As an 18-year-old freshman at MIT struggling with 18.01 single variable calculus, "
+        "can you explain the epsilon-delta definition of a limit with an intuitive diagram?"
+    )
+    assert prune_persona_bidirectional(clause) == (
+        "Can you explain the epsilon-delta definition of a limit with an intuitive diagram?"
+    )
+
+    # 4. Trailing note (back)
+    trailing_note = (
+        "Can you explain the epsilon-delta definition of a limit with an intuitive diagram? "
+        "FYI, I am an 18-year-old freshman at MIT struggling with 18.01 calculus."
+    )
+    assert prune_persona_bidirectional(trailing_note) == (
+        "Can you explain the epsilon-delta definition of a limit with an intuitive diagram?"
+    )
+
+    # 5. Trailing parenthetical (back)
+    paren = (
+        "Can you help me optimize my 401(k) asset allocation between VOO and VXUS? "
+        "(Software engineer in Seattle earning $180k)"
+    )
+    assert prune_persona_bidirectional(paren) == (
+        "Can you help me optimize my 401(k) asset allocation between VOO and VXUS?"
+    )
+
+    # 6. Objective domain entity preservation (no persona)
+    clean = "Calculate the eigenvalues of the matrix [[1, 2], [3, 4]] with step-by-step derivation."
+    assert prune_persona_bidirectional(clean) == clean

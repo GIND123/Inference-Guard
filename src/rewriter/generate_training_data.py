@@ -419,61 +419,72 @@ def generate_candidate_rewrites_heuristic(text: str) -> List[str]:
     """Generate diverse candidate rewrites using rule-based transformations."""
     candidates: List[str] = []
 
-    # 1. Hard PII scrubbing + demographic neutralization
+    # 1. Bidirectional persona pruning candidate (highest quality objective form)
+    try:
+        from src.rewriter.prompting import prune_persona_bidirectional
+        pruned = prune_persona_bidirectional(text)
+        if pruned and pruned.lower() != text.strip().lower() and len(pruned) >= 10:
+            candidates.append(pruned)
+    except Exception:
+        pass
+
+    # 2. Hard PII scrubbing + demographic neutralization
     base_text, _ = scrub_hard_pii(text)
     cand1 = base_text
-    # Neutralize age cues (including hyphenated like 21-year-old)
+    # Neutralize age cues (prevent "a an adult")
     cand1 = re.sub(
-        r"\b(?:\d{1,2}[-\s]*(?:years?[-\s]*old|yo|y/o)|in my (?:20s|30s|40s|50s|60s|twenties|thirties|forties))\b",
+        r"\b(?:a\s+|an\s+)?(?:\d{1,2}[-\s]*(?:years?[-\s]*old|yo|y/o)|in my (?:20s|30s|40s|50s|60s|twenties|thirties|forties))\b",
         "an adult",
         cand1,
         flags=re.IGNORECASE,
     )
     # Neutralize location cues
     cand1 = re.sub(
-        r"\b(?:in|to|from)\s+(?:Pittsburgh|Denver|Seattle|Austin|New York|Boston|Chicago|San Francisco|London|Paris|Tokyo)[,\sA-Z]*\b",
+        r"\b(?:in|to|from)\s+(?:Miami Beach|Miami|Pittsburgh|Denver|Seattle|Austin|New York|Boston|Chicago|San Francisco|London|Paris|Tokyo)[,\sA-Z]*\b",
         "locally",
         cand1,
         flags=re.IGNORECASE,
     )
     cand1 = re.sub(
-        r"\b(?:Pittsburgh|Denver|Seattle|Austin|New York|Boston|Chicago|San Francisco)[,\sA-Z]*\b",
+        r"\b(?:Miami Beach|Miami|Pittsburgh|Denver|Seattle|Austin|New York|Boston|Chicago|San Francisco)[,\sA-Z]*\b",
         "the area",
         cand1,
         flags=re.IGNORECASE,
     )
     # Neutralize occupation cues and role phrases
     cand1 = re.sub(
-        r"\b(?:work as|employed as|employed at|working as|internship in|intern at)\s+(?:a\s+|an\s+|my\s+)?(?:software engineer|lawyer|doctor|nurse|barista|consultant|designer|engineer|teacher|summer internship)\b",
+        r"\b(?:work as|employed as|employed at|working as|internship in|intern at)\s+(?:a\s+|an\s+|my\s+)?(?:software engineer|lawyer|doctor|cardiologist|nurse|barista|consultant|designer|engineer|teacher|summer internship)\b",
         "professional role",
         cand1,
         flags=re.IGNORECASE,
     )
     cand1 = re.sub(
-        r"\b(?:software engineer|lawyer|doctor|nurse|barista|consultant|designer)\b",
+        r"\b(?:software engineer|lawyer|doctor|cardiologist|nurse|barista|consultant|designer)\b",
         "professional",
         cand1,
         flags=re.IGNORECASE,
     )
     cand1 = re.sub(
         r"\b(?:tech startup|startup|tech company|firm|clinic|hospital)\b",
-        "an organization",
+        "company",
         cand1,
         flags=re.IGNORECASE,
     )
     # Neutralize education cues (including specific universities)
     cand1 = re.sub(
-        r"\b(?:undergrad at|attending|student at|degree from|graduated from)\s+[A-Za-z\s]+(?:University|College|Mellon|MIT)?\b",
-        "completing higher education",
+        r"\b(?:undergrad at|attending|student at|degree from|graduated from|freshman at)\s+[A-Za-z\s]+(?:University|College|Mellon|MIT)?\b",
+        "college student",
         cand1,
         flags=re.IGNORECASE,
     )
     cand1 = re.sub(
         r"\b(?:undergrad|Carnegie Mellon|MIT|Stanford|Harvard|Berkeley)\b",
-        "higher education",
+        "university",
         cand1,
         flags=re.IGNORECASE,
     )
+    cand1 = re.sub(r"\b(a|an)\s+(a|an)\b", r"\1", cand1, flags=re.IGNORECASE)
+    cand1 = re.sub(r"\s+", " ", cand1).strip()
     candidates.append(cand1.strip())
 
     # 2. Generalization rewrite: replaces role and organization with general terms
@@ -528,18 +539,15 @@ def generate_diverse_teacher_candidates(text: str) -> List[str]:
     candidates: List[str] = []
     base_text, _ = scrub_hard_pii(text)
 
-    # 1. Preamble Pruning (Directive 1): If the text starts with autobiographical framing,
-    # prune it to get directly to the objective task/question.
-    pruned_match = re.search(
-        r"^(?:I am|I'm|As|Being) (?:a|an) [^,.\n]+(?:working|living|studying|aged|years? old|in|at)[^,.\n]*[,\-—:]\s*(.+)$",
-        base_text,
-        flags=re.IGNORECASE,
-    )
-    if pruned_match:
-        pruned = pruned_match.group(1).strip()
-        if pruned:
-            pruned = pruned[0].upper() + pruned[1:]
+    # 1. Bidirectional Persona Pruning (Directives 1 & 2):
+    # Prunes autobiographical framing whether appearing before or after the question.
+    try:
+        from src.rewriter.prompting import prune_persona_bidirectional
+        pruned = prune_persona_bidirectional(base_text)
+        if pruned and pruned.lower() != base_text.strip().lower() and len(pruned) >= 10:
             candidates.append(pruned)
+    except Exception:
+        pass
 
     # 2. Professional / Formal Register:
     # Fluently generalizes occupations, employers, and locations into enterprise domain concepts

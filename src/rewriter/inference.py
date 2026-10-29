@@ -441,6 +441,21 @@ class QwenRewriterInference:
         """Safely invoke heuristic fallback, ensuring all PII is scrubbed."""
         if not text or not text.strip():
             return ""
+
+        # 1. Attempt bidirectional persona pruning first (removes autobiographical preambles & postambles)
+        try:
+            from src.rewriter.prompting import prune_persona_bidirectional
+            pruned = prune_persona_bidirectional(text)
+            if pruned and pruned.lower() != text.strip().lower() and len(pruned) >= 10:
+                try:
+                    from src.rewriter.generate_training_data import scrub_hard_pii
+                    pruned, _ = scrub_hard_pii(pruned)
+                except Exception:
+                    pass
+                return pruned
+        except Exception:
+            pass
+
         try:
             candidates = generate_candidate_rewrites_heuristic(text)
             cand = candidates[0] if candidates and candidates[0] else text

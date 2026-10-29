@@ -11,6 +11,7 @@ Torch-free on purpose: building training rows should not need the GPU stack.
 from __future__ import annotations
 
 from typing import Dict, List
+import re
 
 _INSTRUCTION = (
     "You are a text rewriter. Your ONLY job is to rewrite the text below to remove privacy risks. "
@@ -28,11 +29,107 @@ _FINAL_INSTRUCTION = (
 )
 
 FEW_SHOT: List[Dict[str, str]] = [
-    {"role": "user", "content": _INSTRUCTION + "Can you write a python script to help me with my work at Google?"},
-    {"role": "assistant", "content": "Can you write a python script to help me with my work at [COMPANY]?"},
-    {"role": "user", "content": _INSTRUCTION + "I need to leave early on Friday for Jummah prayers at the local mosque."},
-    {"role": "assistant", "content": "I need to leave early on Friday for personal religious obligations."},
+    # 1. Preamble Pruning (Front): Personal context irrelevant to the technical task
+    {
+        "role": "user",
+        "content": _INSTRUCTION + "I am a 62-year-old retired cardiologist living in Miami Beach. What is the latest guideline for SGLT2 inhibitors in heart failure with preserved ejection fraction?",
+    },
+    {
+        "role": "assistant",
+        "content": "What is the latest guideline for SGLT2 inhibitors in heart failure with preserved ejection fraction?",
+    },
+    # 2. Postamble Pruning (Back): Personal context provided after asking the query
+    {
+        "role": "user",
+        "content": _INSTRUCTION + "Can you explain the epsilon-delta definition of a limit with an intuitive diagram? FYI, I am an 18-year-old freshman at MIT struggling with 18.01 calculus.",
+    },
+    {
+        "role": "assistant",
+        "content": "Can you explain the epsilon-delta definition of a limit with an intuitive diagram?",
+    },
+    # 3. Natural Parameter Generalization: When persona traits are needed as advisory parameters
+    {
+        "role": "user",
+        "content": _INSTRUCTION + "I am a software engineer at a mid-sized tech company in Seattle earning $180k. Can you help me optimize my 401(k) asset allocation between VOO and VXUS?",
+    },
+    {
+        "role": "assistant",
+        "content": "For someone in the $180k income bracket, how can I optimize my 401(k) asset allocation between VOO and VXUS?",
+    },
 ]
+
+
+def is_personal_disclosure(sentence: str) -> bool:
+    """Return True if the sentence functions primarily as an autobiographical persona disclosure."""
+    s = sentence.strip()
+    if "?" in s:
+        return False
+    patterns = [
+        r"^(?:I am|I'm|As|Being|Currently|My name is)\b",
+        r"^(?:I live in|I work as|I work at|I make|I earn|I have worked|I work)\b",
+        r"^(?:FYI,?|By the way,?|Note that|P\.?S\.?)\s+(?:I am|I'm|I live|I work|I earn|I'm a)",
+        r"\b(?:retired|freshman|senior partner|cardiologist|software engineer|resident at|doctor|nurse)\b",
+        r"\b\d{1,2}[-\s]*(?:years?[-\s]*old|yo|y/o)\b",
+    ]
+    return any(bool(re.search(p, s, re.IGNORECASE)) for p in patterns)
+
+
+def prune_persona_bidirectional(text: str) -> str:
+    """Prune personal autobiographical framing clauses appearing before or after the query."""
+    text = text.strip()
+    if not text:
+        return ""
+
+    # 1. Trailing parentheticals containing personal cues: e.g. '(Freshman at MIT ...)' or '(Software engineer ...)'
+    paren_match = re.search(r"\s*\(([^)]+)\)[.!?]?$", text)
+    if paren_match:
+        inside = paren_match.group(1).strip()
+        if (
+            is_personal_disclosure(inside)
+            or any(
+                k in inside.lower()
+                for k in [
+                    "earning",
+                    "salary",
+                    "living in",
+                    "student",
+                    "freshman",
+                    "engineer",
+                    "doctor",
+                    "cardiologist",
+                ]
+            )
+        ):
+            text = text[:paren_match.start()].strip()
+
+    # 2. Check multi-sentence structures: split by sentence boundary preserving decimal numbers
+    sentences = [s.strip() for s in re.split(r"(?<=[.!?])\s+(?=[A-Z0-9])", text) if s.strip()]
+    while len(sentences) > 1 and is_personal_disclosure(sentences[0]):
+        sentences.pop(0)
+    while len(sentences) > 1 and is_personal_disclosure(sentences[-1]):
+        sentences.pop()
+    text = " ".join(sentences).strip()
+
+    # 3. Check introductory clause in a single sentence: 'As an 18yo ..., can you ...'
+    clause_match = re.search(
+        r"^(?:As|Being|Since I am|Given that I am|I am|I'm)\s+[^,;\n]+?,\s*(can\b|could\b|please\b|how\b|what\b|why\b|where\b|when\b|who\b|is\b|are\b|do\b|does\b|would\b)(.*)$",
+        text,
+        flags=re.IGNORECASE | re.DOTALL,
+    )
+    if clause_match:
+        text = (clause_match.group(1) + clause_match.group(2)).strip()
+
+    # 4. Trailing postamble clause or sentence without period: 'How do I ... ? I am a ...'
+    text = re.sub(
+        r"\s*(?:(?:By the way|FYI|Note|P\.?S\.?)[:,\s]+)?(?:I am|I'm|I live in|Living in|Working as|I work as|I earn|Earning|My age is|As an?)\s+[^\n]*?[.!?]?$",
+        "",
+        text,
+        flags=re.IGNORECASE,
+    ).strip()
+
+    if text:
+        text = text[0].upper() + text[1:]
+    return text
 
 
 def build_rewrite_messages(text: str, system_prompt: str) -> List[Dict[str, str]]:
