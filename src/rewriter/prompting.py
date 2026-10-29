@@ -64,6 +64,9 @@ def is_personal_disclosure(sentence: str) -> bool:
     s = sentence.strip()
     if "?" in s:
         return False
+    # Third-party case descriptions (patients, clients, legal subjects, algorithms) are problem entities, not autobiographical
+    if re.search(r"\b(?:patient|client|plaintiff|defendant|subject|infant|algorithm|code|server|database)\b", s, re.IGNORECASE):
+        return False
     patterns = [
         r"^(?:I am|I'm|As|Being|Currently|My name is)\b",
         r"^(?:I live in|I work as|I work at|I make|I earn|I have worked|I work)\b",

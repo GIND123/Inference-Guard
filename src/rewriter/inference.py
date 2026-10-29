@@ -668,9 +668,15 @@ class QwenRewriterInference:
         except Exception:
             pass
 
-        # 15. Echo guard: If generated text is an unchanged verbatim identity echo of the input, fall back
+        # 15. Echo guard: If generated text is an unchanged verbatim identity echo of the input AND the input contained personal disclosures, fall back
         if original_text and text.strip().lower() == original_text.strip().lower():
-            return QwenRewriterInference._heuristic_fallback(original_text)
+            try:
+                from src.rewriter.prompting import is_personal_disclosure
+                sentences = [s.strip() for s in re.split(r"(?<=[.!?])\s+", original_text.strip()) if s.strip()]
+                if any(is_personal_disclosure(s) for s in sentences):
+                    return QwenRewriterInference._heuristic_fallback(original_text)
+            except Exception:
+                pass
 
         return text
 
