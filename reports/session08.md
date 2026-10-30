@@ -167,7 +167,8 @@ the held-out Phi-4 evaluation across `data/splits/test.jsonl` to report final at
     standardized SFT training CLI flags (`--lr`, `--train_data`).
 
 - **Yiwei Jin (Users&Research):**
-  - [To be filled by Yiwei]
+  - **UI improvements (PR #65):** Added question-mark tooltips to eight evaluation metrics and two comparison headings, providing explanations of technical terms such as Residual Anonymity Capacity, Leakage Delta, and Persistent Pseudonyms.
+  - **UI usability testing (PR #70):** Conducted Session 08 to assess users’ understanding of the evaluation interface. The participant wanted access to numerical results but found the terminology difficult even with tooltips. Findings and recommended simpler labels and visible explanations are documented, alongside a proposal for user-adjustable protection levels for age, location, education, and occupation.
 
 - **Bingqi Lian (Operations):**
   - **Bingqi Lian (Operations):**
