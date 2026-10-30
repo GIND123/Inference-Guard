@@ -12,14 +12,15 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
-from src.rewriter.inference import QwenRewriterInference
-
 
 def run_benchmark(
     adapter_path: str = "artifacts/rewriter_qlora",
     benchmark_file: str = "data/evaluation/benchmark_test_50.jsonl",
     output_report: str = "reports/benchmark_50_results.json",
+    truncate_display: bool = False,
 ) -> Dict[str, Any]:
+    from src.rewriter.inference import QwenRewriterInference
+
     print(f"Loading rewriter with adapter: {adapter_path}...")
     rewriter = QwenRewriterInference(
         model_name_or_path="Qwen/Qwen2.5-0.5B-Instruct",
@@ -103,8 +104,12 @@ def run_benchmark(
 
         status_sym = "[PASS]" if is_passed else "[FAIL]"
         print(f"{status_sym} #{tc['id']} ({cat}):")
-        print(f"    ORIGINAL:  {inp[:80]}...")
-        print(f"    REWRITTEN: {rewritten[:80]}...")
+        if truncate_display:
+            print(f"    ORIGINAL:  {inp[:80]}...")
+            print(f"    REWRITTEN: {rewritten[:80]}...")
+        else:
+            print(f"    ORIGINAL:  {inp}")
+            print(f"    REWRITTEN: {rewritten}")
         if notes:
             print(f"    ISSUES:    {', '.join(notes)}")
         print("-" * 70)
@@ -140,12 +145,14 @@ def main():
     parser.add_argument("--adapter_path", type=str, default="artifacts/rewriter_qlora")
     parser.add_argument("--benchmark_file", type=str, default="data/evaluation/benchmark_test_50.jsonl")
     parser.add_argument("--output_report", type=str, default="reports/benchmark_50_results.json")
+    parser.add_argument("--truncate_display", action="store_true", help="Truncate displayed text to 80 chars (default: False, prints full text)")
     args = parser.parse_args()
 
     run_benchmark(
         adapter_path=args.adapter_path,
         benchmark_file=args.benchmark_file,
         output_report=args.output_report,
+        truncate_display=args.truncate_display,
     )
 
 
