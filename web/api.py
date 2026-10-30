@@ -146,12 +146,18 @@ def find_adapter_path() -> Optional[Path]:
     candidates.extend([
         REPO_ROOT / "artifacts" / "rewriter_qlora",
         Path("artifacts/rewriter_qlora"),
+        REPO_ROOT / "artifacts" / "rewriter_qlora_0.5b",
+        Path("artifacts/rewriter_qlora_0.5b"),
+        Path("/content/drive/MyDrive/InferenceGuard/rewriter_0.5b"),
         Path("/content/drive/MyDrive/Inference-Guard/artifacts/rewriter_qlora"),
+        Path("/content/drive/MyDrive/Inference-Guard/artifacts/rewriter_qlora_0.5b"),
         Path("/content/Inference-Guard/artifacts/rewriter_qlora"),
+        Path("/content/Inference-Guard/artifacts/rewriter_qlora_0.5b"),
         Path("/content/artifacts/rewriter_qlora"),
+        Path("/content/artifacts/rewriter_qlora_0.5b"),
     ])
     for p in candidates:
-        if p.exists() and ((p / "adapter_config.json").exists() or p.is_dir()):
+        if p.exists() and (p / "adapter_config.json").exists():
             return p.resolve()
     return None
 
@@ -229,11 +235,20 @@ def get_qwen_rewriter():
     adapter_p = find_adapter_path()
     if adapter_p is not None:
         try:
-            from src.rewriter import DEFAULT_BASE_MODEL, QwenRewriterInference
-            logger.info("Loading Qwen Rewriter from '%s'...", adapter_p)
+            import json
+            from src.rewriter import QwenRewriterInference
+            cfg_p = adapter_p / "adapter_config.json"
+            base_model = "Qwen/Qwen2.5-0.5B-Instruct"
+            if cfg_p.exists():
+                try:
+                    cfg_data = json.loads(cfg_p.read_text(encoding="utf-8"))
+                    base_model = cfg_data.get("base_model_name_or_path", base_model)
+                except Exception:
+                    pass
+            logger.info("Loading Qwen Rewriter from '%s' (base: '%s')...", adapter_p, base_model)
             device = "cuda" if torch.cuda.is_available() else "cpu"
             qwen_rewriter = QwenRewriterInference(
-                model_name_or_path=DEFAULT_BASE_MODEL,
+                model_name_or_path=base_model,
                 adapter_path=str(adapter_p),
                 device=device,
                 load_in_4bit=torch.cuda.is_available(),
