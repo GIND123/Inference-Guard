@@ -1,250 +1,115 @@
-// InferenceGuard Frontend Controller
-
+"use strict";
 document.addEventListener("DOMContentLoaded", () => {
-    const textInput = document.getElementById("text-input");
-    const sessionIdInput = document.getElementById("session-id");
-    const analyzeBtn = document.getElementById("analyze-btn");
-    const sampleBtn = document.getElementById("sample-btn");
-    const downloadBtn = document.getElementById("download-btn");
-
-    let latestResult = null;
-
-    const overallBadge = document.getElementById("overall-badge");
-    const overallScore = document.getElementById("overall-score");
-    const primaryAttr = document.getElementById("primary-attr");
-    const jointEntropy = document.getElementById("joint-entropy");
-    const leakageDelta = document.getElementById("leakage-delta");
-
-    const barAge = document.getElementById("bar-age");
-    const barLoc = document.getElementById("bar-location");
-    const barOcc = document.getElementById("bar-occupation");
-    const barEdu = document.getElementById("bar-education");
-
-    const valAge = document.getElementById("val-age");
-    const valLoc = document.getElementById("val-location");
-    const valOcc = document.getElementById("val-occupation");
-    const valEdu = document.getElementById("val-education");
-
-    const originalDisplay = document.getElementById("original-display");
-    const pseudonymDisplay = document.getElementById("pseudonym-display");
-    const rewriteDisplay = document.getElementById("rewrite-display");
-    const presidioDisplay = document.getElementById("presidio-display");
-
-    const utilCosine = document.getElementById("util-cosine");
-    const utilNliFwd = document.getElementById("util-nli-fwd");
-    const utilNliBwd = document.getElementById("util-nli-bwd");
-    const utilComposite = document.getElementById("util-composite");
-
-    const benchmarkSample = "I am 26 years old living in Denver, CO and working as a software engineer after graduating from Carnegie Mellon.";
-
-    sampleBtn.addEventListener("click", () => {
-        textInput.value = benchmarkSample;
-    });
-
-    analyzeBtn.addEventListener("click", async () => {
-        const text = textInput.value.trim();
-        if (!text) {
-            alert("Please enter a text message to analyze.");
-            return;
-        }
-
-        analyzeBtn.disabled = true;
-        analyzeBtn.textContent = "Analyzing...";
-
-        try {
-            const payload = {
-                text: text,
-                session_id: sessionIdInput.value.trim() || "default",
-                user_id: "demo_user"
-            };
-
-            const requestStart = performance.now();
-
-            const response = await fetch("/analyze", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify(payload)
-            });
-
-            const requestEnd = performance.now();
-            const clientLatencySeconds = (requestEnd - requestStart) / 1000;
-
-            if (!response.ok) {
-                let errMsg = "Analysis request failed (" + response.status + ").";
-                try {
-                    const err = await response.json();
-                    if (err && err.detail) errMsg = err.detail;
-                } catch (_) {}
-                throw new Error(errMsg);
-            }
-
-            const data = await response.json();
-
-            latestResult = {
-                session_id: payload.session_id,
-                user_id: payload.user_id,
-                input_text: text,
-                exported_at: new Date().toISOString(),
-                client_latency_seconds: clientLatencySeconds,
-                response: data
-            };
-
-            downloadBtn.disabled = false;
-
-            renderResults(text, data);
-        } catch (error) {
-            console.error("Analysis error:", error);
-            alert("Error during analysis: " + error.message);
-        } finally {
-            analyzeBtn.disabled = false;
-            analyzeBtn.textContent = "Analyze and Protect";
-        }
-    });
-
-    downloadBtn.addEventListener("click", () => {
-        if (!latestResult) {
-            alert("No analysis result available to download.");
-            return;
-        }
-
-        const safeSessionId = latestResult.session_id.replace(
-            /[^a-zA-Z0-9_-]/g,
-            "_"
-        );
-
-        const blob = new Blob(
-            [JSON.stringify(latestResult, null, 2)],
-            { type: "application/json" }
-        );
-
-        const url = URL.createObjectURL(blob);
-        const link = document.createElement("a");
-
-        link.href = url;
-        link.download = `${safeSessionId}.json`;
-
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-
-        URL.revokeObjectURL(url);
-    });
-
-    function renderResults(rawText, data) {
-        const safeData = data || {};
-        const risk = safeData.risk_summary || {};
-        const turn = safeData.turn_record || {};
-        const utility = safeData.utility_metrics || {};
-
-        // Overall risk band and badge
-        const band = risk.overall_band || "LOW";
-        overallBadge.textContent = "BAND: " + band;
-        overallBadge.className = "badge";
-        if (band === "HIGH") {
-            overallBadge.classList.add("badge-high");
-        } else if (band === "MEDIUM") {
-            overallBadge.classList.add("badge-med");
-        } else {
-            overallBadge.classList.add("badge-low");
-        }
-
-        // Metrics: Residual Anonymity Capacity and Leakage Delta
-        overallScore.textContent = Number(risk.overall || 0).toFixed(2);
-        primaryAttr.textContent = risk.primary ? String(risk.primary).toUpperCase() : "None";
-        const racVal = turn.residual_anonymity_capacity !== undefined ? turn.residual_anonymity_capacity : turn.joint_entropy;
-        jointEntropy.textContent = racVal !== undefined && racVal !== null ? Number(racVal).toFixed(2) + " bits" : "4.00 bits";
-        leakageDelta.textContent = turn.leakage_delta !== undefined && turn.leakage_delta !== null ? Number(turn.leakage_delta).toFixed(2) : "0.00";
-
-        // Attribute bars
-        const scores = risk.scores || {};
-        setBar(barAge, valAge, scores.age || 0);
-        setBar(barLoc, valLoc, scores.location || 0);
-        setBar(barOcc, valOcc, scores.occupation || 0);
-        setBar(barEdu, valEdu, scores.education || 0);
-
-        // Highlight Cues in original text using character span offsets when available
-        const cues = (risk.cues || []).filter(c => c && c.span && c.span.length >= 2 && !c.span.startsWith("["));
-        const validOffsetCues = cues.filter(c => typeof c.start === "number" && typeof c.end === "number" && c.start >= 0 && c.end <= rawText.length && c.start < c.end);
-
-        let highlighted = "";
-        if (validOffsetCues.length > 0) {
-            // Sort non-overlapping cues by start offset ascending
-            validOffsetCues.sort((a, b) => a.start - b.start);
-            let lastIdx = 0;
-            validOffsetCues.forEach(cue => {
-                if (cue.start >= lastIdx) {
-                    highlighted += escapeHtml(rawText.slice(lastIdx, cue.start));
-                    const tip = escapeHtml((cue.attribute || 'risk') + ' (' + Number(cue.importance || 0).toFixed(2) + ')');
-                    highlighted += `<span class="highlight-cue" title="${tip}">${escapeHtml(rawText.slice(cue.start, cue.end))}</span>`;
-                    lastIdx = cue.end;
-                }
-            });
-            highlighted += escapeHtml(rawText.slice(lastIdx));
-        } else {
-            highlighted = escapeHtml(rawText);
-            cues.forEach(cue => {
-                if (cue.span) {
-                    const regex = new RegExp("(" + escapeRegExp(cue.span) + ")", "gi");
-                    highlighted = highlighted.replace(regex, '<span class="highlight-cue">$1</span>');
-                }
-            });
-        }
-        originalDisplay.innerHTML = highlighted || "No input submitted.";
-
-        // Stage 1: Persistent Pseudonymization text
-        if (pseudonymDisplay) {
-            pseudonymDisplay.textContent = safeData.pseudonymized_text || safeData.presidio_text || "No pseudonymization generated.";
-        }
-
-        // Rewritten text and Presidio text
-        if (risk.overall_band === "LOW") {
-            rewriteDisplay.innerHTML = "<em>No inferential markers detected. Original text preserved.</em><br/><br/>" + escapeHtml(safeData.original_text || rawText);
-        } else if (data.rewrite_changed === false || safeData.rewrite_changed === false) {
-            // Session 06: participants read an unchanged message as protected.
-            rewriteDisplay.innerHTML = "<strong>No safe rewrite was found — your message is unchanged and is NOT protected.</strong>";
-        } else {
-            rewriteDisplay.textContent = safeData.rewritten_text || "No rewrite generated.";
-        }
-        if (data.rewrite_engine || safeData.rewrite_engine) {
-            const engineNote = document.createElement("small");
-            engineNote.textContent = "Engine: " + (safeData.rewrite_engine || data.rewrite_engine);
-            rewriteDisplay.appendChild(document.createElement("br"));
-            rewriteDisplay.appendChild(engineNote);
-        }
-        presidioDisplay.textContent = safeData.presidio_text || data.presidio_text || "No baseline generated.";
-
-        // Utility metrics
-        utilCosine.textContent = Number(utility.cosine_similarity || 0).toFixed(4);
-        utilNliFwd.textContent = Number(utility.nli_forward || 0).toFixed(4);
-        utilNliBwd.textContent = Number(utility.nli_backward || 0).toFixed(4);
-        utilComposite.textContent = Number(utility.utility_score || 0).toFixed(4);
+  const $ = id => document.getElementById(id);
+  const attributes = ["age", "location", "occupation", "education"];
+  const number = (v, digits=2) => typeof v === "number" && Number.isFinite(v) ? v.toFixed(digits) : "Not available";
+  const label = value => String(value).charAt(0).toUpperCase()+String(value).slice(1);
+  const newId = () => "conversation-" + (globalThis.crypto?.randomUUID?.() || Date.now()+"-"+Math.random().toString(36).slice(2));
+  const outcomes = {
+    improved: ["Estimated privacy risk decreased.", "Review the suggested text to make sure it still says what you need.", "good"],
+    improved_with_cost: ["Risk decreased, but meaning may have changed.", "Check for missing or altered details before using this version.", "caution"],
+    no_change: ["No meaningful reduction in estimated risk.", "The suggestion did not meaningfully reduce estimated inference risk, even if some wording changed.", "caution"],
+    worse: ["Estimated risk increased after rewriting.", "Do not assume this suggestion offers better protection. Review or edit it before use.", "bad"],
+    explicit_pii_remains: ["Identifying information remains in the suggestion.", "Review detected identifying details before sharing this text.", "bad"]
+  };
+  let latest = null, busy = false, edited = false;
+  $("session-id").value = newId();
+  function isStale() { return !!latest && (latest.input_text !== $("text-input").value.trim() || latest.session_id !== $("session-id").value.trim()); }
+  function updateStale() {
+    const stale = isStale(); $("stale").hidden = !stale;
+    $("copy-btn").disabled = busy || stale;
+    $("edit-btn").disabled = busy || stale;
+    $("check-edit-btn").disabled = busy || stale;
+  }
+  function message(text) { $("error").textContent = text; $("error").hidden = !text; }
+  async function checkConnection() {
+    $("connection").textContent = "Checking connection…";
+    try {
+      const response = await fetch("/health", {signal: AbortSignal.timeout(8000)});
+      const health = await response.json();
+      if (!response.ok || health.status !== "ok") throw new Error();
+      $("connection").textContent = "Backend connected";
+    } catch (_) { $("connection").textContent = "Backend unavailable"; }
+  }
+  function setBusy(value) {
+    busy = value;
+    for (const id of ["analyze-btn", "sample-btn", "new-session", "session-id", "text-input", "suggested-text"]) $(id).disabled = value;
+    $("analyze-btn").textContent = value ? "Checking your message…" : "Check my message";
+    $("results").setAttribute("aria-busy", String(value)); updateStale();
+  }
+  function render(data) {
+    const comparison = data.comparison || {}, risk = data.risk_summary || {}, turn = data.turn_record || {}, utility = data.utility_metrics || {};
+    const outcome = outcomes[data.verdict || comparison.verdict] || ["Protection outcome is unavailable.", "Review the text; a changed message alone does not establish improved protection.", "caution"];
+    $("outcome-title").textContent = outcome[0]; $("outcome-description").textContent = outcome[1];
+    $("outcome-title").closest("section").dataset.tone = outcome[2];
+    $("before-score").textContent = number(comparison.inferential_before ?? risk.overall);
+    $("after-score").textContent = number(comparison.inferential_after);
+    $("exposure-summary").textContent = risk.primary ? "The highest estimated exposure is for " + risk.primary + "." : "No primary attribute was returned. Review the scores below.";
+    $("attribute-bars").replaceChildren();
+    for (const attr of attributes) {
+      const score = risk.scores?.[attr], valid = typeof score === "number" && Number.isFinite(score);
+      const band = risk.bands?.[attr] || (valid ? score >= .6 ? "HIGH" : score >= .3 ? "MEDIUM" : "LOW" : "Unavailable");
+      const row = document.createElement("div"); row.className = "attr-row";
+      const name = document.createElement("span"); name.textContent = label(attr);
+      const track = document.createElement("div"); track.className = "bar-track"; track.setAttribute("aria-hidden", "true");
+      const fill = document.createElement("div"); fill.className = "bar-fill"; fill.style.width = valid ? Math.max(0, Math.min(100, score*100))+"%" : "0%";
+      fill.style.backgroundColor = band === "HIGH" ? "var(--red)" : band === "MEDIUM" ? "var(--amber)" : "var(--green)"; track.append(fill);
+      const category = document.createElement("span"); category.className = "attr-band"; category.textContent = label(band.toLowerCase());
+      const value = document.createElement("span"); value.className = "attr-number"; value.textContent = valid ? number(score) : "—";
+      row.append(name, track, category, value); $("attribute-bars").append(row);
     }
-
-    function setBar(barEl, valEl, score) {
-        const pct = Math.min(100, Math.max(0, Math.round(score * 100)));
-        barEl.style.width = pct + "%";
-        if (score >= 0.60) {
-            barEl.style.backgroundColor = "var(--high-color)";
-        } else if (score >= 0.30) {
-            barEl.style.backgroundColor = "var(--med-color)";
-        } else {
-            barEl.style.backgroundColor = "var(--low-color)";
-        }
-        valEl.textContent = Number(score).toFixed(2);
-    }
-
-    function escapeHtml(str) {
-        if (!str) return "";
-        return String(str)
-            .replace(/&/g, "&amp;")
-            .replace(/</g, "&lt;")
-            .replace(/>/g, "&gt;")
-            .replace(/"/g, "&quot;")
-            .replace(/'/g, "&#039;");
-    }
-
-    function escapeRegExp(str) {
-        if (!str) return "";
-        return String(str).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-    }
+    $("original-display").textContent = latest.input_text;
+    $("suggested-text").value = data.rewritten_text;
+    $("suggested-text").readOnly = true; edited = false; $("edit-note").hidden = true; $("check-edit-btn").hidden = true;
+    $("action-status").textContent = "";
+    const changed = latest.input_text.replace(/\s+/g, " ").trim() !== data.rewritten_text.replace(/\s+/g, " ").trim();
+    $("change-description").textContent = changed ? "The wording changed. Review both versions for missing or altered details; a wording change alone is not proof of protection." : "The suggested text is unchanged. No different wording was provided.";
+    $("pseudonym-display").textContent = data.pseudonymized_text || "Separate pseudonymization output is unavailable. The baseline is not a substitute for a persistent-alias result.";
+    $("presidio-display").textContent = typeof data.presidio_text === "string" ? data.presidio_text : "Baseline output is unavailable.";
+    const capacity = turn.residual_anonymity_capacity ?? turn.joint_entropy;
+    $("capacity").textContent = typeof capacity === "number" ? number(capacity)+" / 4" : "Not available";
+    $("leakage").textContent = typeof turn.leakage_delta === "number" ? (turn.leakage_delta >= 0 ? "+" : "")+number(turn.leakage_delta) : "Not available";
+    for (const [id, key] of [["util-cosine","cosine_similarity"],["util-forward","nli_forward"],["util-backward","nli_backward"],["util-composite","utility_score"]]) $(id).textContent = number(utility[key],4);
+    $("utility-method").textContent = utility.utility_backend === "model" ? "Method: model-based similarity and entailment evaluation." : utility.utility_backend === "fallback" ? "Method: fallback evaluation. One or more components use lexical heuristics rather than the full model evaluation." : "Evaluation method was not reported; model-based scoring is not assumed.";
+    const engines = {qwen_adapter:"Qwen adapter",heuristic:"rule-based rewriting",presidio_fallback:"baseline masking fallback",passthrough_low_risk:"original text retained"};
+    $("rewrite-method").textContent = "Served rewrite method: " + (engines[data.rewrite_engine] || "not reported") + ".";
+    $("empty").hidden = true; $("results").hidden = false; updateStale();
+  }
+  async function analyze() {
+    if (busy) return;
+    const text = $("text-input").value.trim(), session = $("session-id").value.trim();
+    if (!text) { message("Enter a message first, then choose Check my message."); $("text-input").focus(); return; }
+    if (!session) { message("Enter a conversation ID or start a new conversation in the settings below."); $("session-id").closest("details").open = true; $("session-id").focus(); return; }
+    message(""); setBusy(true);
+    try {
+      const start = performance.now();
+      const response = await fetch("/analyze", {method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({text, session_id:session, user_id:"demo_user"}),signal:AbortSignal.timeout(180000)});
+      if (!response.ok) throw new Error("The server returned status " + response.status + ".");
+      const data = await response.json();
+      if (typeof data.rewritten_text !== "string" || !data.risk_summary || typeof data.risk_summary !== "object") throw new Error("The server returned an incomplete analysis.");
+      latest = {session_id:session,user_id:"demo_user",input_text:text,exported_at:new Date().toISOString(),client_latency_seconds:(performance.now()-start)/1000,response:data};
+      render(data); $("connection").textContent = "Backend connected";
+    } catch (error) {
+      message("We could not complete this check. " + (error.name === "TimeoutError" ? "The request timed out; the server may still be processing this turn." : error.message) + " Your text is still here. Try Check my message again. Any previous results remain from the last successful analysis.");
+      checkConnection();
+    } finally { setBusy(false); }
+  }
+  $("analyze-btn").addEventListener("click", analyze);
+  for (const id of ["text-input","session-id"]) $(id).addEventListener("input", updateStale);
+  $("sample-btn").addEventListener("click", () => { $("text-input").value = "My manager keeps giving client-facing assignments to colleagues with master's degrees. I have been on the team for seven years and train new staff, but I do not have a postgraduate degree. How can I raise this fairly?"; updateStale(); $("text-input").focus(); });
+  $("new-session").addEventListener("click", () => { $("session-id").value = newId(); message(""); updateStale(); });
+  $("edit-btn").addEventListener("click", () => { $("suggested-text").readOnly = false; $("suggested-text").focus(); });
+  $("suggested-text").addEventListener("input", () => { edited = true; $("edit-note").hidden = false; $("check-edit-btn").hidden = false; $("action-status").textContent = ""; });
+  $("check-edit-btn").addEventListener("click", () => { $("text-input").value = $("suggested-text").value; updateStale(); analyze(); });
+  $("copy-btn").addEventListener("click", async () => {
+    if (!latest || isStale() || busy) return;
+    try { await navigator.clipboard.writeText($("suggested-text").value); $("action-status").textContent = edited ? "Copied your edited text. It has not been re-evaluated." : "Copied. Review the text before sharing."; }
+    catch (_) { $("suggested-text").focus(); $("suggested-text").select(); $("action-status").textContent = "Clipboard access is unavailable. The text is selected; use your browser’s Copy command."; }
+  });
+  $("download-btn").addEventListener("click", () => {
+    if (!latest) return;
+    const url = URL.createObjectURL(new Blob([JSON.stringify(latest,null,2)],{type:"application/json"}));
+    const link = document.createElement("a"); link.href = url; link.download = latest.session_id.replace(/[^a-zA-Z0-9_-]/g,"_")+".json"; document.body.append(link); link.click(); link.remove(); setTimeout(() => URL.revokeObjectURL(url),1000);
+  });
+  checkConnection();
 });

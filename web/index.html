@@ -1,141 +1,99 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>InferenceGuard - Inferential Privacy Defense</title>
-    <link rel="stylesheet" href="style.css">
-<!-- ig-evaluation-help -->
-<link rel="stylesheet" href="evaluation-help.css?v=1">
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>InferenceGuard — Review before you share</title>
+  <link rel="stylesheet" href="style.css?v=ui-v1">
+  <script src="app.js?v=ui-v1" defer></script>
 </head>
 <body>
-    <div class="app-layout">
-        <header class="navbar">
-            <div class="brand">
-                <span class="brand-title">InferenceGuard</span>
-                <span class="brand-subtitle">Inferential Privacy and Multi-Task Risk Protection</span>
-            </div>
-            <div class="system-status">
-                <span class="status-indicator"></span>
-                <span class="status-text">Backend Active</span>
-            </div>
-        </header>
+<div class="app-layout">
+  <header class="navbar">
+    <div><a class="brand" href="./">InferenceGuard</a><p>Review personal information before you share.</p></div>
+    <span id="connection" role="status" class="connection">Checking connection…</span>
+  </header>
+  <main>
+    <section class="card" aria-labelledby="input-title">
+      <span class="eyebrow">1 · YOUR MESSAGE</span>
+      <h1 id="input-title">What would you like to share?</h1>
+      <p id="input-help">Check what your message could reveal, then review a suggested version. You decide what to keep.</p>
+      <label for="text-input" class="sr-only">Message to check</label>
+      <textarea id="text-input" rows="5" aria-describedby="input-help" placeholder="Paste or type your message here…"></textarea>
+      <div class="actions"><button id="analyze-btn" class="primary">Check my message</button><button id="sample-btn">Try an example</button></div>
+      <div id="error" class="notice error" role="alert" hidden></div>
+      <details class="research-settings"><summary>Conversation &amp; research settings</summary>
+        <p>Messages using the same conversation ID contribute to cumulative risk. Rechecking a message also adds a turn.</p>
+        <label for="session-id">Conversation ID</label>
+        <input id="session-id" autocomplete="off">
+        <button id="new-session">Start new conversation</button>
+        <p>Starting a new conversation uses a new ID; it does not delete previous server records.</p>
+      </details>
+    </section>
 
-        <main class="main-content">
-            <section class="card input-section">
-                <div class="card-header">
-                    <h2>Input Message</h2>
-                    <div class="session-controls">
-                        <label for="session-id">Session:</label>
-                        <input type="text" id="session-id" value="session_01" placeholder="session_id">
-                    </div>
-                </div>
-                <textarea id="text-input" rows="5" placeholder="Enter text to analyze for inferential leakage..."></textarea>
-                <div class="action-bar">
-                    <button id="analyze-btn" class="primary-btn">Analyze and Protect</button>
-                    <button id="sample-btn" class="secondary-btn">Load Benchmark Sample</button>
-                    <button id="download-btn" class="secondary-btn" disabled>Download Result</button>
-                </div>
-            </section>
+    <div id="empty" class="empty"><h2>Your results will appear here</h2><p>Check a message to see potential exposure and compare the suggested text.</p></div>
+    <div id="results" hidden>
+      <div id="stale" class="notice" role="status" hidden>Your message or conversation has changed. These results belong to the previous analysis. Check again before using the suggested text.</div>
 
 
+      <section class="card" aria-labelledby="exposure-title">
+        <span class="eyebrow">2 · UNDERSTAND YOUR EXPOSURE</span>
+        <h2 id="exposure-title">What could your original message reveal?</h2>
+        <p id="exposure-summary"></p>
+        <div id="attribute-bars" class="attribute-bars"></div>
+        <p class="small">These are scores for the original message, not protection settings.</p>
+      </section>
 
-            <section class="card risk-summary-section" id="risk-summary-card">
-                <div class="card-header">
-                    <h2>Privacy Risk Evaluation</h2>
-                    <div id="overall-badge" class="badge badge-low">BAND: LOW</div>
-                </div>
-                <div class="risk-metrics-grid">
-                    <div class="metric-box">
-                        <span class="metric-label">Overall Risk</span>
-                        <span class="metric-value" id="overall-score">0.00</span>
-                    </div>
-                    <div class="metric-box">
-                        <span class="metric-label">Primary Risk</span>
-                        <span class="metric-value" id="primary-attr">None</span>
-                    </div>
-                    <div class="metric-box">
-                        <span class="metric-label">Residual Anonymity Capacity</span>
-                        <span class="metric-value" id="joint-entropy">4.00 bits</span>
-                    </div>
-                    <div class="metric-box">
-                        <span class="metric-label">Leakage Delta</span>
-                        <span class="metric-value" id="leakage-delta">0.00</span>
-                    </div>
-                </div>
+      <section class="card" aria-labelledby="comparison-title">
+        <span class="eyebrow">3 · REVIEW YOUR WORDS</span>
+        <h2 id="comparison-title">Compare before you use</h2>
+        <p id="change-description"></p>
+        <div class="comparison-grid">
+          <div><h3>Your original message</h3><div id="original-display" class="text-pane"></div></div>
+          <div><h3>Suggested version</h3><label for="suggested-text" class="sr-only">Suggested text; editable after selecting Edit</label><textarea id="suggested-text" class="text-pane" rows="7" readonly></textarea></div>
+        </div>
+        <p id="edit-note" class="notice" hidden>Edited locally: the scores above do not evaluate your edits. Use “Check edited version” to evaluate them; this adds a conversation turn.</p>
+        <div class="actions"><button id="copy-btn" class="primary">Copy suggested text</button><button id="edit-btn">Edit suggested text</button><button id="check-edit-btn" hidden>Check edited version</button></div>
+        <p id="action-status" role="status" class="small"></p>
+        <details><summary>Compare other protection methods</summary>
+          <div class="comparison-grid methods">
+            <div><h3>Consistent identity aliases</h3><p class="small">Persistent pseudonyms replace identifying details with consistent aliases, such as PERSON_1. No separate result is assumed when this output is unavailable.</p><div id="pseudonym-display" class="text-pane"></div></div>
+            <div><h3>Basic personal-information masking</h3><p class="small">The explicit-information baseline masks detected details such as names or email addresses. It can use Presidio or a fallback; the API does not currently identify which detector served this result.</p><div id="presidio-display" class="text-pane"></div></div>
+          </div>
+        </details>
+      </section>
 
-                <div class="attribute-bars">
-                    <div class="attr-row">
-                        <span class="attr-name">Age</span>
-                        <div class="bar-container"><div class="bar-fill" id="bar-age" style="width: 0%"></div></div>
-                        <span class="attr-val" id="val-age">0.00</span>
-                    </div>
-                    <div class="attr-row">
-                        <span class="attr-name">Location</span>
-                        <div class="bar-container"><div class="bar-fill" id="bar-location" style="width: 0%"></div></div>
-                        <span class="attr-val" id="val-location">0.00</span>
-                    </div>
-                    <div class="attr-row">
-                        <span class="attr-name">Occupation</span>
-                        <div class="bar-container"><div class="bar-fill" id="bar-occupation" style="width: 0%"></div></div>
-                        <span class="attr-val" id="val-occupation">0.00</span>
-                    </div>
-                    <div class="attr-row">
-                        <span class="attr-name">Education</span>
-                        <div class="bar-container"><div class="bar-fill" id="bar-education" style="width: 0%"></div></div>
-                        <span class="attr-val" id="val-education">0.00</span>
-                    </div>
-                </div>
-            </section>
+<section class="card result-summary" aria-labelledby="outcome-title" aria-live="polite">
+        <span class="eyebrow">4 · WHAT CHANGED</span>
+        <h2 id="outcome-title"></h2><p id="outcome-description"></p>
+        <div class="score-comparison"><div><span>Estimated risk before</span><strong id="before-score">Not available</strong></div><span aria-hidden="true">→</span><div><span>Estimated risk after</span><strong id="after-score">Not available</strong></div></div>
+        <p class="small">Scores are estimates on a 0–1 scale, not verified probabilities of identifying someone. Lower means less estimated exposure.</p>
+      </section>
 
-            <section class="card comparison-section">
-                <div class="card-header">
-                    <h2>Side-by-Side Protection Comparison</h2>
-                </div>
-                <div class="comparison-grid">
-                    <div class="comparison-column">
-                        <div class="column-title">Original (Cues Highlighted)</div>
-                        <div class="text-pane" id="original-display">No input submitted.</div>
-                    </div>
-                    <div class="comparison-column">
-                        <div class="column-title">Stage 1: Persistent Pseudonyms</div>
-                        <div class="text-pane" id="pseudonym-display">Pseudonymized text will appear here.</div>
-                    </div>
-                    <div class="comparison-column">
-                        <div class="column-title">InferenceGuard Rewrite</div>
-                        <div class="text-pane" id="rewrite-display">Sanitized rewrite will appear here.</div>
-                    </div>
-                    <div class="comparison-column">
-                        <div class="column-title">Presidio Explicit Baseline</div>
-                        <div class="text-pane" id="presidio-display">Presidio output will appear here.</div>
-                    </div>
-                </div>
-
-                <div class="utility-panel">
-                    <h3>Utility and Semantic Preservation</h3>
-                    <div class="utility-grid">
-                        <div class="util-item">
-                            <span class="util-label">Cosine Similarity (MiniLM):</span>
-                            <span class="util-val" id="util-cosine">0.00</span>
-                        </div>
-                        <div class="util-item">
-                            <span class="util-label">Forward NLI (DeBERTa):</span>
-                            <span class="util-val" id="util-nli-fwd">0.00</span>
-                        </div>
-                        <div class="util-item">
-                            <span class="util-label">Backward NLI:</span>
-                            <span class="util-val" id="util-nli-bwd">0.00</span>
-                        </div>
-                        <div class="util-item">
-                            <span class="util-label">Composite Utility:</span>
-                            <span class="util-val" id="util-composite">0.00</span>
-                        </div>
-                    </div>
-                </div>
-            </section>
-        </main>
+      <section class="card">
+        <details id="detailed-evaluation"><summary>Detailed evaluation · numbers &amp; methods</summary>
+          <p>Message-level scores describe this input. Conversation-level values include earlier turns with the same conversation ID.</p>
+          <h3>Across this conversation</h3>
+          <div class="detail-grid">
+            <div><h4>Remaining privacy capacity</h4><strong id="capacity"></strong><p>Higher means less accumulated exposure across four attributes. Range 0–4; sum of (1 − cumulative attribute risk). Technical name: Residual Anonymity Capacity. This is a heuristic index, not entropy in bits.</p></div>
+            <div><h4>Added risk from this message</h4><strong id="leakage"></strong><p>Increase in the highest cumulative attribute risk since the previous turn. The first turn is compared with zero. Zero does not mean no private information. Technical name: Leakage Delta.</p></div>
+          </div>
+          <h3>How much meaning was preserved?</h3>
+          <p id="utility-method" class="notice"></p>
+          <div class="detail-grid">
+            <div><h4>Text similarity</h4><strong id="util-cosine"></strong><p>Cosine Similarity: higher means more similarity. Similar wording alone does not guarantee key details are preserved.</p></div>
+            <div><h4>Support for rewritten content</h4><strong id="util-forward"></strong><p>Forward NLI: whether the original supports the rewrite. Higher suggests fewer unsupported additions.</p></div>
+            <div><h4>Retention of original details</h4><strong id="util-backward"></strong><p>Backward NLI: whether the rewrite supports the original. Higher suggests fewer details were lost.</p></div>
+            <div><h4>Overall meaning-preservation score</h4><strong id="util-composite"></strong><p>Composite Utility: combines similarity and both NLI directions, penalizing contradiction and degenerate output. Higher is better; it does not measure privacy improvement.</p></div>
+          </div>
+          <p id="rewrite-method"></p>
+          <p class="small">The analysis response does not identify the risk-scoring backend. No model availability is inferred from a score.</p>
+        </details>
+        <div class="actions export"><button id="download-btn">Download analysis record</button><span class="small">Includes the original message and analyzed output. Local edits are not included.</span></div>
+      </section>
     </div>
-    <script src="app.js"></script>
-<script src="evaluation-help.js?v=1"></script>
+  </main>
+  <footer>Review the suggested text yourself. Estimated risk reduction does not guarantee anonymity.</footer>
+</div>
 </body>
 </html>
