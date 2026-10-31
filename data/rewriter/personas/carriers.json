@@ -1,0 +1,406 @@
+{
+  "note": "Carrier queries: PII-free questions/requests across domains. 'id' is stable, 'text' is the query, 'split_hint' marks a natural mid-sentence split point (for mid-position injection), 'needs_persona' marks carriers whose answer genuinely depends on a personal parameter, so the rewrite must GENERALIZE the persona rather than delete it (e.g. career stage, income variability).",
+  "carriers": [
+    {
+      "id": "onc_adjuvant",
+      "domain": "medicine",
+      "text": "What is the standard adjuvant protocol for HER2-positive stage II breast cancer?"
+    },
+    {
+      "id": "dapt_outpatient",
+      "domain": "medicine",
+      "text": "What are the contraindications for initiating dual antiplatelet therapy in an outpatient setting?"
+    },
+    {
+      "id": "ped_fever",
+      "domain": "medicine",
+      "text": "What is the recommended workup for a 4-year-old patient with a 5-day fever and rash?"
+    },
+    {
+      "id": "t2dm_insulin",
+      "domain": "medicine",
+      "text": "When should metformin monotherapy be escalated to combination therapy in type 2 diabetes?"
+    },
+    {
+      "id": "gerd_dosing",
+      "domain": "medicine",
+      "text": "What is the evidence for on-demand versus continuous proton pump inhibitor therapy?"
+    },
+    {
+      "id": "hashing_go",
+      "domain": "software",
+      "text": "How do I implement consistent hashing in Go?"
+    },
+    {
+      "id": "ray_cluster",
+      "domain": "software",
+      "text": "How do I configure a distributed Ray cluster on AWS?"
+    },
+    {
+      "id": "sql_index",
+      "domain": "software",
+      "text": "Why is my Postgres query doing a sequential scan despite an index on the filtered column?",
+      "split_hint": ","
+    },
+    {
+      "id": "k8s_hpa",
+      "domain": "software",
+      "text": "What is the difference between horizontal and vertical pod autoscaling in Kubernetes?"
+    },
+    {
+      "id": "py_gil",
+      "domain": "software",
+      "text": "Explain how the GIL affects multithreaded CPU-bound Python programs, and what the alternatives are."
+    },
+    {
+      "id": "rust_borrow",
+      "domain": "software",
+      "text": "Why does the borrow checker reject this function, and how do I restructure the lifetimes?"
+    },
+    {
+      "id": "css_grid",
+      "domain": "software",
+      "text": "How do I make a responsive three-column layout collapse to one column on mobile?"
+    },
+    {
+      "id": "wind_load",
+      "domain": "engineering",
+      "text": "What are the wind load design parameters for high-rise shear walls under ASCE 7-22?"
+    },
+    {
+      "id": "openfoam",
+      "domain": "engineering",
+      "text": "What turbulence model should I use for LES vs RANS simulations of flow past a cylinder?"
+    },
+    {
+      "id": "beam_deflection",
+      "domain": "engineering",
+      "text": "How do I calculate the deflection of a simply supported beam under a uniform distributed load?"
+    },
+    {
+      "id": "motor_spec",
+      "domain": "engineering",
+      "text": "How do I read the torque-speed curve to size a motor for a conveyor belt?"
+    },
+    {
+      "id": "pcb_trace",
+      "domain": "engineering",
+      "text": "What trace width do I need for 3 amps on a 2-layer PCB with 1 oz copper?"
+    },
+    {
+      "id": "commerce_clause",
+      "domain": "law",
+      "text": "Can you provide a breakdown of the commerce clause jurisprudential doctrine?"
+    },
+    {
+      "id": "ca_labor",
+      "domain": "law",
+      "text": "What are the meal and rest break requirements for California non-exempt employees?"
+    },
+    {
+      "id": "tx_llc",
+      "domain": "law",
+      "text": "What are the formation and annual report requirements for a Texas LLC?"
+    },
+    {
+      "id": "ny_lease",
+      "domain": "law",
+      "text": "Under New York law, what are a tenant's rights when a landlord fails to repair a heating system?"
+    },
+    {
+      "id": "fl_homestead",
+      "domain": "law",
+      "text": "How does the Florida homestead exemption interact with bankruptcy proceedings?"
+    },
+    {
+      "id": "gdpr_sar",
+      "domain": "law",
+      "text": "What is the statutory deadline for responding to a GDPR subject access request?"
+    },
+    {
+      "id": "munibonds",
+      "domain": "finance",
+      "text": "What is the tax efficiency difference between municipal bonds and dividend index funds?",
+      "needs_persona": true,
+      "persona_param": "income"
+    },
+    {
+      "id": "emergency_fund",
+      "domain": "finance",
+      "text": "How should an emergency fund be structured for someone with variable income?",
+      "needs_persona": true,
+      "persona_param": "income"
+    },
+    {
+      "id": "rsu_vesting",
+      "domain": "finance",
+      "text": "How do RSU vesting schedules work, and what are the tax implications at vesting?",
+      "needs_persona": true,
+      "persona_param": "occupation"
+    },
+    {
+      "id": "retirement_draw",
+      "domain": "finance",
+      "text": "What is a safe withdrawal rate for a 30-year retirement?",
+      "needs_persona": true,
+      "persona_param": "age"
+    },
+    {
+      "id": "mortgage_points",
+      "domain": "finance",
+      "text": "When does it make sense to pay points on a mortgage versus a higher rate?",
+      "needs_persona": true,
+      "persona_param": "income"
+    },
+    {
+      "id": "minwage_elasticity",
+      "domain": "economics",
+      "text": "Can you summarize the econometric evidence on minimum wage elasticities?"
+    },
+    {
+      "id": "phillips_curve",
+      "domain": "economics",
+      "text": "What explains the flattening of the Phillips curve since the 1990s?"
+    },
+    {
+      "id": "granger_causality",
+      "domain": "economics",
+      "text": "How do I test for Granger causality between two non-stationary time series?"
+    },
+    {
+      "id": "sourdough",
+      "domain": "cooking",
+      "text": "My sourdough loaf has a dense gummy crumb; what am I doing wrong with the proof?"
+    },
+    {
+      "id": "knife_sharpen",
+      "domain": "cooking",
+      "text": "What is the best angle to sharpen a Japanese gyuto versus a German chef's knife?"
+    },
+    {
+      "id": "brine_turkey",
+      "domain": "cooking",
+      "text": "How long should I dry-brine a 6 kg turkey before roasting?"
+    },
+    {
+      "id": "espresso_dial",
+      "domain": "cooking",
+      "text": "How do I dial in espresso grind size when shots are running fast and sour?"
+    },
+    {
+      "id": "jlpt_n3",
+      "domain": "language",
+      "text": "What is an efficient study plan to pass the JLPT N3 in eight months?"
+    },
+    {
+      "id": "french_subjonctif",
+      "domain": "language",
+      "text": "When is the subjunctive required after 'bien que' versus 'parce que'?"
+    },
+    {
+      "id": "mandarin_tones",
+      "domain": "language",
+      "text": "What are effective drills for distinguishing Mandarin second and third tones?"
+    },
+    {
+      "id": "spanish_ser_estar",
+      "domain": "language",
+      "text": "How do I decide between ser and estar when describing a person's personality?"
+    },
+    {
+      "id": "marathon_plan",
+      "domain": "fitness",
+      "text": "What is a sensible 16-week plan to run a sub-4-hour marathon?",
+      "needs_persona": true,
+      "persona_param": "age"
+    },
+    {
+      "id": "hypertrophy",
+      "domain": "fitness",
+      "text": "What rep range and weekly volume maximize hypertrophy for compound lifts?",
+      "needs_persona": true,
+      "persona_param": "age"
+    },
+    {
+      "id": "swim_breathing",
+      "domain": "fitness",
+      "text": "How do I fix my breathing technique for freestyle swimming?"
+    },
+    {
+      "id": "climbing_grade",
+      "domain": "fitness",
+      "text": "How should I progress from V2 to V4 bouldering without injury?",
+      "needs_persona": true,
+      "persona_param": "age"
+    },
+    {
+      "id": "visa_schengen",
+      "domain": "travel",
+      "text": "What documents are required for a 90-day Schengen tourist visa application?"
+    },
+    {
+      "id": "jetlag",
+      "domain": "travel",
+      "text": "What is the best protocol to minimize jet lag on a 12-hour eastbound flight?"
+    },
+    {
+      "id": "hostel_safety",
+      "domain": "travel",
+      "text": "How do I keep valuables safe in hostels, and what should I lock up?"
+    },
+    {
+      "id": "altitude_acclimatize",
+      "domain": "travel",
+      "text": "What is the recommended acclimatization schedule for trekking above 4000 meters?"
+    },
+    {
+      "id": "cauchy_proof",
+      "domain": "mathematics",
+      "text": "Give a step-by-step proof of Cauchy's integral formula."
+    },
+    {
+      "id": "eigenvector_intuition",
+      "domain": "mathematics",
+      "text": "What is an intuitive explanation of eigenvectors and eigenvalues?"
+    },
+    {
+      "id": "bayes_dice",
+      "domain": "mathematics",
+      "text": "How do I apply Bayes' theorem to a loaded-die detection problem?"
+    },
+    {
+      "id": "regression_endog",
+      "domain": "statistics",
+      "text": "What do I do about endogeneity in a panel regression with fixed effects?"
+    },
+    {
+      "id": "power_analysis",
+      "domain": "statistics",
+      "text": "How do I run a power analysis for a two-sample t-test with unequal variances?"
+    },
+    {
+      "id": "crispr_offtarget",
+      "domain": "biology",
+      "text": "What are the main strategies for reducing off-target effects in CRISPR-Cas9 editing?"
+    },
+    {
+      "id": "pcr_primer",
+      "domain": "biology",
+      "text": "How do I design primers for a qPCR assay spanning an exon-exon junction?"
+    },
+    {
+      "id": "compost_ph",
+      "domain": "gardening",
+      "text": "My compost is too acidic and slimy; how do I rebalance the greens and browns?"
+    },
+    {
+      "id": "tomato_blight",
+      "domain": "gardening",
+      "text": "How do I distinguish early blight from septoria leaf spot on tomatoes?"
+    },
+    {
+      "id": "orchid_repot",
+      "domain": "gardening",
+      "text": "When and how should I repot a phalaenopsis orchid with mushy roots?"
+    },
+    {
+      "id": "puppy_crate",
+      "domain": "pets",
+      "text": "How do I crate-train a 10-week-old puppy without crying at night?"
+    },
+    {
+      "id": "cat_introduce",
+      "domain": "pets",
+      "text": "What is the slowest-safe protocol for introducing a new cat to a resident cat?"
+    },
+    {
+      "id": "ukulele_chords",
+      "domain": "music",
+      "text": "What is the easiest chord progression to start singing over on ukulele?"
+    },
+    {
+      "id": "mixing_vocals",
+      "domain": "music",
+      "text": "How do I de-mud a vocal mix without losing presence in the 200-400 Hz range?"
+    },
+    {
+      "id": "guitar_fret",
+      "domain": "music",
+      "text": "Why do my open chords buzz on the first three frets, and how do I fix the action?"
+    },
+    {
+      "id": "watercolor_paper",
+      "domain": "art",
+      "text": "How do I keep watercolor paper from buckling without stretching it?"
+    },
+    {
+      "id": "perspective_grid",
+      "domain": "art",
+      "text": "How do I set up a two-point perspective grid for a street scene?"
+    },
+    {
+      "id": "resume_gap",
+      "domain": "career",
+      "text": "How do I explain a two-year employment gap on my resume?",
+      "needs_persona": true,
+      "persona_param": "occupation"
+    },
+    {
+      "id": "career_switch",
+      "domain": "career",
+      "text": "What transferable skills matter most when moving into data analytics from another field?",
+      "needs_persona": true,
+      "persona_param": "occupation"
+    },
+    {
+      "id": "interview_negotiate",
+      "domain": "career",
+      "text": "How do I negotiate a competing offer without burning bridges?",
+      "needs_persona": true,
+      "persona_param": "occupation"
+    },
+    {
+      "id": "sleep_schedule",
+      "domain": "health",
+      "text": "How do I shift my sleep schedule earlier by two hours without daytime fatigue?",
+      "needs_persona": true,
+      "persona_param": "age"
+    },
+    {
+      "id": "plant_protein",
+      "domain": "health",
+      "text": "How can I hit 120 g of protein a day on a plant-based diet?"
+    },
+    {
+      "id": "study_spaced",
+      "domain": "learning",
+      "text": "What spaced repetition schedule works best for retaining anatomy definitions?",
+      "needs_persona": true,
+      "persona_param": "education"
+    },
+    {
+      "id": "public_speaking",
+      "domain": "learning",
+      "text": "How do I stop my voice from shaking during presentations?"
+    },
+    {
+      "id": "home_insulation",
+      "domain": "home",
+      "text": "What is the payback period for adding attic insulation in a cold climate?",
+      "needs_persona": true,
+      "persona_param": "location"
+    },
+    {
+      "id": "ev_charging",
+      "domain": "home",
+      "text": "Do I need a dedicated circuit to install a Level 2 EV charger in my garage?"
+    },
+    {
+      "id": "insurance_deductible",
+      "domain": "insurance",
+      "text": "How do I choose between a high-deductible health plan and a PPO?",
+      "needs_persona": true,
+      "persona_param": "income"
+    }
+  ]
+}

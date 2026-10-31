@@ -47,18 +47,52 @@ The profile-disjoint splits are committed under `data/splits/` and hashed in
 are ever missing, `python -m src.data.splits` regenerates them from the pinned
 SynthPAI revision, and `python scripts/check_splits.py` checks them.
 
-The SFT targets come from a local teacher LLM (Qwen3-4B, thinking off). Each
-rewrite is kept only if it passes a verbatim leak check against the author's
-true attributes, the degeneracy rule, and NLI entailment. The held-out Phi-4
-attacker is never used. See the docstring of `src/rewriter/teacher_sft.py`.
+**v2 (single-turn prompt + position-controlled augmentation).** The v1 SFT set
+embedded one fixed two-shot primer in every training row, so 66.7% of the
+supervised turns were the same two completions and the served prompt no longer
+matched the trained one (1749/1749 rows) - the adapter memorized instead of
+generalizing. The student is now trained single-turn (policy lives in the
+system prompt, from `src/rewriter/prompting.py`), and a position-randomized
+augmented corpus teaches cue detection anywhere in the text:
+
 ```bash
-python -m src.rewriter.teacher_sft --split train --device cuda --out-dir data/sft/teacher_v1   # or --device mps / cpu
+# 1. Compose the position-controlled corpus (deterministic, no GPU):
+python -m src.rewriter.augment --n 2000 --out data/sft/augmented_v1/augmented.jsonl
+
+# 2a. Bootstrap an SFT set from the corpus alone (no teacher, no GPU):
+python -m src.rewriter.teacher_sft --augment-only --augment-dir data/sft/augmented_v1 --out-dir data/sft/augmented_v1
+
+# 2b. Full run: teacher rewrites SynthPAI train comments AND mixes the
+#     augmented corpus through the same acceptance gates:
+python -m src.rewriter.teacher_sft --split train --device cuda \
+    --out-dir data/sft/teacher_v2 --augment-dir data/sft/augmented_v1
+
+# 3. Gate the dataset before training (train/serve parity, no duplicated
+#    turns, position statistics; exits non-zero on regression):
+python scripts/check_prompt_parity.py data/sft/augmented_v1/train.jsonl
 ```
-It writes `train.jsonl` (rows in the exact prompt format inference serves),
-`candidates_train.jsonl` (every teacher output with its verdict), and
-`manifest_train.json`. The run resumes from the candidates file if
-interrupted. Train the adapter on it with
-`python -m src.rewriter.train_sft --dataset_path data/sft/teacher_v1/train.jsonl`.
+
+The SFT targets from the teacher are kept only if they pass a verbatim leak
+check against the author's true attributes, the degeneracy rule, and NLI
+entailment; augmented rows additionally must remove *every injected surface
+form* (variants included), so "relocated instead of removed" is rejected. The
+held-out Phi-4 attacker is never used. See the docstrings of
+`src/rewriter/teacher_sft.py` and `src/rewriter/augment.py`.
+Train the adapter on it with
+`python -m src.rewriter.train_sft --dataset_path data/sft/teacher_v2/train.jsonl`.
+
+More training data: `docs/DATA_SOURCES.md` lists verified corpora (PersonaHub,
+ai4privacy PII masking, PAN author profiling, Blogger) and
+`scripts/fetch_external_corpora.py --dry-run` prints the download plan.
+
+### 2b. Evaluate the rewriter honestly
+```bash
+python data/evaluation/annotate_benchmark_spans.py       # span annotations, review the output
+python scripts/evaluate_benchmark_50.py --adapter_path artifacts/rewriter_qlora
+python scripts/evaluate_benchmark_50.py --fallback_baseline   # bank-driven floor to beat
+```
+The v2 evaluator scores PII-span removal, invariant (jurisdiction/standard)
+preservation and copy-through per category - no hardcoded keyword checklist.
 
 ### 3. Launch the Web UI
 To spin up the live interactive web UI inside Colab and test your trained models:

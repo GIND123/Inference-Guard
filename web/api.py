@@ -237,8 +237,9 @@ def get_qwen_rewriter():
         try:
             import json
             from src.rewriter import QwenRewriterInference
+            from src.rewriter.inference import SMALL_STUDENT_MODEL
             cfg_p = adapter_p / "adapter_config.json"
-            base_model = "Qwen/Qwen2.5-0.5B-Instruct"
+            base_model = SMALL_STUDENT_MODEL
             if cfg_p.exists():
                 try:
                     cfg_data = json.loads(cfg_p.read_text(encoding="utf-8"))

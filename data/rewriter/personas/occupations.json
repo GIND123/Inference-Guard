@@ -1,0 +1,688 @@
+{
+  "attribute": "occupation",
+  "generalizations": [
+    "professional",
+    "someone in my field"
+  ],
+  "entries": [
+    {
+      "value": "emergency room nurse",
+      "sector": "healthcare",
+      "generalizations": [
+        "a healthcare role"
+      ]
+    },
+    {
+      "value": "oncology nurse",
+      "sector": "healthcare"
+    },
+    {
+      "value": "registered nurse",
+      "sector": "healthcare"
+    },
+    {
+      "value": "nurse practitioner",
+      "sector": "healthcare"
+    },
+    {
+      "value": "senior oncologist",
+      "sector": "healthcare"
+    },
+    {
+      "value": "oncologist",
+      "sector": "healthcare"
+    },
+    {
+      "value": "cardiologist",
+      "sector": "healthcare"
+    },
+    {
+      "value": "dermatologist",
+      "sector": "healthcare"
+    },
+    {
+      "value": "neurologist",
+      "sector": "healthcare"
+    },
+    {
+      "value": "psychiatrist",
+      "sector": "healthcare"
+    },
+    {
+      "value": "urologist",
+      "sector": "healthcare"
+    },
+    {
+      "value": "endocrinologist",
+      "sector": "healthcare"
+    },
+    {
+      "value": "nephrologist",
+      "sector": "healthcare"
+    },
+    {
+      "value": "ophthalmologist",
+      "sector": "healthcare"
+    },
+    {
+      "value": "pulmonologist",
+      "sector": "healthcare"
+    },
+    {
+      "value": "radiologist",
+      "sector": "healthcare"
+    },
+    {
+      "value": "anesthesiologist",
+      "sector": "healthcare"
+    },
+    {
+      "value": "pediatrician",
+      "sector": "healthcare"
+    },
+    {
+      "value": "general practitioner",
+      "sector": "healthcare"
+    },
+    {
+      "value": "surgeon",
+      "sector": "healthcare"
+    },
+    {
+      "value": "physiotherapist",
+      "sector": "healthcare"
+    },
+    {
+      "value": "paramedic",
+      "sector": "healthcare"
+    },
+    {
+      "value": "pharmacy technician",
+      "sector": "healthcare"
+    },
+    {
+      "value": "dental hygienist",
+      "sector": "healthcare"
+    },
+    {
+      "value": "midwife",
+      "sector": "healthcare"
+    },
+    {
+      "value": "clinical psychologist",
+      "sector": "healthcare"
+    },
+    {
+      "value": "medical resident",
+      "sector": "healthcare"
+    },
+    {
+      "value": "psychiatric resident",
+      "sector": "healthcare"
+    },
+    {
+      "value": "clinical pharmacist",
+      "sector": "healthcare"
+    },
+    {
+      "value": "home health aide",
+      "sector": "healthcare"
+    },
+    {
+      "value": "software engineer",
+      "sector": "technology",
+      "variants": [
+        "software developer",
+        "software professional",
+        "tech professional",
+        "tech worker"
+      ]
+    },
+    {
+      "value": "backend engineer",
+      "sector": "technology"
+    },
+    {
+      "value": "frontend developer",
+      "sector": "technology"
+    },
+    {
+      "value": "mobile developer",
+      "sector": "technology"
+    },
+    {
+      "value": "data engineer",
+      "sector": "technology"
+    },
+    {
+      "value": "machine learning engineer",
+      "sector": "technology"
+    },
+    {
+      "value": "data scientist",
+      "sector": "technology"
+    },
+    {
+      "value": "DevOps engineer",
+      "sector": "technology",
+      "generalizations": [
+        "an infrastructure role"
+      ]
+    },
+    {
+      "value": "site reliability engineer",
+      "sector": "technology"
+    },
+    {
+      "value": "QA tester",
+      "sector": "technology"
+    },
+    {
+      "value": "embedded systems engineer",
+      "sector": "technology"
+    },
+    {
+      "value": "security analyst",
+      "sector": "technology"
+    },
+    {
+      "value": "IT support specialist",
+      "sector": "technology"
+    },
+    {
+      "value": "database administrator",
+      "sector": "technology"
+    },
+    {
+      "value": "cloud architect",
+      "sector": "technology"
+    },
+    {
+      "value": "UX researcher",
+      "sector": "technology"
+    },
+    {
+      "value": "product manager",
+      "sector": "technology"
+    },
+    {
+      "value": "technical writer",
+      "sector": "technology"
+    },
+    {
+      "value": "corporate lawyer",
+      "sector": "legal",
+      "generalizations": [
+        "a legal role"
+      ]
+    },
+    {
+      "value": "public defender",
+      "sector": "legal"
+    },
+    {
+      "value": "patent attorney",
+      "sector": "legal"
+    },
+    {
+      "value": "paralegal",
+      "sector": "legal"
+    },
+    {
+      "value": "legal secretary",
+      "sector": "legal"
+    },
+    {
+      "value": "compliance officer",
+      "sector": "legal"
+    },
+    {
+      "value": "structural engineer",
+      "sector": "engineering"
+    },
+    {
+      "value": "civil engineer",
+      "sector": "engineering"
+    },
+    {
+      "value": "mechanical engineer",
+      "sector": "engineering"
+    },
+    {
+      "value": "electrical engineer",
+      "sector": "engineering"
+    },
+    {
+      "value": "chemical engineer",
+      "sector": "engineering"
+    },
+    {
+      "value": "process engineer",
+      "sector": "engineering"
+    },
+    {
+      "value": "aerospace engineer",
+      "sector": "engineering"
+    },
+    {
+      "value": "marine engineer",
+      "sector": "engineering"
+    },
+    {
+      "value": "environmental engineer",
+      "sector": "engineering"
+    },
+    {
+      "value": "field technician",
+      "sector": "engineering"
+    },
+    {
+      "value": "high school physics teacher",
+      "sector": "education",
+      "generalizations": [
+        "a teaching role"
+      ]
+    },
+    {
+      "value": "kindergarten teacher",
+      "sector": "education"
+    },
+    {
+      "value": "special education teacher",
+      "sector": "education"
+    },
+    {
+      "value": "university lecturer",
+      "sector": "education"
+    },
+    {
+      "value": "adjunct professor",
+      "sector": "education"
+    },
+    {
+      "value": "tenured professor",
+      "sector": "education"
+    },
+    {
+      "value": "graduate teaching assistant",
+      "sector": "education"
+    },
+    {
+      "value": "school librarian",
+      "sector": "education"
+    },
+    {
+      "value": "school counselor",
+      "sector": "education"
+    },
+    {
+      "value": "financial analyst",
+      "sector": "finance",
+      "generalizations": [
+        "a finance role"
+      ]
+    },
+    {
+      "value": "investment banker",
+      "sector": "finance"
+    },
+    {
+      "value": "chief financial officer",
+      "sector": "finance"
+    },
+    {
+      "value": "accountant",
+      "sector": "finance"
+    },
+    {
+      "value": "tax preparer",
+      "sector": "finance"
+    },
+    {
+      "value": "auditor",
+      "sector": "finance"
+    },
+    {
+      "value": "insurance underwriter",
+      "sector": "finance"
+    },
+    {
+      "value": "bank teller",
+      "sector": "finance"
+    },
+    {
+      "value": "loan officer",
+      "sector": "finance"
+    },
+    {
+      "value": "barista",
+      "sector": "hospitality",
+      "generalizations": [
+        "a service job"
+      ]
+    },
+    {
+      "value": "sous chef",
+      "sector": "hospitality"
+    },
+    {
+      "value": "line cook",
+      "sector": "hospitality"
+    },
+    {
+      "value": "hotel receptionist",
+      "sector": "hospitality"
+    },
+    {
+      "value": "flight attendant",
+      "sector": "hospitality"
+    },
+    {
+      "value": "cruise ship worker",
+      "sector": "hospitality"
+    },
+    {
+      "value": "bartender",
+      "sector": "hospitality"
+    },
+    {
+      "value": "tour guide",
+      "sector": "hospitality"
+    },
+    {
+      "value": "event planner",
+      "sector": "hospitality"
+    },
+    {
+      "value": "electrician",
+      "sector": "trades",
+      "generalizations": [
+        "a skilled trade"
+      ]
+    },
+    {
+      "value": "plumber",
+      "sector": "trades"
+    },
+    {
+      "value": "carpenter",
+      "sector": "trades"
+    },
+    {
+      "value": "welder",
+      "sector": "trades"
+    },
+    {
+      "value": "HVAC technician",
+      "sector": "trades"
+    },
+    {
+      "value": "elevator mechanic",
+      "sector": "trades"
+    },
+    {
+      "value": "auto mechanic",
+      "sector": "trades"
+    },
+    {
+      "value": "solar panel installer",
+      "sector": "trades"
+    },
+    {
+      "value": "landscaper",
+      "sector": "trades"
+    },
+    {
+      "value": "long-haul trucker",
+      "sector": "transport",
+      "generalizations": [
+        "a transport job"
+      ]
+    },
+    {
+      "value": "delivery driver",
+      "sector": "transport"
+    },
+    {
+      "value": "train conductor",
+      "sector": "transport"
+    },
+    {
+      "value": "air traffic controller",
+      "sector": "transport"
+    },
+    {
+      "value": "merchant sailor",
+      "sector": "transport"
+    },
+    {
+      "value": " rideshare driver",
+      "sector": "transport"
+    },
+    {
+      "value": "warehouse picker",
+      "sector": "logistics"
+    },
+    {
+      "value": "customs officer",
+      "sector": "logistics"
+    },
+    {
+      "value": "organic farmer",
+      "sector": "agriculture",
+      "generalizations": [
+        "farm work"
+      ]
+    },
+    {
+      "value": "dairy worker",
+      "sector": "agriculture"
+    },
+    {
+      "value": "beekeeper",
+      "sector": "agriculture"
+    },
+    {
+      "value": "fisherman",
+      "sector": "agriculture"
+    },
+    {
+      "value": "veterinarian",
+      "sector": "agriculture"
+    },
+    {
+      "value": "veterinary technician",
+      "sector": "agriculture"
+    },
+    {
+      "value": "social worker",
+      "sector": "public sector",
+      "generalizations": [
+        "a public sector role"
+      ]
+    },
+    {
+      "value": "city planner",
+      "sector": "public sector"
+    },
+    {
+      "value": "librarian",
+      "sector": "public sector"
+    },
+    {
+      "value": "museum curator",
+      "sector": "public sector"
+    },
+    {
+      "value": "police officer",
+      "sector": "public sector"
+    },
+    {
+      "value": "firefighter",
+      "sector": "public sector"
+    },
+    {
+      "value": "911 dispatcher",
+      "sector": "public sector"
+    },
+    {
+      "value": "military officer",
+      "sector": "public sector"
+    },
+    {
+      "value": "diplomat",
+      "sector": "public sector"
+    },
+    {
+      "value": "freelance graphic designer",
+      "sector": "creative",
+      "generalizations": [
+        "freelance creative work"
+      ]
+    },
+    {
+      "value": "illustrator",
+      "sector": "creative"
+    },
+    {
+      "value": "photographer",
+      "sector": "creative"
+    },
+    {
+      "value": "video editor",
+      "sector": "creative"
+    },
+    {
+      "value": "journalist",
+      "sector": "creative"
+    },
+    {
+      "value": "radio host",
+      "sector": "creative"
+    },
+    {
+      "value": "copywriter",
+      "sector": "creative"
+    },
+    {
+      "value": "translator",
+      "sector": "creative"
+    },
+    {
+      "value": "stage actor",
+      "sector": "creative"
+    },
+    {
+      "value": "music teacher",
+      "sector": "creative"
+    },
+    {
+      "value": "lab technician",
+      "sector": "science",
+      "generalizations": [
+        "a lab role"
+      ]
+    },
+    {
+      "value": "research scientist",
+      "sector": "science"
+    },
+    {
+      "value": "biostatistician",
+      "sector": "science"
+    },
+    {
+      "value": "geologist",
+      "sector": "science"
+    },
+    {
+      "value": "wildlife biologist",
+      "sector": "science"
+    },
+    {
+      "value": "meteorologist",
+      "sector": "science"
+    },
+    {
+      "value": "food scientist",
+      "sector": "science"
+    },
+    {
+      "value": "retail associate",
+      "sector": "retail",
+      "generalizations": [
+        "a retail job"
+      ]
+    },
+    {
+      "value": "store manager",
+      "sector": "retail"
+    },
+    {
+      "value": "cashier",
+      "sector": "retail"
+    },
+    {
+      "value": "pharmacist",
+      "sector": "retail"
+    },
+    {
+      "value": "personal trainer",
+      "sector": "fitness"
+    },
+    {
+      "value": "yoga instructor",
+      "sector": "fitness"
+    },
+    {
+      "value": "physiotherapy assistant",
+      "sector": "fitness"
+    },
+    {
+      "value": "startup founder",
+      "sector": "business",
+      "generalizations": [
+        "running a small business"
+      ]
+    },
+    {
+      "value": "small business owner",
+      "sector": "business"
+    },
+    {
+      "value": "management consultant",
+      "sector": "business"
+    },
+    {
+      "value": "human resources manager",
+      "sector": "business",
+      "variants": [
+        "HR director",
+        "HR manager"
+      ]
+    },
+    {
+      "value": "recruiter",
+      "sector": "business"
+    },
+    {
+      "value": "real estate agent",
+      "sector": "business"
+    },
+    {
+      "value": "property manager",
+      "sector": "business"
+    },
+    {
+      "value": "nonprofit program coordinator",
+      "sector": "business"
+    },
+    {
+      "value": "rotating-shift factory worker",
+      "sector": "industrial",
+      "generalizations": [
+        "shift work in manufacturing"
+      ]
+    }
+  ]
+}

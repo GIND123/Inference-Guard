@@ -1,0 +1,25 @@
+{
+  "attribute": "age",
+  "generalizations": [],
+  "note": "Age is removed, not generalized; 'generalizations' is empty by policy. 'pattern' matches the surface form in text; 'render' is how the composer injects it.",
+  "entries": [
+    {"render": "{n}-year-old", "pattern": "\\b(1[0-9]|[2-9][0-9])-year-old\\b", "kind": "exact"},
+    {"render": "{n} years old", "pattern": "\\b(1[0-9]|[2-9][0-9])\\s+years?\\s+old\\b", "kind": "exact"},
+    {"render": "{n}yo", "pattern": "\\b(1[0-9]|[2-9][0-9])yo\\b", "kind": "exact"},
+    {"render": "{n} y/o", "pattern": "\\b(1[0-9]|[2-9][0-9]) y/o\\b", "kind": "exact"},
+    {"render": "I am {n}", "pattern": "\\bI am (1[0-9]|[2-9][0-9])\\b", "kind": "exact"},
+    {"render": "I'm {n}", "pattern": "\\bI'm (1[0-9]|[2-9][0-9])\\b", "kind": "exact"},
+    {"render": "in my {decade}s", "pattern": "\\bin my (twenties|thirties|forties|fifties|sixties|seventies)\\b", "kind": "band",
+     "bands": {"twenties": "20-29", "thirties": "30-39", "forties": "40-49", "fifties": "50-59", "sixties": "60-69", "seventies": "70-79"}},
+    {"render": "a {gen}", "pattern": "\\b(?:Gen Z|Gen X|boomer|millennial|zoomer)\\b", "kind": "generation",
+     "generations": ["Gen Z", "Gen X", "boomer", "millennial", "zoomer"]},
+    {"render": "born in {year}", "pattern": "\\bborn in (19[6-9][0-9]|200[0-9]|201[0-9])\\b", "kind": "birth_year"},
+    {"render": "class of {year}", "pattern": "\\bclass of (19[6-9][0-9]|20[0-2][0-9])\\b", "kind": "cohort"},
+    {"render": "retired", "pattern": "\\bretired\\b", "kind": "life_stage"},
+    {"render": "a recent graduate", "pattern": "\\b(?:recent graduate|fresh out of (?:college|university|school))\\b", "kind": "life_stage"},
+    {"render": "an empty nester", "pattern": "\\bempty nester\\b", "kind": "life_stage"},
+    {"render": "a first-year student", "pattern": "\\b(?:first-year|freshman|sophomore|junior|senior)\\b(?: (?:college|university|high school))? student?\\b", "kind": "life_stage"},
+    {"render": "turning {n} next month", "pattern": "\\bturning (1[0-9]|[2-9][0-9])\\b", "kind": "exact"},
+    {"render": "my {n}th birthday", "pattern": "\\b(?:[2-9][0-9])th birthday\\b", "kind": "exact"}
+  ]
+}

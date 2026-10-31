@@ -12,8 +12,7 @@ from pathlib import Path
 import pytest
 
 from src.rewriter import teacher_sft as ts
-from src.rewriter.generate_training_data import SYSTEM_PROMPT
-from src.rewriter.prompting import build_rewrite_messages
+from src.rewriter.prompting import REWRITER_SYSTEM_PROMPT, build_rewrite_messages
 
 
 def _human(**estimates):
@@ -121,7 +120,12 @@ def test_held_out_attacker_is_refused_as_teacher():
 
 def test_sft_row_prompt_is_the_served_prompt():
     row = ts.build_row("I live in Zurich.", "I live in my city.", {})
-    assert row["messages"][:-1] == build_rewrite_messages("I live in Zurich.", SYSTEM_PROMPT)
+    # v2: single-turn. The row's prompt is exactly [system, user] from the one
+    # shared builder, with the default system prompt - the same messages
+    # inference serves, so train/serve parity is structural.
+    assert row["messages"][:-1] == build_rewrite_messages("I live in Zurich.")
+    assert row["messages"][0]["content"] == REWRITER_SYSTEM_PROMPT
+    assert len(row["messages"]) == 3  # system, user, assistant - no fixed primer
     assert row["messages"][-1] == {"role": "assistant", "content": "I live in my city."}
     assert row["enable_thinking"] is False
 

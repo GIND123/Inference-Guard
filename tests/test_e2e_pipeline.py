@@ -54,23 +54,31 @@ def test_scenario_s01_tech_worker_relocation():
     candidates = generate_candidate_rewrites_heuristic(input_text)
     assert len(candidates) > 0
 
-    # The heuristic's location regex swallows everything after "from Denver",
-    # leaving "I am moving locally." -- 4 of 21 tokens, the job gone. This test
-    # used to accept that as utility-preserving. Under the degeneracy rule it
-    # is rejected, so the sampler must return no rewrite rather than serve it.
-    assert all(check_degeneracy(input_text, c)["degenerate"] for c in candidates)
+    # The v1 heuristic's location regex swallowed everything after "from
+    # Denver", leaving "I am moving locally." -- 4 of 21 tokens, the job gone.
+    # That collapsed candidate is still produced and must still be rejected by
+    # the degeneracy rule.
+    degenerates = [c for c in candidates if check_degeneracy(input_text, c)["degenerate"]]
+    assert degenerates, "the collapsed 'I am moving locally.' candidate should still be flagged"
+    assert all(check_degeneracy(input_text, c)["degenerate"] for c in degenerates)
+
+    # v2 fix: the heuristic also produces a non-degenerate candidate that
+    # keeps the job-search utility (moving, starting a role) while replacing
+    # the location cues, so the sampler serves a real rewrite instead of None.
     selected = pareto_rejection_sample(
         original=input_text,
         candidates=candidates,
         max_risk_threshold=0.30,
         min_cosine_threshold=0.30,
     )
-    assert selected is None
+    assert selected is not None
+    rewrite, info = selected
+    assert "Denver" not in rewrite and "Seattle" not in rewrite
+    assert info["overall_risk"] <= 0.30
+    assert info["utility"]["utility_score"] >= 0.30
 
-    metrics = utility.compute_metrics(input_text, candidates[0])
-    assert metrics["degenerate"] is True
-    assert metrics["degenerate_reason"] == "length"
-    assert metrics["utility_score"] == 0.0
+    # The collapsed candidate itself is never the one served.
+    assert rewrite.strip() != "I am moving locally."
 
 
 def test_scenario_s02_university_student_coop():

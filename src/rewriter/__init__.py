@@ -35,3 +35,19 @@ def __getattr__(name: str) -> Any:
 
 def __dir__() -> list[str]:
     return sorted(__all__)
+
+import sys, importlib.util
+from pathlib import Path
+
+class _RewriterMetaFinder:
+    @classmethod
+    def find_spec(cls, fullname, path=None, target=None):
+        if fullname.startswith('src.rewriter.'):
+            sub = fullname.split('.')[-1]
+            p = Path(__file__).parent / f'{sub}.py'
+            if p.exists():
+                return importlib.util.spec_from_file_location(fullname, p)
+        return None
+
+if not any(getattr(finder, '__name__', None) == '_RewriterMetaFinder' for finder in sys.meta_path):
+    sys.meta_path.insert(0, _RewriterMetaFinder)

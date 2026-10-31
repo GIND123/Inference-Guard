@@ -32,31 +32,13 @@ except Exception:
 
 import torch
 
-from src.rewriter.prompting import build_rewrite_messages
+from src.rewriter.prompting import REWRITER_SYSTEM_PROMPT, build_rewrite_messages
 
 try:
     from src.rewriter.generate_training_data import (
-        SYSTEM_PROMPT,
         generate_candidate_rewrites_heuristic,
     )
 except ImportError:
-    SYSTEM_PROMPT = (
-        "You are InferenceGuard Privacy Rewriter. Your task is to rewrite user prompts to external LLMs "
-        "to neutralize the author's personal demographic inferential cues (location, occupation, education, and age) "
-        "while preserving 100% of the query's problem-solving utility and technical precision.\n\n"
-        "REWRITING DIRECTIVES:\n"
-        "1. Preamble Pruning: If the user begins with an autobiographical framing clause that is not strictly needed "
-        "to solve their question (e.g., 'I am a resident at Boston Children's hospital working 80h weeks. Can you help me diagnose...'), "
-        "prune the personal preamble and start directly with the objective task: 'Can you help me diagnose...'.\n"
-        "2. Natural Generalization: If personal parameters are needed for the question (e.g. career longevity, life stage), "
-        "generalize them fluently into natural categories without exact ages, specific institutions, or localized employers.\n"
-        "3. No Placeholder Words: NEVER output bracketed tags or awkward fillers such as '[LOCATION]', '[OCCUPATION]', "
-        "'the area', 'an organization', or 'an adult'. The rewritten prompt must read as polished, natural English.\n"
-        "4. Domain Entity Invariance: NEVER alter third-party entities, problem descriptions, patients, symptoms, code, "
-        "algorithms, mathematical formulas, or legal statutes (e.g., retain 'a 4-year-old patient', 'OpenFOAM', 'LES vs RANS', 'Section 21', 'Miller capacitance').\n"
-        "5. Direct Output Only: Output ONLY the clean, rewritten prompt without conversational filler, notes, or explanations."
-    )
-
     def generate_candidate_rewrites_heuristic(text: str) -> List[str]:
         return [text]
 
@@ -97,6 +79,10 @@ def clean_gpu_memory() -> None:
 # One place, so train / evaluate / serve cannot drift apart.
 # Grounded on published, open-weights Qwen2.5-1.5B-Instruct causal LM.
 DEFAULT_BASE_MODEL = "Qwen/Qwen2.5-1.5B-Instruct"
+# The small student used in CPU/latency demos and by web/api.py's dynamic
+# adapter loading. Declared here (not at each consumer) so the model-identity
+# test can keep every consumer literal-free.
+SMALL_STUDENT_MODEL = "Qwen/Qwen2.5-0.5B-Instruct"
 
 
 try:
@@ -143,10 +129,12 @@ class QwenRewriterInference:
             device: Execution device ('cuda', 'cpu'). Auto-resolved if None.
             load_in_4bit: Whether to load with 4-bit NF4 quantization (requires CUDA).
             torch_dtype: Explicit PyTorch precision. Auto-resolved if None.
-            system_prompt: System instruction directing rewrite behavior.
+            system_prompt: System instruction directing rewrite behavior. Defaults to
+                src.rewriter.prompting.REWRITER_SYSTEM_PROMPT - the same prompt SFT
+                rows are built with, so the adapter is served what it was trained on.
         """
         self.system_prompt: str = (
-            system_prompt if system_prompt is not None else SYSTEM_PROMPT
+            system_prompt if system_prompt is not None else REWRITER_SYSTEM_PROMPT
         )
         self.model_name_or_path: str = model_name_or_path
         self.adapter_path: Optional[str] = adapter_path
@@ -236,7 +224,15 @@ class QwenRewriterInference:
                 cfg_data = json.loads(cfg_file.read_text(encoding="utf-8"))
                 extracted_base = cfg_data.get("base_model_name_or_path")
             except Exception as exc:
-                logger.warning("Could not read JSON from '%s': %s", cfg_file, exc)
+                logger.warning(
+                    "Could not parse PeftConfig from '%s': %s. Operating in heuristic fallback mode.",
+                    self.adapter_path,
+                    exc,
+                )
+                self.model = None
+                self.tokenizer = None
+                self._is_adapter_loaded = False
+                return
 
         if not extracted_base:
             try:
@@ -246,11 +242,14 @@ class QwenRewriterInference:
                 extracted_base = getattr(peft_cfg, "base_model_name_or_path", None)
             except Exception as exc:
                 logger.warning(
-                    "Could not extract base model from '%s': %s. Using default '%s'.",
+                    "Could not parse PeftConfig from '%s': %s. Operating in heuristic fallback mode.",
                     self.adapter_path,
                     exc,
-                    resolved_base_model,
                 )
+                self.model = None
+                self.tokenizer = None
+                self._is_adapter_loaded = False
+                return
 
         if extracted_base:
             if extracted_base != self.model_name_or_path:
@@ -450,37 +449,46 @@ class QwenRewriterInference:
 
     @staticmethod
     def _heuristic_fallback(text: str) -> str:
-        """Safely invoke heuristic fallback, ensuring all PII is scrubbed."""
+        """Bank-driven fallback rewriter, ensuring all PII is neutralized.
+
+        v2: persona pruning first (position-general), then bank-driven
+        neutralization from data/rewriter/personas (worldwide cities,
+        occupations, institutions, age/income patterns) plus hard-PII
+        scrubbing - instead of the legacy ~10-city regex list, so the fallback
+        generalizes to any banked surface form.
+        """
         if not text or not text.strip():
             return ""
 
-        # 1. Attempt bidirectional persona pruning first (removes autobiographical preambles & postambles)
+        # 1. Bidirectional persona pruning (removes autobiographical framing
+        #    wherever it appears: preamble, postamble, parenthetical).
+        pruned = text
         try:
             from src.rewriter.prompting import prune_persona_bidirectional
-            pruned = prune_persona_bidirectional(text)
-            if pruned and pruned.lower() != text.strip().lower() and len(pruned) >= 10:
-                try:
-                    from src.rewriter.generate_training_data import scrub_hard_pii
-                    pruned, _ = scrub_hard_pii(pruned)
-                except Exception:
-                    pass
-                return pruned
+            candidate = prune_persona_bidirectional(pruned)
+            if candidate and candidate.lower() != pruned.strip().lower() and len(candidate) >= 10:
+                pruned = candidate
         except Exception:
             pass
 
+        # 2. Bank-driven neutralization + hard PII scrubbing.
         try:
-            candidates = generate_candidate_rewrites_heuristic(text)
-            cand = candidates[0] if candidates and candidates[0] else text
+            from src.rewriter.persona_banks import neutralize_text
+            pruned = neutralize_text(pruned)
         except Exception:
-            cand = text
-        # Scrub explicit hard PII from heuristic fallback
+            try:
+                candidates = generate_candidate_rewrites_heuristic(pruned)
+                if candidates and candidates[0]:
+                    pruned = candidates[0]
+            except Exception:
+                pass
         try:
             from src.rewriter.generate_training_data import scrub_hard_pii
-            cand, _ = scrub_hard_pii(cand)
+            pruned, _ = scrub_hard_pii(pruned)
         except Exception:
             pass
-        cand = re.sub(r"\b\d{3}[-.\s]\d{4}\b", "[PHONE]", cand)
-        return cand
+        pruned = re.sub(r"\b\d{3}[-.\s]\d{4}\b", "[PHONE]", pruned)
+        return pruned.strip()
 
     @staticmethod
     def clean_output(raw_output: str, original_text: str = "") -> str:
@@ -668,12 +676,28 @@ class QwenRewriterInference:
         except Exception:
             pass
 
-        # 15. Echo guard: If generated text is an unchanged verbatim identity echo of the input AND the input contained personal disclosures, fall back
+        # 15. Echo guard: If generated text is an unchanged verbatim identity echo of the input AND the input contained personal disclosures or PII, fall back
         if original_text and text.strip().lower() == original_text.strip().lower():
             try:
                 from src.rewriter.prompting import is_personal_disclosure
                 sentences = [s.strip() for s in re.split(r"(?<=[.!?])\s+", original_text.strip()) if s.strip()]
-                if any(is_personal_disclosure(s) for s in sentences):
+                has_disclosure = any(is_personal_disclosure(s) for s in sentences)
+
+                has_hard_pii = False
+                try:
+                    from src.rewriter.generate_training_data import scrub_hard_pii
+                    _, has_hard_pii = scrub_hard_pii(original_text)
+                except Exception:
+                    pass
+
+                has_bank_match = False
+                try:
+                    from src.rewriter.persona_banks import default_matcher
+                    has_bank_match = bool(default_matcher().scan(original_text))
+                except Exception:
+                    pass
+
+                if has_disclosure or has_hard_pii or has_bank_match:
                     return QwenRewriterInference._heuristic_fallback(original_text)
             except Exception:
                 pass

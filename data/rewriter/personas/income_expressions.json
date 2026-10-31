@@ -1,0 +1,14 @@
+{
+  "attribute": "income",
+  "generalizations": [],
+  "note": "Income figures are removed, not generalized; 'generalizations' is empty by policy.",
+  "entries": [
+    {"render": "earning ${n}k", "pattern": "\\b(?:earning|making|on) \\$[0-9]{2,3}k\\b", "kind": "salary_k"},
+    {"render": "a ${n}k salary", "pattern": "\\$[0-9]{2,3}k(?: a year)? salary\\b", "kind": "salary_k"},
+    {"render": "making ${n} a year", "pattern": "\\b(?:making|earning) \\$[0-9]{2,3},[0-9]{3}(?: a year| per year| annually)?\\b", "kind": "salary_full"},
+    {"render": "a six-figure salary", "pattern": "\\bsix figures\\b|\\bsix-figure (?:salary|income)\\b", "kind": "band"},
+    {"render": "an hourly wage of ${n}", "pattern": "\\$[0-9]{1,2}(?:\\.[0-9]{2})? an hour\\b", "kind": "hourly"},
+    {"render": "on welfare", "pattern": "\\b(?:on welfare|on benefits|on food stamps)\\b", "kind": "band"},
+    {"render": "a stipend of ${n}", "pattern": "\\b(?:stipend|allowance) of \\$[0-9]{2,4}\\b", "kind": "band"}
+  ]
+}

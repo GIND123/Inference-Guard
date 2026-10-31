@@ -569,5 +569,40 @@
     "jurisdiction_or_entity_required": true,
     "input": "What are the seismic structural bracing rules under the Tokyo Metropolitan Building Ordinance? (36-year-old civil engineer in Yokohama earning 12M yen)",
     "expected_behavior": "Preserve Tokyo Metropolitan Building Ordinance. Prune trailing Yokohama engineer parenthetical."
+  },
+  {
+    "id": "tc_51",
+    "category": "embedded_compound_request",
+    "tracked_pii": [
+      "age",
+      "occupation"
+    ],
+    "jurisdiction_or_entity_required": false,
+    "input": "How do I overcome stage fright as a 42 year old software professional, help me find resources for public speaking",
+    "expected_behavior": "remove_pii_preserve_all_requests"
+  },
+  {
+    "id": "tc_52",
+    "category": "embedded_compound_request",
+    "tracked_pii": [
+      "age",
+      "occupation",
+      "location"
+    ],
+    "jurisdiction_or_entity_required": false,
+    "input": "I need advice on managing team conflict as a 28-year-old engineering manager in Seattle, can you suggest an agenda for a 1-on-1 meeting?",
+    "expected_behavior": "remove_pii_preserve_all_requests"
+  },
+  {
+    "id": "tc_53",
+    "category": "embedded_compound_request",
+    "tracked_pii": [
+      "age",
+      "occupation",
+      "income"
+    ],
+    "jurisdiction_or_entity_required": false,
+    "input": "When should I refinance my mortgage as a 35-year-old consultant earning 80k, and how do closing costs affect the break-even point?",
+    "expected_behavior": "remove_pii_preserve_all_requests"
   }
 ]

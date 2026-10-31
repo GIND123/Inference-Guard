@@ -1,0 +1,40 @@
+{
+  "created_at": "2026-10-30T23:10:06",
+  "split": "train",
+  "mode": "augment-only (deterministic, no teacher)",
+  "rows": 2000,
+  "augmented": {
+    "mode": "deterministic",
+    "records": 2000,
+    "accepted_rows": 2000,
+    "outcomes": {
+      "accepted": 2000
+    },
+    "positions": {
+      "none": 71,
+      "postamble": 384,
+      "parenthetical": 486,
+      "split": 391,
+      "preamble": 386,
+      "mid_sentence": 282
+    },
+    "attributes": {
+      "age": 523,
+      "education": 535,
+      "income": 420,
+      "local_reference": 577,
+      "location": 758,
+      "occupation": 442
+    }
+  },
+  "student_prompt": "src.rewriter.prompting.build_rewrite_messages (single-turn, v2)",
+  "outputs": {
+    "sft": {
+      "path": "data/sft/augmented_v1/train.jsonl",
+      "sha256": "f68d22fb4327ae7d3d7171471bd0624da02fe94b8dabc9a29d6cdcd50a8a4c7d"
+    }
+  },
+  "command": "python -m src.rewriter.teacher_sft --augment-only --augment-dir data/sft/augmented_v1 --out-dir data/sft/augmented_v1",
+  "git_commit": "5c5a4c57c8c775eb065523113e3071a0bdf20d50",
+  "git_dirty": true
+}

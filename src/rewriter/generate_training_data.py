@@ -424,7 +424,12 @@ def generate_candidate_rewrites_heuristic(text: str) -> List[str]:
         from src.rewriter.prompting import prune_persona_bidirectional
         pruned = prune_persona_bidirectional(text)
         if pruned and pruned.lower() != text.strip().lower() and len(pruned) >= 10:
-            candidates.append(pruned)
+            # The pruned fragment must also be free of hard PII: pruning only
+            # removes persona clauses, so any email/phone left in the remainder
+            # would leak verbatim.
+            pruned, _ = scrub_hard_pii(pruned)
+            if pruned and len(pruned) >= 10:
+                candidates.append(pruned)
     except Exception:
         pass
 
@@ -497,6 +502,17 @@ def generate_candidate_rewrites_heuristic(text: str) -> List[str]:
     cand3 = re.sub(r"\ban adult\b", "someone", cand2, flags=re.IGNORECASE)
     cand3 = re.sub(r"\b\s+", " ", cand3).strip()
     candidates.append(cand3)
+
+    # 4. Placeholder-tag candidate: demographic cues as generic tags
+    #    (placeholder_cues existed but was never wired into the candidate list,
+    #    so consumers expecting a tagged variant - and the tests documenting
+    #    that expectation - never saw one.)
+    try:
+        placeholder_variant = placeholder_cues(base_text)
+        if placeholder_variant and placeholder_variant != base_text:
+            candidates.append(placeholder_variant.strip())
+    except Exception:
+        pass
 
     if check_degeneracy(text, cand1)["degenerate"]:
         return list(dict.fromkeys(c for c in candidates if c))

@@ -68,8 +68,7 @@ from pathlib import Path
 from typing import Any, Callable, Dict, Iterable, List, Optional, Sequence, Tuple
 
 from src.evaluation.utility import check_degeneracy, compute_fallback_token_cosine
-from src.rewriter.generate_training_data import SYSTEM_PROMPT
-from src.rewriter.prompting import build_rewrite_messages
+from src.rewriter.prompting import REWRITER_SYSTEM_PROMPT, build_rewrite_messages, REWRITE_INSTRUCTION
 
 logger = logging.getLogger(__name__)
 
@@ -273,12 +272,158 @@ def judge(
 
 
 def build_row(original: str, target: str, metadata: Dict[str, Any]) -> Dict[str, Any]:
-    """One SFT row in the format train_sft.py consumes, with the served prompt."""
+    """One SFT row in the format train_sft.py consumes, with the served prompt.
+
+    v2: single-turn. The served prompt is [system, user] from
+    src.rewriter.prompting - no fixed few-shot primer, so no turn is ever
+    duplicated across rows and every supervised completion is unique.
+    """
     return {
-        "messages": build_rewrite_messages(original, SYSTEM_PROMPT) + [{"role": "assistant", "content": target}],
+        "messages": build_rewrite_messages(original) + [{"role": "assistant", "content": target}],
         "enable_thinking": False,
         "metadata": metadata,
     }
+
+
+# ---------------------------------------------------------------------------
+# Augmented rows (src.rewriter.augment): position-randomized synthetic examples
+# with known injected facts. The gate below verifies that EVERY injected
+# surface form (and its variants) is gone from the rewrite - unlike the
+# SynthPAI verbatim-value check, this catches "relocated instead of removed".
+# ---------------------------------------------------------------------------
+
+def judge_augmented(
+    original: str,
+    candidate: str,
+    injected: List[Dict[str, Any]],
+    nli_fn: Optional[NLIFn] = None,
+) -> Tuple[bool, Optional[str], Dict[str, Any]]:
+    """Acceptance rules for augmented rows.
+
+    Order: non-empty -> changed (unless no facts were injected, where identity
+    is correct) -> not degenerate -> every injected surface form removed
+    (case-insensitive, whole phrase, variants included) -> NLI gates when an
+    NLI model is available (optional for deterministic targets).
+    """
+    details: Dict[str, Any] = {}
+    if not candidate.strip():
+        return False, "empty", details
+    if not injected:
+        # No injected facts: the input is intentionally PII-free, so the
+        # identity rewrite is the CORRECT target, not a copy-through failure.
+        return True, None, details
+    if " ".join(candidate.split()) == " ".join(original.split()):
+        return False, "unchanged", details
+    degeneracy = check_degeneracy(original, candidate)
+    if degeneracy["degenerate"]:
+        return False, f"degenerate:{degeneracy['reason']}", details
+    leaked: List[str] = []
+    import re as _re
+
+    for fact in injected:
+        surfaces = [fact.get("surface", "")] + [v for v in fact.get("variants", []) if v]
+        for s in surfaces:
+            if not s:
+                continue
+            # Whole-phrase check: "the T" (a transit line) must not match "the tax".
+            if _re.search(rf"(?<![\w]){_re.escape(s)}(?![\w])", candidate, _re.IGNORECASE):
+                leaked.append(fact.get("attribute", "?"))
+                break
+    if leaked:
+        details["leaked"] = sorted(set(leaked))
+        return False, "leak:" + ",".join(sorted(set(leaked))), details
+    if nli_fn is not None:
+        forward = nli_fn(original, candidate)
+        backward = nli_fn(candidate, original)
+        details.update({
+            "nli_forward_entailment": round(forward["entailment"], 4),
+            "nli_backward_entailment": round(backward["entailment"], 4),
+            "nli_max_contradiction": round(max(forward["contradiction"], backward["contradiction"]), 4),
+        })
+        if details["nli_max_contradiction"] > MAX_CONTRADICTION:
+            return False, "contradiction", details
+    details["token_cosine"] = round(compute_fallback_token_cosine(original, candidate), 4)
+    return True, None, details
+
+
+def augmented_teacher_messages(example: Dict[str, Any]) -> List[Dict[str, str]]:
+    """Teacher prompt for an augmented row in teacher mode: the injected facts
+    play the role the SynthPAI annotator guesses play for real comments."""
+    attrs = list(dict.fromkeys(f["attribute"] for f in example.get("injected", [])))
+    hints = {f["attribute"]: f.get("fragment") or f.get("surface", "")
+             for f in example.get("injected", [])}
+    return teacher_messages(example["input"], attrs, hints)
+
+
+def build_augmented_rows(
+    records: List[Dict[str, Any]],
+    generate_fn: Optional[GenerateFn],
+    nli_fn: Optional[NLIFn],
+    mode: str = "deterministic",
+    batch_size: int = 8,
+) -> Tuple[List[Dict[str, Any]], Dict[str, Any]]:
+    """Build SFT rows from augmented records.
+
+    deterministic: the composer's ground-truth target is used directly; rows are
+    still passed through judge_augmented as a construction sanity check.
+    teacher: the teacher rewrites the input (with the injected facts as hints)
+    and judge_augmented decides acceptance, so naturalness comes from the
+    teacher while removal of every injected surface stays verified.
+    """
+    if mode not in ("deterministic", "teacher"):
+        raise ValueError(f"unknown augment mode {mode!r}")
+    rows: List[Dict[str, Any]] = []
+    outcomes: Dict[str, int] = {}
+    positions: Dict[str, int] = {}
+    attrs_out: Dict[str, int] = {}
+
+    if mode == "teacher" and generate_fn is not None:
+        for i in range(0, len(records), batch_size):
+            chunk = records[i:i + batch_size]
+            raw = generate_resilient(generate_fn, [augmented_teacher_messages(r) for r in chunk])
+            for rec, out in zip(chunk, raw):
+                candidate = clean_teacher_output(out)
+                accepted, reason, _ = judge_augmented(rec["input"], candidate, rec.get("injected", []), nli_fn)
+                key = "accepted" if accepted else (reason or "rejected").split(":")[0]
+                outcomes[key] = outcomes.get(key, 0) + 1
+                if accepted:
+                    rows.append(build_row(rec["input"], candidate, {
+                        "id": rec.get("id"), "split": "train", "source": "augment",
+                        "attributes": rec.get("attributes", []), "identity_noop": False,
+                        "position": rec.get("position"), "register": rec.get("register"),
+                        "carrier_id": rec.get("carrier_id"),
+                    }))
+                    positions[rec.get("position", "?")] = positions.get(rec.get("position", "?"), 0) + 1
+                    for a in rec.get("attributes", []):
+                        attrs_out[a] = attrs_out.get(a, 0) + 1
+    else:
+        for rec in records:
+            target = rec["target"]
+            accepted, reason, _ = judge_augmented(rec["input"], target, rec.get("injected", []), nli_fn)
+            key = "accepted" if accepted else (reason or "rejected").split(":")[0]
+            outcomes[key] = outcomes.get(key, 0) + 1
+            if not accepted:
+                continue
+            rows.append(build_row(rec["input"], target, {
+                "id": rec.get("id"), "split": "train", "source": "augment",
+                "attributes": rec.get("attributes", []),
+                "identity_noop": not rec.get("attributes"),
+                "position": rec.get("position"), "register": rec.get("register"),
+                "carrier_id": rec.get("carrier_id"),
+            }))
+            positions[rec.get("position", "?")] = positions.get(rec.get("position", "?"), 0) + 1
+            for a in rec.get("attributes", []):
+                attrs_out[a] = attrs_out.get(a, 0) + 1
+
+    stats = {
+        "mode": mode,
+        "records": len(records),
+        "accepted_rows": len(rows),
+        "outcomes": outcomes,
+        "positions": positions,
+        "attributes": attrs_out,
+    }
+    return rows, stats
 
 
 # ---------------------------------------------------------------------------
@@ -536,8 +681,16 @@ def build_teacher_sft(
     identity_ratio: float = IDENTITY_RATIO,
     seed: int = SEED,
     provenance: Optional[Dict[str, Any]] = None,
+    augmented_records: Optional[List[Dict[str, Any]]] = None,
+    augment_mode: str = "deterministic",
 ) -> Dict[str, Any]:
-    """Generate, judge and write the SFT set. Resumes from candidates_<split>.jsonl."""
+    """Generate, judge and write the SFT set. Resumes from candidates_<split>.jsonl.
+
+    v2: when ``augmented_records`` is given (from src.rewriter.augment), the
+    position-randomized synthetic rows are judged with judge_augmented and
+    mixed into the same output file, so one train_sft run covers both real
+    SynthPAI rewrites and position-controlled synthetic ones.
+    """
     out_dir.mkdir(parents=True, exist_ok=True)
     cand_path = out_dir / f"candidates_{split}.jsonl"
     cache = _read_cache(cand_path)
@@ -606,6 +759,14 @@ def build_teacher_sft(
         })
         for r in noops
     ]
+
+    augmented_stats: Dict[str, Any] = {}
+    if augmented_records:
+        aug_rows, augmented_stats = build_augmented_rows(
+            augmented_records, generate_fn, nli_fn, mode=augment_mode, batch_size=batch_size,
+        )
+        rows.extend(aug_rows)
+
     rng.shuffle(rows)
 
     sft_path = out_dir / f"{split}.jsonl"
@@ -633,6 +794,8 @@ def build_teacher_sft(
         "verbatim_leaks_by_attribute": leaks_by_attr,
         "identity_noops": len(noops),
         "rows": len(rows),
+        "augmented": augmented_stats,
+        "student_prompt": "src.rewriter.prompting.build_rewrite_messages (single-turn, v2: system + user)",
         "thresholds": {
             "max_contradiction_either_direction": MAX_CONTRADICTION,
             "min_forward_entailment_or": MIN_FORWARD_ENTAILMENT,
@@ -673,12 +836,60 @@ def main(argv: Optional[Sequence[str]] = None) -> Dict[str, Any]:
     parser.add_argument("--max-new-tokens", type=int, default=256)
     parser.add_argument("--limit", type=int, default=None, help="A seeded random sample of N inferable comments (pilot runs)")
     parser.add_argument("--out-dir", default="data/sft/teacher_v1")
+    parser.add_argument("--augment-dir", default=None,
+                        help="Directory containing augmented.jsonl from src.rewriter.augment; "
+                             "rows are judged and mixed into the SFT output")
+    parser.add_argument("--augment-mode", choices=("deterministic", "teacher"), default="deterministic",
+                        help="deterministic: use the composer's ground-truth targets (no GPU). "
+                             "teacher: the teacher rewrites them for naturalness.")
+    parser.add_argument("--augment-only", action="store_true",
+                        help="Build an SFT file from the augmented corpus only, with no teacher "
+                             "model, no NLI model and no GPU: the position-randomized "
+                             "synthetic rows alone. Useful to bootstrap training before the "
+                             "first full teacher run.")
     args = parser.parse_args(argv)
 
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(message)s")
     args.teacher = args.teacher or TEACHERS[args.backend]
     check_teacher_allowed(args.teacher)
     input_path = Path(args.input or DEFAULT_INPUT.format(split=args.split))
+
+    if args.augment_only:
+        if not args.augment_dir:
+            raise SystemExit("--augment-only requires --augment-dir (build one with python -m src.rewriter.augment)")
+        if args.augment_mode != "deterministic":
+            raise SystemExit("--augment-only supports --augment-mode deterministic (no teacher is loaded)")
+        aug_path = Path(args.augment_dir) / "augmented.jsonl"
+        if not aug_path.exists():
+            raise FileNotFoundError(
+                f"{aug_path} not found. Build it first: python -m src.rewriter.augment --n 2000 "
+                f"--out {aug_path}"
+            )
+        with open(aug_path, encoding="utf-8") as f:
+            augmented_records = [json.loads(line) for line in f if line.strip()]
+        rows, stats = build_augmented_rows(augmented_records, None, None, mode="deterministic")
+        out_dir = Path(args.out_dir)
+        out_dir.mkdir(parents=True, exist_ok=True)
+        sft_path = out_dir / f"{args.split}.jsonl"
+        with open(sft_path, "w", encoding="utf-8") as f:
+            for row in rows:
+                f.write(json.dumps(row, ensure_ascii=False) + "\n")
+        manifest = {
+            "created_at": dt.datetime.now().isoformat(timespec="seconds"),
+            "split": args.split,
+            "mode": "augment-only (deterministic, no teacher)",
+            "rows": len(rows),
+            "augmented": stats,
+            "student_prompt": "src.rewriter.prompting.build_rewrite_messages (single-turn, v2)",
+            "outputs": {"sft": {"path": str(sft_path), "sha256": sha256_file(sft_path)}},
+            "command": "python -m src.rewriter.teacher_sft " + " ".join(argv if argv is not None else sys.argv[1:]),
+            "git_commit": _git_commit(),
+            "git_dirty": _git_dirty(),
+        }
+        (out_dir / f"manifest_{args.split}.json").write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8")
+        print(json.dumps({"rows": len(rows), "augmented": stats}, indent=2))
+        return manifest
+
     records = load_split(args.split, input_path, Path(args.split_manifest))
 
     import torch
@@ -699,14 +910,26 @@ def main(argv: Optional[Sequence[str]] = None) -> Dict[str, Any]:
                     "dtype": teacher.dtype,
                     "decoding": "greedy", "enable_thinking": False},
         "nli": {"model_id": nli.model_id, "revision": nli.revision, "device": args.nli_device},
-        "student_prompt": "src.rewriter.prompting.build_rewrite_messages with generate_training_data.SYSTEM_PROMPT",
+        "student_prompt": "src.rewriter.prompting.build_rewrite_messages (single-turn, v2: system + user, default REWRITER_SYSTEM_PROMPT)",
         "hardware": {"device": args.device, "platform": platform.platform(), "python": platform.python_version(),
                      "torch": torch.__version__, "transformers": transformers.__version__},
     }
     t0 = time.perf_counter()
+    augmented_records = None
+    if args.augment_dir:
+        aug_path = Path(args.augment_dir) / "augmented.jsonl"
+        if not aug_path.exists():
+            raise FileNotFoundError(
+                f"{aug_path} not found. Build it first: python -m src.rewriter.augment --n 2000 "
+                f"--out {aug_path}"
+            )
+        with open(aug_path, encoding="utf-8") as f:
+            augmented_records = [json.loads(line) for line in f if line.strip()]
+        logger.info("loaded %d augmented records from %s", len(augmented_records), aug_path)
     manifest = build_teacher_sft(
         records, teacher, nli, Path(args.out_dir), split=args.split,
         batch_size=args.batch_size, limit=args.limit, provenance=provenance,
+        augmented_records=augmented_records, augment_mode=args.augment_mode,
     )
     manifest["teacher_tokens_generated_this_run"] = teacher.tokens_generated
     manifest["wall_seconds_this_run"] = round(time.perf_counter() - t0, 1)

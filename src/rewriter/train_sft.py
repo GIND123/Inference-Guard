@@ -39,7 +39,7 @@ from transformers import (
 )
 from trl import SFTTrainer
 
-from src.rewriter.inference import DEFAULT_BASE_MODEL
+from src.rewriter.inference import DEFAULT_BASE_MODEL, SMALL_STUDENT_MODEL
 
 # Guard against PEFT dispatch bug when incompatible torchao (< 0.16.0) is pre-installed in Colab
 try:
@@ -64,21 +64,21 @@ except Exception:
 logger = logging.getLogger(__name__)
 
 STUDENT_MODEL_ALIASES: Dict[str, str] = {
-    "qwen-0.6b": "Qwen/Qwen2.5-0.5B-Instruct",
-    "qwen0.6b": "Qwen/Qwen2.5-0.5B-Instruct",
-    "qwen3-0.6b": "Qwen/Qwen2.5-0.5B-Instruct",
-    "qwen-0.5b": "Qwen/Qwen2.5-0.5B-Instruct",
-    "qwen0.5b": "Qwen/Qwen2.5-0.5B-Instruct",
-    "0.6b": "Qwen/Qwen2.5-0.5B-Instruct",
-    "0.5b": "Qwen/Qwen2.5-0.5B-Instruct",
-    "qwen-1.5b": "Qwen/Qwen2.5-1.5B-Instruct",
-    "qwen1.5b": "Qwen/Qwen2.5-1.5B-Instruct",
-    "1.5b": "Qwen/Qwen2.5-1.5B-Instruct",
+    "qwen-0.6b": SMALL_STUDENT_MODEL,
+    "qwen0.6b": SMALL_STUDENT_MODEL,
+    "qwen3-0.6b": SMALL_STUDENT_MODEL,
+    "qwen-0.5b": SMALL_STUDENT_MODEL,
+    "qwen0.5b": SMALL_STUDENT_MODEL,
+    "0.6b": SMALL_STUDENT_MODEL,
+    "0.5b": SMALL_STUDENT_MODEL,
+    "qwen-1.5b": DEFAULT_BASE_MODEL,
+    "qwen1.5b": DEFAULT_BASE_MODEL,
+    "1.5b": DEFAULT_BASE_MODEL,
 }
 
 
 def resolve_model_name(model_name: str) -> str:
-    """Resolve model name or alias (e.g. 'qwen-0.6b' -> 'Qwen/Qwen2.5-0.5B-Instruct')."""
+    """Resolve model name or alias (e.g. 'qwen-0.6b' resolves to the small student model)."""
     key = model_name.lower().strip()
     return STUDENT_MODEL_ALIASES.get(key, model_name)
 
@@ -306,7 +306,7 @@ def parse_args():
     default_dataset = get_default_dataset_path()
     parser = argparse.ArgumentParser(description="QLoRA Fine-tuning for InferenceGuard Rewriter")
     parser.add_argument("--model_name", "--base_model", "--model_name_or_path", type=str, default=DEFAULT_BASE_MODEL,
-                        help="Base model name or alias (e.g. qwen-0.6b, Qwen/Qwen2.5-0.5B-Instruct, Qwen/Qwen2.5-1.5B-Instruct).")
+                        help="Base model name or alias (e.g. qwen-0.6b, qwen-1.5b, or a HF model id).")
     parser.add_argument(
         "--dataset_path",
         "--train_path",
