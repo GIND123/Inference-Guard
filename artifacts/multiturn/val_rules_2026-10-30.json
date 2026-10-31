@@ -1,0 +1,45 @@
+{
+  "conversations": 429,
+  "turns": 1208,
+  "data": {
+    "exposed_pairs": 351,
+    "exposed_only_by_earlier_turns": 184,
+    "share_invisible_to_last_message": 0.5242,
+    "by_attribute": {
+      "age": {
+        "exposed": 64,
+        "earlier_only": 37
+      },
+      "location": {
+        "exposed": 38,
+        "earlier_only": 22
+      },
+      "occupation": {
+        "exposed": 154,
+        "earlier_only": 74
+      },
+      "education": {
+        "exposed": 95,
+        "earlier_only": 51
+      }
+    }
+  },
+  "detection": {
+    "recall_last_turn": 0.0085,
+    "recall_cumulative": 0.0313,
+    "unexposed_pairs": 1365,
+    "false_alarm_last_turn": 0.0029,
+    "false_alarm_cumulative": 0.0073
+  },
+  "policy": {
+    "handled_share_turn_only": 0.0166,
+    "handled_share_cumulative_aware": 0.0166,
+    "turns_handled_only_because_of_cumulative": 0
+  },
+  "split": "val",
+  "min_turns": 2,
+  "estimator": "rule-based estimate_privacy_risk (no trained checkpoint)",
+  "threshold": "MEDIUM band edge 0.3",
+  "command": "python scripts/eval_multiturn.py --split val",
+  "created_at": "2026-10-30T23:38:52"
+}

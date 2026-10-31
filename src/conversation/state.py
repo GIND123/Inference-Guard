@@ -4,20 +4,30 @@ Tracks cumulative attribute disclosure across 3 tiers:
 1. Independent evidence accumulation across turns.
 2. Joint quasi-identifier entropy reduction.
 3. Contextual concatenated inference and leakage_delta calculation.
+
+The tracker does not keep message text: each turn record stores a SHA-256 of
+the text, so a session's memory holds scores, not what the user wrote.
+Sessions expire after `session_ttl_seconds` without a turn, and the oldest
+are evicted beyond `max_sessions`.
 """
 
 from __future__ import annotations
 
+import hashlib
 import json
 import logging
 import os
+import time
 import uuid
 from dataclasses import asdict, dataclass, field
 from typing import Any, Callable, Dict, List, Optional, Sequence
 
-from src.product.risk_bands import ATTRIBUTES, band_for
+from src.product.risk_bands import ATTRIBUTES, MEDIUM_EDGE, band_for
 
 logger = logging.getLogger(__name__)
+
+# Turn scores at or below this are estimator baseline noise, not evidence.
+NOISE_FLOOR = 0.05
 
 
 @dataclass(frozen=True)
@@ -26,7 +36,7 @@ class TurnRiskRecord:
 
     turn_number: int
     session_id: str
-    raw_text: str
+    text_sha256: str
     turn_scores: Dict[str, float]
     cumulative_scores: Dict[str, float]
     overall_turn_risk: float
@@ -45,6 +55,22 @@ class TurnRiskRecord:
 
 
 
+def exposed_attributes(record: TurnRiskRecord) -> List[str]:
+    """Attributes the conversation so far has revealed at MEDIUM or above."""
+    return [a for a in ATTRIBUTES if record.cumulative_scores.get(a, 0.0) >= MEDIUM_EDGE]
+
+
+def contributing_attributes(record: TurnRiskRecord) -> List[str]:
+    """Exposed attributes that this turn adds evidence to.
+
+    A turn can be LOW on its own and still narrow down something earlier
+    turns already revealed. Those are the attributes a per-message check
+    misses: the turn's own score is above baseline noise for an attribute
+    whose cumulative score is already MEDIUM or higher.
+    """
+    return [a for a in exposed_attributes(record) if record.turn_scores.get(a, 0.0) > NOISE_FLOOR]
+
+
 def estimate_turn_scores(text: str) -> Dict[str, float]:
     """Estimate attribute disclosure probability for a single turn."""
     from src.rewriter.generate_training_data import estimate_privacy_risk
@@ -60,13 +86,31 @@ class ConversationTracker:
         risk_estimator_fn: Optional[Callable[[str], Dict[str, float]]] = None,
         entropy_threshold: float = 1.50,
         high_risk_threshold: float = 0.60,
+        max_sessions: int = 1000,
+        session_ttl_seconds: float = 3600.0,
+        clock: Callable[[], float] = time.monotonic,
     ) -> None:
         self.risk_estimator_fn = risk_estimator_fn or estimate_turn_scores
         self.entropy_threshold = entropy_threshold
         self.high_risk_threshold = high_risk_threshold
+        self.max_sessions = max_sessions
+        self.session_ttl_seconds = session_ttl_seconds
+        self._clock = clock
 
         # session_id -> list of TurnRiskRecord
         self.sessions: Dict[str, List[TurnRiskRecord]] = {}
+        # session_id -> clock time of its last turn
+        self._last_seen: Dict[str, float] = {}
+
+    def _prune(self, now: float, keep: str) -> None:
+        """Drop idle sessions, then the least recently used beyond max_sessions."""
+        for sid in [s for s, t in self._last_seen.items() if now - t > self.session_ttl_seconds and s != keep]:
+            self.reset_session(sid)
+        overflow = len(self.sessions) - self.max_sessions
+        if overflow > 0:
+            oldest = sorted((t, s) for s, t in self._last_seen.items() if s != keep)[:overflow]
+            for _, sid in oldest:
+                self.reset_session(sid)
 
     def _compute_cumulative_scores(
         self,
@@ -81,7 +125,6 @@ class ConversationTracker:
         prevents 20 innocent conversational turns from compounding into an unearned breach
         alarm (1 - (1 - 0.05)^20 = 0.642).
         """
-        NOISE_FLOOR = 0.05
         cumulative: Dict[str, float] = {}
 
         for attr in ATTRIBUTES:
@@ -135,8 +178,13 @@ class ConversationTracker:
         Returns:
             TurnRiskRecord containing turn scores, cumulative scores, joint entropy, and leakage_delta.
         """
+        now = self._clock()
+        if session_id in self._last_seen and now - self._last_seen[session_id] > self.session_ttl_seconds:
+            self.reset_session(session_id)  # expired: this turn starts a new conversation
         if session_id not in self.sessions:
             self.sessions[session_id] = []
+        self._last_seen[session_id] = now
+        self._prune(now, keep=session_id)
 
         history = self.sessions[session_id]
         turn_num = len(history) + 1
@@ -171,7 +219,7 @@ class ConversationTracker:
         record = TurnRiskRecord(
             turn_number=turn_num,
             session_id=session_id,
-            raw_text=raw_text,
+            text_sha256=hashlib.sha256(raw_text.encode("utf-8")).hexdigest(),
             turn_scores=turn_scores,
             cumulative_scores=cumulative_scores,
             overall_turn_risk=round(overall_turn_risk, 4),
@@ -190,10 +238,10 @@ class ConversationTracker:
         """Return the sequence of turn records for a session."""
         return list(self.sessions.get(session_id, []))
 
-    def reset_session(self, session_id: str = "default") -> None:
-        """Reset history for a session."""
-        if session_id in self.sessions:
-            del self.sessions[session_id]
+    def reset_session(self, session_id: str = "default") -> bool:
+        """Forget a session. Returns True if there was one to forget."""
+        self._last_seen.pop(session_id, None)
+        return self.sessions.pop(session_id, None) is not None
 
 
 # Backward-compatible lightweight SessionState and SessionManager
