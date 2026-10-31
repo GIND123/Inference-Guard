@@ -145,7 +145,20 @@ the held-out Phi-4 evaluation across `data/splits/test.jsonl` to report final at
 ## Individual contributions
 
 - **Chatur Bandaru (Engineering):**
-  - [To be filled by Chatur]
+  - *Filled in on 2026-10-30, after the Session 08 deadline. The work below was merged before it (PR #69, approved by Anna Thomas, merged 2026-10-27 12:00 UTC); only this entry is late.*
+  - **Teacher-LLM rewriter SFT set (PR #69, issue #68).** Built `src/rewriter/teacher_sft.py` and committed `data/sft/teacher_v1`.
+    - **Inputs:** a local `Qwen2.5-7B-Instruct` rewrote the 1,827 train-split comments that SynthPAI annotators marked inferable.
+    - **Result:** 1,487 rewrites passed the filters (81.4%), giving 1,749 rows including 262 identity no-ops (15.0%).
+    - **Filters:** a verbatim leak check against the true attribute values, the degeneracy rule, and real NLI with no contradiction. Neither our risk model nor the held-out Phi-4 attacker is used for selection, and Phi-4 is refused as a teacher.
+    - **Checked independently:** 0 rows from val/test profiles.
+  - **Three pilots changed the design**, and the reasons are published in PR #69:
+    - Qwen3-4B was replaced by Qwen2.5-7B: it left 29 of 40 sampled comments unchanged.
+    - The NLI forward-entailment gate was replaced by a contradiction gate. Generalising "geologists" to "my job" scores neutral (0.0021), not entailed.
+    - The run moved to an MLX backend with out-of-memory batch splitting, so it fits a 26 GB laptop.
+  - **Train/serve prompt mismatch fixed.** SFT rows were `(system, raw text)`, while inference serves few-shot turns plus a wrapped instruction. Both now use `src/rewriter/prompting.py`, and the served prompt is verified byte-identical.
+  - **Limitations reported in PR #69.** The leak check is verbatim only, and 31.1% of accepted rows are minimal edits. Examples are given of accepted rewrites that keep an indirect cue, and of false rejects. No adapter has been trained on the set yet.
+  - **#62 (part).** The README's SFT step now points at the committed splits, and the builder refuses inputs that don't hash to the split manifest.
+  - (evidence: PR #69, issue #68)
 
 - **Govind Arun (Product):**
   - [To be filled by Govind]

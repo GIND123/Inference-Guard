@@ -197,7 +197,10 @@ document.addEventListener("DOMContentLoaded", () => {
         }
 
         // Rewritten text and Presidio text
-        if (risk.overall_band === "LOW") {
+        // Passthrough is decided by the engine, not the band: a LOW turn that
+        // adds to what earlier turns revealed is rewritten (decision_basis "cumulative").
+        const engineName = safeData.rewrite_engine || data.rewrite_engine;
+        if (engineName ? engineName === "passthrough_low_risk" : risk.overall_band === "LOW") {
             rewriteDisplay.innerHTML = "<em>No inferential markers detected. Original text preserved.</em><br/><br/>" + escapeHtml(safeData.original_text || rawText);
         } else if (data.rewrite_changed === false || safeData.rewrite_changed === false) {
             // Session 06: participants read an unchanged message as protected.
@@ -210,6 +213,18 @@ document.addEventListener("DOMContentLoaded", () => {
             engineNote.textContent = "Engine: " + (safeData.rewrite_engine || data.rewrite_engine);
             rewriteDisplay.appendChild(document.createElement("br"));
             rewriteDisplay.appendChild(engineNote);
+        }
+        // Multi-turn: say what the conversation as a whole has already revealed.
+        const conv = safeData.conversation || data.conversation;
+        if (conv && conv.exposed_attributes && conv.exposed_attributes.length) {
+            const convNote = document.createElement("p");
+            let msg = "Across this conversation, your earlier messages already point to your " +
+                conv.exposed_attributes.join(", ") + ".";
+            if (conv.decision_basis === "cumulative") {
+                msg += " This message adds to that, so it was checked even though it looks harmless on its own.";
+            }
+            convNote.textContent = msg;
+            rewriteDisplay.appendChild(convNote);
         }
         presidioDisplay.textContent = safeData.presidio_text || data.presidio_text || "No baseline generated.";
 

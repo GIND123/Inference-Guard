@@ -23,7 +23,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
-from src.conversation.state import ConversationTracker
+from src.conversation.state import ConversationTracker, contributing_attributes, exposed_attributes
 from src.evaluation.presidio_baseline import PresidioBaseline
 from src.evaluation.utility import UtilityEvaluator, check_degeneracy
 from src.product.report import (
@@ -214,7 +214,13 @@ def get_risk_model() -> Optional[Callable[[str], Dict[str, float]]]:
 
 
 # Global persistent services
-conversation_tracker = ConversationTracker(risk_estimator_fn=risk_model)
+# Sessions hold scores and text hashes only. IG_SESSION_TTL_SECONDS and
+# IG_MAX_SESSIONS bound how long and how many are kept in memory.
+conversation_tracker = ConversationTracker(
+    risk_estimator_fn=risk_model,
+    max_sessions=int(os.environ.get("IG_MAX_SESSIONS", "1000")),
+    session_ttl_seconds=float(os.environ.get("IG_SESSION_TTL_SECONDS", "3600")),
+)
 presidio_baseline = PresidioBaseline()
 utility_evaluator = UtilityEvaluator(load_models=True)
 qwen_rewriter = None
@@ -359,6 +365,34 @@ class AnalyzeResponse(BaseModel):
     # Wall-clock milliseconds per stage; None for a stage that did not run.
     timings_ms: Dict[str, Optional[float]]
     debug_info: Optional[Dict[str, Any]] = None
+    # Multi-turn view: what the whole conversation has revealed, and whether
+    # this turn was handled because of its own risk ("turn"), because it adds
+    # to something earlier turns already revealed ("cumulative"), or neither.
+    conversation: Optional[Dict[str, Any]] = None
+
+
+DECISION_TURN = "turn"
+DECISION_CUMULATIVE = "cumulative"
+DECISION_NONE = "none"
+
+
+def conversation_view(turn_rec: Any, turn_band: Band) -> Dict[str, Any]:
+    """Summarise the conversation-level exposure and the basis for this turn's decision."""
+    contributing = contributing_attributes(turn_rec)
+    if turn_band != Band.LOW:
+        basis = DECISION_TURN
+    elif contributing:
+        basis = DECISION_CUMULATIVE
+    else:
+        basis = DECISION_NONE
+    return {
+        "turn_number": turn_rec.turn_number,
+        "cumulative_band": turn_rec.risk_band,
+        "cumulative_scores": dict(turn_rec.cumulative_scores),
+        "exposed_attributes": exposed_attributes(turn_rec),
+        "contributing_attributes": contributing,
+        "decision_basis": basis,
+    }
 
 
 class RewriteRequest(BaseModel):
@@ -597,6 +631,12 @@ def get_last_rewrite_debug() -> Dict[str, Any]:
     return last_debug_trace or {"status": "no rewrites processed yet"}
 
 
+@app.delete("/session/{session_id}")
+def reset_session(session_id: str) -> Dict[str, Any]:
+    """Forget a conversation: its turn history and cumulative scores."""
+    return {"session_id": session_id, "reset": conversation_tracker.reset_session(session_id)}
+
+
 @app.post("/analyze", response_model=AnalyzeResponse)
 def analyze_text(request: AnalyzeRequest) -> AnalyzeResponse:
     """Analyze input text for inferential privacy risk and return sanitized rewrite."""
@@ -619,8 +659,19 @@ def analyze_text(request: AnalyzeRequest) -> AnalyzeResponse:
     timings["risk_model"] = _ms_since(t)
 
     # 3. Rewriter candidate generation and rejection sampling
+    # A turn that is LOW on its own but adds evidence to an attribute earlier
+    # turns already exposed is not passed through: that is the multi-turn leak
+    # a per-message check misses (S-06).
+    conversation = conversation_view(turn_rec, before_report.inferential_band)
+    basis = conversation["decision_basis"]
+    # The impersonal-query shortcut can waive a turn-level decision, not a
+    # cumulative one: once earlier turns exposed an attribute, a message with
+    # no "I"/"my" ("Thinking about which side of the river to live on") is
+    # still about the user.
     # Passthrough is strictly prohibited if any hard explicit PII is present (Rule 2)
-    if (before_report.inferential_band == Band.LOW or _is_impersonal_query(text)) and before_report.explicit.hard_count == 0:
+    if (
+        basis == DECISION_NONE or (basis == DECISION_TURN and _is_impersonal_query(text))
+    ) and before_report.explicit.hard_count == 0:
         rewritten_text = text
         engine = ENGINE_PASSTHROUGH
         after_report = before_report
@@ -672,6 +723,7 @@ def analyze_text(request: AnalyzeRequest) -> AnalyzeResponse:
         served_text_sha256=served_text_sha256(rewritten_text),
         timings_ms=timings,
         debug_info=last_debug_trace,
+        conversation=conversation,
     )
 
 

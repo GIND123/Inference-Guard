@@ -251,7 +251,10 @@ def estimate_privacy_risk(
     location_cues = [
         r"\b(?:living in|moved to|commute to|transit in|downtown|suburbs of)\b",
         r"\b(?:denver|seattle|austin|california|new york|boston|chicago|london|berlin|paris|tokyo|pittsburgh|san francisco)\b",
-        r"\b(?:[A-Z]{2}\b|\bco\b|\bwa\b|\btx\b|\bca\b|\bny\b)",
+        # State codes only in a "City, ST" position. This pattern runs on
+        # lowercased text, so the old [A-Z]{2} branch never matched, and bare
+        # "co" matched "co-op" (the hyphen is a word boundary).
+        r",\s*(?:co|wa|tx|ca|ny|ma|il|pa)\b(?!-)",
     ]
     occupation_cues = [
         r"\b(?:work as|employed at|my boss|colleagues|software engineer|nurse|doctor|teacher|barista|lawyer)\b",
