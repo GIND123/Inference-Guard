@@ -20,6 +20,7 @@ from typing import Any, Callable, Dict, List, Optional, Tuple
 
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
@@ -759,16 +760,45 @@ def launch_tunnel(
             proc = subprocess.Popen(
                 ["cloudflared", "tunnel", "--url", f"http://localhost:{port}"],
                 stderr=subprocess.PIPE,
+                stdout=subprocess.DEVNULL,
                 text=True,
             )
-            return "http://localhost:8000 (cloudflared background)"
+            # Poll up to 12 seconds to extract the public *.trycloudflare.com URL
+            t_end = time.time() + 12.0
+            while time.time() < t_end and proc.poll() is None:
+                line = proc.stderr.readline() if proc.stderr else ""
+                match = re.search(r"https://[a-zA-Z0-9-]+\.trycloudflare\.com", line)
+                if match:
+                    url = match.group(0)
+                    logger.info(f"cloudflared tunnel established: {url}")
+                    return url
+                if not line:
+                    time.sleep(0.2)
+            return f"http://localhost:{port} (cloudflared background)"
         except Exception as e:
             logger.warning(f"cloudflared failed: {e}")
 
     return f"http://localhost:{port}"
 
 
-# Mount static files to serve the minimalist web frontend
+# Mount static files and define explicit root handlers to serve the minimalist web frontend
 web_dir = Path(__file__).resolve().parent
+
+
+@app.get("/", response_class=FileResponse)
+def serve_root() -> FileResponse:
+    """Serve the minimalist web UI index page."""
+    index_file = web_dir / "index.html"
+    if not index_file.exists():
+        raise HTTPException(status_code=404, detail="index.html not found.")
+    return FileResponse(str(index_file))
+
+
+@app.get("/index.html", response_class=FileResponse)
+def serve_index_html() -> FileResponse:
+    """Explicit alias for web UI index page."""
+    return serve_root()
+
+
 if web_dir.exists():
     app.mount("/", StaticFiles(directory=str(web_dir), html=True), name="static")
