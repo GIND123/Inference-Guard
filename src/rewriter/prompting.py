@@ -111,7 +111,16 @@ def prune_persona_bidirectional(text: str) -> str:
 
     # 2. Check multi-sentence structures: split by sentence boundary preserving decimal numbers
     sentences = [s.strip() for s in re.split(r"(?<=[.!?])\s+(?=[A-Z0-9])", text) if s.strip()]
-    while len(sentences) > 1 and is_personal_disclosure(sentences[0]):
+    has_anaphora = any(
+        re.search(
+            r"\b(?:these\s+credentials|this\s+background|my\s+background|my\s+profile|"
+            r"my\s+stats|my\s+qualifications|these\s+stats|am\s+I\s+qualified|eligible|chances?\s+of)\b",
+            s,
+            re.IGNORECASE,
+        )
+        for s in sentences[1:]
+    )
+    while len(sentences) > 1 and is_personal_disclosure(sentences[0]) and not has_anaphora:
         sentences.pop(0)
     while len(sentences) > 1 and is_personal_disclosure(sentences[-1]):
         sentences.pop()
@@ -126,12 +135,14 @@ def prune_persona_bidirectional(text: str) -> str:
     if clause_match:
         text = (clause_match.group(1) + clause_match.group(2)).strip()
 
-    # 3b. Embedded personal clause followed by another clause/request: e.g. 'How do I ... as a 42 year old software professional, help me ...'
-    embedded_match = re.search(
-        r"\s*,?\s*\bas\s+(?:an?|\d{1,2})\b[^,;\n]*?(?:\b(?:years?\s+old|yo|y/o|professional|engineer|developer|doctor|lawyer|consultant|worker|nurse|manager)\b)[^,;\n]*",
-        text,
-        flags=re.IGNORECASE,
-    )
+    # 3b. Embedded personal clause followed by another clause/request
+    embedded_match = None
+    if not has_anaphora:
+        embedded_match = re.search(
+            r"\s*,?\s*\bas\s+(?:an?|\d{1,2})\b[^.,;\n]*?(?:\b(?:years?\s+old|yo|y/o|professional|engineer|developer|doctor|lawyer|consultant|worker|nurse|manager)\b)[^.,;\n]*",
+            text,
+            flags=re.IGNORECASE,
+        )
     if embedded_match:
         tail = text[embedded_match.end():].lstrip(",; ")
         if tail:

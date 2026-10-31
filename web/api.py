@@ -147,6 +147,8 @@ def find_adapter_path() -> Optional[Path]:
     candidates.extend([
         REPO_ROOT / "artifacts" / "rewriter_qlora",
         Path("artifacts/rewriter_qlora"),
+        REPO_ROOT / "artifacts" / "rewriter_qlora_1.5b",
+        Path("artifacts/rewriter_qlora_1.5b"),
         REPO_ROOT / "artifacts" / "rewriter_qlora_0.5b",
         Path("artifacts/rewriter_qlora_0.5b"),
         Path("/content/drive/MyDrive/InferenceGuard/rewriter_0.5b"),
@@ -529,7 +531,9 @@ def select_rewrite(
 
 
     # Heuristic Candidate Evaluation
-    heuristic_cands = generate_candidate_rewrites_heuristic(text)
+    from src.rewriter.inference import QwenRewriterInference
+    bank_cand = QwenRewriterInference._heuristic_fallback(text)
+    heuristic_cands = [bank_cand] + [c for c in generate_candidate_rewrites_heuristic(text) if c != bank_cand]
     selected = pareto_rejection_sample(
         original=text,
         candidates=heuristic_cands,

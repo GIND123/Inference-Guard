@@ -86,8 +86,9 @@ def resolve_model_name(model_name: str) -> str:
 def get_default_dataset_path() -> str:
     """Resolve default SFT training dataset path in priority order."""
     candidates = [
+        "data/sft/augmented_v1/train.jsonl",
+        "data/sft/teacher_v2/train.jsonl",
         "data/sft/teacher_v1/train.jsonl",
-        "data/sft/train_queries_sft.jsonl",
         "artifacts/rewriter_sft_chatml.jsonl",
     ]
     for p in candidates:

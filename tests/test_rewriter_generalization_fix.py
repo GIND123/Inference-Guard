@@ -372,3 +372,19 @@ def test_decompose_reconstruct_system_prompt():
     assert "decompose" in REWRITER_SYSTEM_PROMPT.lower()
     assert "reconstruct" in REWRITER_SYSTEM_PROMPT.lower()
     assert "never truncate or drop" in REWRITER_SYSTEM_PROMPT.lower()
+
+
+def test_neutralize_preserves_anaphoric_credentials_and_target_university():
+    text = (
+        "I am 26 years old living in Denver, CO and working as a software engineer after "
+        "graduating from Carnegie Mellon. Do you think with these credentials, i can get into an MBA program at harvard?"
+    )
+    out = neutralize_text(text)
+    # Target institution and program must be preserved verbatim
+    assert "an MBA program at harvard" in out
+    # The question and anaphora must survive
+    assert "do you think with these credentials" in out.lower()
+    # Author personal PII must be neutralized/removed
+    assert "Denver" not in out
+    assert "26 years old" not in out
+    assert "Carnegie Mellon" not in out

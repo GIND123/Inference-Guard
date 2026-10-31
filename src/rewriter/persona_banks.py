@@ -73,6 +73,14 @@ THIRD_PARTY_FOLLOWERS = re.compile(
     r"\s+(?:patient|client|plaintiff|defendant|infant|child|female|male|woman|man|girl|boy)\b",
     re.IGNORECASE,
 )
+PROSPECTIVE_TARGET_HEAD = re.compile(
+    r"\b(?:get into|getting into|apply to|applying to|admission to|admitted to|enrolling in|enrolled in|pursue|pursuing|target|targetting|acceptance into)\s+(?:an?\s+)?$",
+    re.IGNORECASE,
+)
+TARGET_PROGRAM_INST = re.compile(
+    r"\b(?:program at|degree at|school at|studies at|master(?:'s)? at|mba at|phd at)\s+$",
+    re.IGNORECASE,
+)
 
 
 class PersonaMatcher:
@@ -136,13 +144,14 @@ class PersonaMatcher:
         for attr, pattern in self._pattern_banks:
             for m in pattern.finditer(text):
                 matches.append(Match(attr, m.group(0), m.group(0), m.start(), m.end(), []))
-        # Drop matches nested inside a longer match of the same attribute.
-        matches.sort(key=lambda x: (x.start, -(x.end - x.start)))
+        # Drop overlapping matches (partial or complete), preferring longer matches
+        matches.sort(key=lambda x: (-(x.end - x.start), x.start))
         kept: List[Match] = []
         for m in matches:
-            if any(k.attribute == m.attribute and k.start <= m.start and m.end <= k.end and k is not m for k in kept):
+            if any(max(m.start, k.start) < min(m.end, k.end) for k in kept):
                 continue
             kept.append(m)
+        kept.sort(key=lambda x: x.start)
         return kept
 
     def attributes_in(self, text: str) -> List[str]:
@@ -185,11 +194,15 @@ def neutralize_text(text: str, matcher: Optional[PersonaMatcher] = None) -> str:
     matcher = matcher or default_matcher()
     out = text
     for m in reversed(matcher.scan(text)):
+        head = text[max(0, m.start - 50):m.start]
         tail = text[m.end:m.end + 40]
         if STATUTE_FOLLOWERS.match(tail) or (
             m.attribute in ("age", "income") and THIRD_PARTY_FOLLOWERS.match(tail)
         ):
             continue
+        if m.attribute == "education":
+            if PROSPECTIVE_TARGET_HEAD.search(head) or TARGET_PROGRAM_INST.search(head):
+                continue
         if m.generalizations:
             replacement = re.sub(r"^(?:a|an|the)\s+", "", m.generalizations[0], flags=re.IGNORECASE)
         else:
@@ -203,6 +216,6 @@ def neutralize_text(text: str, matcher: Optional[PersonaMatcher] = None) -> str:
     # "as a my role" / "a a service job" -> keep only the later determiner.
     out = re.sub(r"\b(?:a|an|the)\s+(?=(?:a|an|the|my)\b)", "", out, flags=re.IGNORECASE)
     # Fix a/an agreement on the word that now follows the determiner.
-    out = re.sub(r"\ba\s+(?=[aeiouAEIOU])", "an ", out)
-    out = re.sub(r"\ban\s+(?=[^aeiouAEIOU\s])", "a ", out)
+    out = re.sub(r"\ba\s+(?=[aeiouAEIOU]|(?:MBA|MD|MS|MA|HR|LLC)\b)", "an ", out)
+    out = re.sub(r"\ban\s+(?=[^aeiouAEIOU\s])(?!(?:MBA|MD|MS|MA|HR|LLC)\b)", "a ", out)
     return out.strip()
