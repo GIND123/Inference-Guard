@@ -89,7 +89,6 @@ def get_default_dataset_path() -> str:
         "data/sft/augmented_v1/train.jsonl",
         "data/sft/teacher_v2/train.jsonl",
         "data/sft/teacher_v1/train.jsonl",
-        "artifacts/rewriter_sft_chatml.jsonl",
     ]
     for p in candidates:
         if Path(p).exists():

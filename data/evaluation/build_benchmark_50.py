@@ -423,17 +423,12 @@ BENCHMARK_ITEMS = [
     },
 ]
 
-# Write JSON and JSONL
-json_path = Path("data/evaluation/benchmark_test_50.json")
+# Write benchmark JSONL
 jsonl_path = Path("data/evaluation/benchmark_test_50.jsonl")
-
-with open(json_path, "w", encoding="utf-8") as f:
-    json.dump(BENCHMARK_ITEMS, f, indent=2)
 
 with open(jsonl_path, "w", encoding="utf-8") as f:
     for item in BENCHMARK_ITEMS:
         f.write(json.dumps(item) + "\n")
 
 print(f"Successfully generated {len(BENCHMARK_ITEMS)} benchmark items:")
-print(f"  - {json_path}")
 print(f"  - {jsonl_path}")
