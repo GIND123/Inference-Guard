@@ -136,3 +136,89 @@ def test_band_shares():
     truth = [0, 1, 0, 1]
     shares = band_shares(probs, truth, {"medium": 0.30, "high": 0.60})
     assert shares == {"share_low": 0.25, "share_high": 0.5, "high_precision": 0.5, "positives_missed_in_low": 0.0}
+
+
+# --- multitask ModernBERT layout (Session 11) ------------------------------------
+
+class _TinyTokenizer:
+    """Enough of a tokenizer for score_multitask: fixed-length ids, full mask."""
+
+    def __call__(self, texts, return_tensors, truncation, max_length, padding):
+        ids = torch.tensor([[1 + (len(t) + k) % 90 for k in range(8)] for t in texts])
+        return transformers.BatchEncoding({"input_ids": ids, "attention_mask": torch.ones_like(ids)})
+
+
+@pytest.fixture
+def tiny_multitask(tmp_path):
+    """A MultiTaskModernBERTRiskModel saved in the hosted layout, with a sidecar pointing at a tiny backbone."""
+    import json
+
+    from src.risk_model.model import MultiTaskModernBERTRiskModel
+
+    backbone_dir = tmp_path / "mb_backbone"
+    transformers.ModernBertModel(transformers.ModernBertConfig(
+        vocab_size=100, hidden_size=HIDDEN, num_hidden_layers=2, num_attention_heads=2,
+        intermediate_size=37, max_position_embeddings=64, pad_token_id=0,
+    )).save_pretrained(backbone_dir)
+    model = MultiTaskModernBERTRiskModel(model_name=str(backbone_dir))
+    torch.manual_seed(0)
+    with torch.no_grad():
+        for p in model.classifiers.parameters():
+            p.add_(torch.randn_like(p))
+    repo = tmp_path / "mt_repo"
+    repo.mkdir()
+    torch.save(model.state_dict(), repo / "multitask_heads.pt")
+    (repo / "multitask_config.json").write_text(json.dumps({"base_model": str(backbone_dir)}))
+    (repo / "calibration_params.json").write_text(json.dumps({
+        "temperatures": {"age": 1.0, "location": 1.0, "occupation": 1.0, "education": 1.0},
+        "thresholds": {a: {"medium": 0.2, "high": 0.5} for a in ("age", "location", "occupation", "education")},
+    }))
+    return repo, model.state_dict()
+
+
+def test_layout_is_detected_from_files(tiny_checkpoint, tiny_multitask):
+    from score_risk_model import detect_layout
+
+    assert detect_layout(str(tiny_multitask[0])) == "multitask"
+    assert detect_layout(str(tiny_checkpoint[0])) == "roberta"
+
+
+def test_multitask_loader_accepts_a_clean_checkpoint_and_scores_it(tiny_multitask):
+    from score_risk_model import load_multitask_model, score_multitask
+
+    repo, saved = tiny_multitask
+    model, facts = load_multitask_model(str(repo), "cpu")
+    assert facts["layout"] == "multitask" and facts["backbone_layers"] == 2
+    assert facts["checkpoint_tensors"] == len(saved)
+
+    probs, bands, top1 = score_multitask(model, _TinyTokenizer(), ["a", "bb", "ccc"], "cpu", batch_size=2)
+    for a in ("age", "location", "occupation", "education"):
+        assert len(probs[a]) == 3 and all(0.0 <= p <= 1.0 for p in probs[a])
+        assert set(bands[a]) <= {"LOW", "MEDIUM", "HIGH", "low", "medium", "high"}
+        assert len(top1[a]) == 3
+
+
+def test_multitask_loader_refuses_a_checkpoint_missing_the_encoder(tiny_multitask):
+    from score_risk_model import load_multitask_model
+
+    repo, saved = tiny_multitask
+    # Heads only: the product loader (strict=False) would accept this on top of the stock base model.
+    torch.save({k: v for k, v in saved.items() if not k.startswith("encoder.")}, repo / "multitask_heads.pt")
+    with pytest.raises(RuntimeError, match="did not load cleanly"):
+        load_multitask_model(str(repo), "cpu")
+
+
+def test_multitask_loader_refuses_missing_calibration(tiny_multitask):
+    from score_risk_model import load_multitask_model
+
+    repo, _ = tiny_multitask
+    (repo / "calibration_params.json").unlink()
+    with pytest.raises(RuntimeError, match="calibration_params"):
+        load_multitask_model(str(repo), "cpu")
+
+
+def test_served_band_shares():
+    from score_risk_model import served_band_shares
+
+    shares = served_band_shares(["LOW", "MEDIUM", "HIGH", "HIGH"], [1, 0, 0, 1])
+    assert shares == {"share_low": 0.25, "share_high": 0.5, "high_precision": 0.5, "positives_missed_in_low": 0.5}

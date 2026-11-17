@@ -117,6 +117,39 @@ comment in MEDIUM, for every attribute.
 Separately, the served edges (0.40/0.70 in `calibrate.py`) disagree with the documented
 ones (0.30/0.60 in `risk_bands.py`, the model card, and the UI). Recorded, not changed.
 
+### The ModernBERT the held-out eval now defaults to, scored the same way
+
+PR #97 (merged today) made `AT707/inferenceguard-modernbert-risk` the default risk scorer in
+`src/evaluation/run.py`. It is a different ModernBERT from Session 05's: it is the multitask
+model whose heads predict a taxonomy class (age bracket, region, and so on), and the product
+turns its confidence into an inferability score with the hosted `calibration_params.json`.
+`python scripts/score_risk_model.py --model-id AT707/inferenceguard-modernbert-risk`
+scores exactly that served number, on the same 45 profiles and labels. CPU, 12 s; revision
+`0ed8bdcc`; all 170 checkpoint tensors verified identical to what the product loads. Output:
+`artifacts/risk_eval/inferenceguard-modernbert-risk_val_2026-11-17.json`.
+
+| | macro F1 | macro PR-AUC | macro ROC-AUC | ROC-AUC age / loc / occ / edu |
+|---|---:|---:|---:|---|
+| ModernBERT-base, Session 05 (not hosted) | 0.461 | 0.457 | **0.853** | 0.753 / 0.907 / 0.870 / 0.883 |
+| multitask ModernBERT `0ed8bdcc` (eval default) | 0.116 | 0.117 | **0.539** | 0.664 / 0.524 / 0.416 / 0.552 |
+| RoBERTa `8273bc7c` (container) | 0.019 | 0.101 | **0.453** | 0.390 / 0.388 / 0.567 / 0.466 |
+
+- **It barely beats chance as a risk detector.** Macro ROC-AUC 0.539; occupation is below
+  chance (0.416).
+- **Its served bands are unusable.** With the hosted calibration, 98% of validation comments
+  are HIGH for location and 91% for education, while occupation is never HIGH and 79% of
+  occupation-inferable comments land in LOW. `src/product/thresholds.py` marks all four
+  attributes degraded: no threshold reaches 60% precision.
+- **Its own task is half-learned.** Against the profile's class, top-1 accuracy beats the
+  train-majority baseline for age (0.485 vs 0.310) and education (0.676 vs 0.403), but not
+  for location (0.450 vs 0.452) or occupation (0.412 vs 0.457), where it predicts only two
+  classes. So the low risk scores are partly undertraining (the notebook trains 3 epochs) and partly the
+  conversion: "how confident is the category guess" is not "is this attribute inferable".
+- **So we still serve no measured risk model.** The only one with good numbers is Session
+  05's inferability-label ModernBERT, and that checkpoint is not hosted. The `run.py`
+  default was left as is for the team to decide; a held-out number from either hosted model
+  would measure a detector that does not work.
+
 ### Is this the same model running in the product?
 
 **No, and the gap is now the headline rather than a footnote.**
@@ -179,6 +212,12 @@ is the last session in which starting it is still possible.
   - Fixed the loader, hardened `host_roberta_on_hf.py` so an untrained checkpoint cannot
     be published again, and added 9 offline tests, three of which fail on the pre-fix code.
   - Set out the three decisions the team now owes an answer to.
+  - PR for #99: extended `scripts/score_risk_model.py` to the multitask ModernBERT layout PR #97
+    introduced, scoring the exact risk score the product serves from it, and refusing a
+    checkpoint the product loader would accept with missing tensors (it loads with
+    `strict=False`) or without its calibration file. Scored the eval default: macro ROC-AUC
+    0.539, all four bands unusable (above). Added a class-accuracy check that separates
+    undertraining from the score conversion, and 5 offline tests.
 
 - **Bingqi Lian (Operations):**
   - PR #94: production evidence gate separating service availability from evidence
