@@ -62,12 +62,9 @@ north_star:
 
 ## User evidence
 
-- **No user sessions this week, and we are not claiming any.** The most recent are the
-  Session 10 participants, recorded in `docs/userstudy/session09_record.json`.
-- We would have been testing a detector that returns noise. Running participants against
-  it this week would have produced findings about randomness, not about the product.
-  That is a reason for this week and not for next: the final user study has to happen
-  against whatever we demo, and it cannot slip past Session 12.
+- 4 User test carried out this week, recorded in `docs/userstudy/session011_record.json`.
+- his week’s study found that people may be willing to share sensitive details when they believed those details would help the AI give a better answer.
+- Using current running guide in repo, the Qwen adapter was not loaded. Running directly from the InferenceGuard_finetune.ipynb Colab notebook doesn't work either. 
 
 ## Metrics snapshot
 
@@ -207,6 +204,8 @@ is the last session in which starting it is still possible.
     participants state what their question might reveal *before* seeing the system's
     verdict, which removes the anchoring that made Session 06's acceptance readings
     unreliable. Closes #60.
+  - Session 11 user study (session11_record.json). Tested InferenceGuard with four participants, comparing what they wanted to protect before seeing the rewrite with what they chose to send afterward.
+  - Results analysis (session11_doc.txt). Compared participant feedback with system logs and found that some rewrites removed details needed for the task while leaving information participants wanted to protect.
 
 - **Anna Thomas (Data&Eval):**
   - No new pull requests this week. PR #89, merged 10 November, delivered the hosting and
