@@ -1,0 +1,185 @@
+{
+  "session_id": "1.1",
+  "user_id": "demo_user",
+  "input_text": "I am a student live near by campus. My apartment lease will end in this December, however, I still have 8 month until I graduate. I need you to help me decide whether I should renew my current lease or I should move to the second corporation that I am about to work in. My apartment is 55 minutes away to the work place, if taking green line trip and the apartment I am looking is near the loaction. The closer apartment would cost the same monthly rent and cut the commute to about 25 minutes each way. Moving would cost about $1,200 upfront. Help me calculate the monthly expense for each plan and calculate the commute time to spend on each type. Based on this calculation, give me your advice.",
+  "exported_at": "2026-11-17T04:22:45.371Z",
+  "client_latency_seconds": 3.4265999999996275,
+  "response": {
+    "risk_summary": {
+      "overall": 0.45,
+      "overall_band": "MEDIUM",
+      "primary": "location",
+      "secondary": [],
+      "bands": {
+        "age": "LOW",
+        "location": "MEDIUM",
+        "occupation": "LOW",
+        "education": "LOW"
+      },
+      "scores": {
+        "age": 0.05,
+        "location": 0.45,
+        "occupation": 0.05,
+        "education": 0.05
+      },
+      "cues": [
+        {
+          "span": "[location cue]",
+          "attribute": "location",
+          "importance": 0.45
+        }
+      ],
+      "leakage_delta": 0.45
+    },
+    "rewritten_text": "I am a student live near by campus. My apartment lease will end in <DATE_TIME>, however, I still have <DATE_TIME> until I graduate. I need you to help me decide whether I should renew my current lease or I should move to the second corporation that I am about to work in. My apartment is <DATE_TIME> away to the work place, if taking green line trip and the apartment I am looking is near the loaction. The closer apartment would cost the same <DATE_TIME> rent and cut the commute to <DATE_TIME> each way. Moving would cost about $1,200 upfront. Help me calculate the <DATE_TIME> expense for each plan and calculate the commute time to spend on each type. Based on this calculation, give me your advice.",
+    "presidio_text": "I am a student live near by campus. My apartment lease will end in <DATE_TIME>, however, I still have <DATE_TIME> until I graduate. I need you to help me decide whether I should renew my current lease or I should move to the second corporation that I am about to work in. My apartment is <DATE_TIME> away to the work place, if taking green line trip and the apartment I am looking is near the loaction. The closer apartment would cost the same <DATE_TIME> rent and cut the commute to <DATE_TIME> each way. Moving would cost about $1,200 upfront. Help me calculate the <DATE_TIME> expense for each plan and calculate the commute time to spend on each type. Based on this calculation, give me your advice.",
+    "utility_metrics": {
+      "cosine_similarity": 0.9538,
+      "nli_forward": 0.9868,
+      "nli_backward": 0.9146,
+      "contradiction": 0,
+      "utility_score": 0.9539,
+      "degenerate": false,
+      "degenerate_reason": null,
+      "utility_backend": "fallback"
+    },
+    "turn_record": {
+      "turn_number": 1,
+      "session_id": "1.1",
+      "raw_text": "I am a student live near by campus. My apartment lease will end in this December, however, I still have 8 month until I graduate. I need you to help me decide whether I should renew my current lease or I should move to the second corporation that I am about to work in. My apartment is 55 minutes away to the work place, if taking green line trip and the apartment I am looking is near the loaction. The closer apartment would cost the same monthly rent and cut the commute to about 25 minutes each way. Moving would cost about $1,200 upfront. Help me calculate the monthly expense for each plan and calculate the commute time to spend on each type. Based on this calculation, give me your advice.",
+      "turn_scores": {
+        "age": 0.05,
+        "location": 0.45,
+        "occupation": 0.05,
+        "education": 0.05
+      },
+      "cumulative_scores": {
+        "age": 0.05,
+        "location": 0.45,
+        "occupation": 0.05,
+        "education": 0.05
+      },
+      "overall_turn_risk": 0.45,
+      "overall_cumulative_risk": 0.45,
+      "joint_entropy": 3.4,
+      "leakage_delta": 0.45,
+      "is_breached": false,
+      "risk_band": "MEDIUM",
+      "residual_anonymity_capacity": 3.4
+    },
+    "privacy_report": {
+      "explicit": {
+        "count": 6,
+        "hard_count": 0,
+        "by_type": {
+          "DATE_TIME": 6
+        },
+        "spans": [
+          {
+            "type": "DATE_TIME",
+            "start": 67,
+            "end": 80
+          },
+          {
+            "type": "DATE_TIME",
+            "start": 104,
+            "end": 111
+          },
+          {
+            "type": "DATE_TIME",
+            "start": 286,
+            "end": 296
+          },
+          {
+            "type": "DATE_TIME",
+            "start": 441,
+            "end": 448
+          },
+          {
+            "type": "DATE_TIME",
+            "start": 477,
+            "end": 493
+          },
+          {
+            "type": "DATE_TIME",
+            "start": 566,
+            "end": 573
+          }
+        ]
+      },
+      "inferential": {
+        "overall": 0.45,
+        "overall_band": "MEDIUM",
+        "primary": "location",
+        "secondary": [],
+        "bands": {
+          "age": "LOW",
+          "location": "MEDIUM",
+          "occupation": "LOW",
+          "education": "LOW"
+        },
+        "scores": {
+          "age": 0.05,
+          "location": 0.45,
+          "occupation": 0.05,
+          "education": 0.05
+        },
+        "cues": [
+          {
+            "span": "[location cue]",
+            "attribute": "location",
+            "importance": 0.45
+          }
+        ],
+        "leakage_delta": 0.45
+      }
+    },
+    "comparison": {
+      "verdict": "no_change",
+      "inferential_before": 0.45,
+      "inferential_after": 0.45,
+      "inferential_delta": 0,
+      "per_attribute_delta": {
+        "age": 0,
+        "education": 0,
+        "location": 0,
+        "occupation": 0
+      },
+      "explicit_before": 6,
+      "explicit_after": 0,
+      "hard_pii_remaining": 0,
+      "utility": 0.9539,
+      "utility_floor": 0.7,
+      "notes": [],
+      "is_win": false
+    },
+    "verdict": "no_change",
+    "is_win": false,
+    "rewrite_engine": "presidio_fallback",
+    "rewrite_changed": true,
+    "served_text_sha256": "3fe3e28b0b3b1cfc1a3265ad55fe90f3154445132904df618c1a7180f85e320e",
+    "timings_ms": {
+      "presidio": 61.58,
+      "risk_model": 812.627,
+      "rewrite": 451.17,
+      "rescore": 841.028,
+      "utility": 16.979,
+      "total": 2967.802
+    },
+    "debug_info": {
+      "timestamp": 1794889363.7788794,
+      "input_text": "I am a student live near by campus. My apartment lease will end in this December, however, I still have 8 month until I graduate. I need you to help me decide whether I should renew my current lease or I should move to the second corporation that I am about to work in. My apartment is 55 minutes away to the work place, if taking green line trip and the apartment I am looking is near the loaction. The closer apartment would cost the same monthly rent and cut the commute to about 25 minutes each way. Moving would cost about $1,200 upfront. Help me calculate the monthly expense for each plan and calculate the commute time to spend on each type. Based on this calculation, give me your advice.",
+      "qwen_adapter_loaded": false,
+      "qwen_output_raw": null,
+      "qwen_clean_output": null,
+      "qwen_error": null,
+      "qwen_is_fallback": false,
+      "qwen_changed": false,
+      "qwen_had_pii": false,
+      "candidates_evaluated": [],
+      "decision_reason": "No candidate satisfied Pareto risk threshold; served Presidio baseline.",
+      "selected_engine": "presidio_fallback",
+      "selected_text": "I am a student live near by campus. My apartment lease will end in <DATE_TIME>, however, I still have <DATE_TIME> until I graduate. I need you to help me decide whether I should renew my current lease or I should move to the second corporation that I am about to work in. My apartment is <DATE_TIME> away to the work place, if taking green line trip and the apartment I am looking is near the loaction. The closer apartment would cost the same <DATE_TIME> rent and cut the commute to <DATE_TIME> each way. Moving would cost about $1,200 upfront. Help me calculate the <DATE_TIME> expense for each plan and calculate the commute time to spend on each type. Based on this calculation, give me your advice."
+    }
+  }
+}

@@ -1,0 +1,170 @@
+{
+  "session_id": "1.1",
+  "user_id": "demo_user",
+  "input_text": "I am a student live near by campus. My apartment lease will end in <DATE_TIME>, however, I still have <DATE_TIME> until I graduate. I need you to help me decide whether I should renew my current lease or I should move to the second corporation that I am about to work in. My apartment is 55 minutes away to the work place and the apartment I am looking is near the loaction. The closer apartment would cost the same monthly rent and cut the commute to 25 mintes each way. Moving would cost about $1,200 upfront. Help me calculate the monthly expense for each plan and calculate the commute time to spend on each type. Based on this calculation, give me your advice.",
+  "exported_at": "2026-11-17T04:33:27.680Z",
+  "client_latency_seconds": 4.2470999999996275,
+  "response": {
+    "risk_summary": {
+      "overall": 0.45,
+      "overall_band": "MEDIUM",
+      "primary": "location",
+      "secondary": [],
+      "bands": {
+        "age": "LOW",
+        "location": "MEDIUM",
+        "occupation": "LOW",
+        "education": "LOW"
+      },
+      "scores": {
+        "age": 0.05,
+        "location": 0.45,
+        "occupation": 0.05,
+        "education": 0.05
+      },
+      "cues": [
+        {
+          "span": "[location cue]",
+          "attribute": "location",
+          "importance": 0.45
+        }
+      ],
+      "leakage_delta": 0.2475
+    },
+    "rewritten_text": "I am a student live near by campus. My apartment lease will end in <DATE_TIME>, however, I still have <DATE_TIME> until I graduate. I need you to help me decide whether I should renew my current lease or I should move to the second corporation that I am about to work in. My apartment is <DATE_TIME> away to the work place and the apartment I am looking is near the loaction. The closer apartment would cost the same <DATE_TIME> rent and cut the commute to 25 mintes each way. Moving would cost about $1,200 upfront. Help me calculate the <DATE_TIME> expense for each plan and calculate the commute time to spend on each type. Based on this calculation, give me your advice.",
+    "presidio_text": "I am a student live near by campus. My apartment lease will end in <DATE_TIME>, however, I still have <DATE_TIME> until I graduate. I need you to help me decide whether I should renew my current lease or I should move to the second corporation that I am about to work in. My apartment is <DATE_TIME> away to the work place and the apartment I am looking is near the loaction. The closer apartment would cost the same <DATE_TIME> rent and cut the commute to 25 mintes each way. Moving would cost about $1,200 upfront. Help me calculate the <DATE_TIME> expense for each plan and calculate the commute time to spend on each type. Based on this calculation, give me your advice.",
+    "utility_metrics": {
+      "cosine_similarity": 0.9873,
+      "nli_forward": 1,
+      "nli_backward": 0.9605,
+      "contradiction": 0,
+      "utility_score": 0.9844,
+      "degenerate": false,
+      "degenerate_reason": null,
+      "utility_backend": "fallback"
+    },
+    "turn_record": {
+      "turn_number": 2,
+      "session_id": "1.1",
+      "raw_text": "I am a student live near by campus. My apartment lease will end in <DATE_TIME>, however, I still have <DATE_TIME> until I graduate. I need you to help me decide whether I should renew my current lease or I should move to the second corporation that I am about to work in. My apartment is 55 minutes away to the work place and the apartment I am looking is near the loaction. The closer apartment would cost the same monthly rent and cut the commute to 25 mintes each way. Moving would cost about $1,200 upfront. Help me calculate the monthly expense for each plan and calculate the commute time to spend on each type. Based on this calculation, give me your advice.",
+      "turn_scores": {
+        "age": 0.05,
+        "location": 0.45,
+        "occupation": 0.05,
+        "education": 0.05
+      },
+      "cumulative_scores": {
+        "age": 0.05,
+        "location": 0.6975,
+        "occupation": 0.05,
+        "education": 0.05
+      },
+      "overall_turn_risk": 0.45,
+      "overall_cumulative_risk": 0.6975,
+      "joint_entropy": 3.1525,
+      "leakage_delta": 0.2475,
+      "is_breached": true,
+      "risk_band": "HIGH",
+      "residual_anonymity_capacity": 3.1525
+    },
+    "privacy_report": {
+      "explicit": {
+        "count": 3,
+        "hard_count": 0,
+        "by_type": {
+          "DATE_TIME": 3
+        },
+        "spans": [
+          {
+            "type": "DATE_TIME",
+            "start": 288,
+            "end": 298
+          },
+          {
+            "type": "DATE_TIME",
+            "start": 416,
+            "end": 423
+          },
+          {
+            "type": "DATE_TIME",
+            "start": 534,
+            "end": 541
+          }
+        ]
+      },
+      "inferential": {
+        "overall": 0.45,
+        "overall_band": "MEDIUM",
+        "primary": "location",
+        "secondary": [],
+        "bands": {
+          "age": "LOW",
+          "location": "MEDIUM",
+          "occupation": "LOW",
+          "education": "LOW"
+        },
+        "scores": {
+          "age": 0.05,
+          "location": 0.45,
+          "occupation": 0.05,
+          "education": 0.05
+        },
+        "cues": [
+          {
+            "span": "[location cue]",
+            "attribute": "location",
+            "importance": 0.45
+          }
+        ],
+        "leakage_delta": 0.2475
+      }
+    },
+    "comparison": {
+      "verdict": "no_change",
+      "inferential_before": 0.45,
+      "inferential_after": 0.45,
+      "inferential_delta": 0,
+      "per_attribute_delta": {
+        "age": 0,
+        "education": 0,
+        "location": 0,
+        "occupation": 0
+      },
+      "explicit_before": 3,
+      "explicit_after": 0,
+      "hard_pii_remaining": 0,
+      "utility": 0.9844,
+      "utility_floor": 0.7,
+      "notes": [],
+      "is_win": false
+    },
+    "verdict": "no_change",
+    "is_win": false,
+    "rewrite_engine": "presidio_fallback",
+    "rewrite_changed": true,
+    "served_text_sha256": "7e07861fe4d85169ad7ac9557684f39371ae74c448416f3334363ddcd442358e",
+    "timings_ms": {
+      "presidio": 61.021,
+      "risk_model": 827.436,
+      "rewrite": 454.5,
+      "rescore": 821.982,
+      "utility": 16.622,
+      "total": 2997.225
+    },
+    "debug_info": {
+      "timestamp": 1794890005.572501,
+      "input_text": "I am a student live near by campus. My apartment lease will end in <DATE_TIME>, however, I still have <DATE_TIME> until I graduate. I need you to help me decide whether I should renew my current lease or I should move to the second corporation that I am about to work in. My apartment is 55 minutes away to the work place and the apartment I am looking is near the loaction. The closer apartment would cost the same monthly rent and cut the commute to 25 mintes each way. Moving would cost about $1,200 upfront. Help me calculate the monthly expense for each plan and calculate the commute time to spend on each type. Based on this calculation, give me your advice.",
+      "qwen_adapter_loaded": false,
+      "qwen_output_raw": null,
+      "qwen_clean_output": null,
+      "qwen_error": null,
+      "qwen_is_fallback": false,
+      "qwen_changed": false,
+      "qwen_had_pii": false,
+      "candidates_evaluated": [],
+      "decision_reason": "No candidate satisfied Pareto risk threshold; served Presidio baseline.",
+      "selected_engine": "presidio_fallback",
+      "selected_text": "I am a student live near by campus. My apartment lease will end in <DATE_TIME>, however, I still have <DATE_TIME> until I graduate. I need you to help me decide whether I should renew my current lease or I should move to the second corporation that I am about to work in. My apartment is <DATE_TIME> away to the work place and the apartment I am looking is near the loaction. The closer apartment would cost the same <DATE_TIME> rent and cut the commute to 25 mintes each way. Moving would cost about $1,200 upfront. Help me calculate the <DATE_TIME> expense for each plan and calculate the commute time to spend on each type. Based on this calculation, give me your advice."
+    }
+  }
+}

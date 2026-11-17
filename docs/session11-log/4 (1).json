@@ -1,0 +1,164 @@
+{
+  "session_id": "4",
+  "user_id": "demo_user",
+  "input_text": "Improve this CV header and summary: Jordan Lee | 123 Oak Ave, [LOCATION] | [EMAIL] | ([PHONE] | Born 1991 — Senior analyst with six years of experience in healthcare claims. Please improve the header and summary of the CV. The header includes a name, address, email, phone number, and birth year. The summary describes the applicant's role and experience. Please give me editable file as output.",
+  "exported_at": "2026-11-17T05:25:07.252Z",
+  "client_latency_seconds": 3.536699999999255,
+  "response": {
+    "risk_summary": {
+      "overall": 0.05,
+      "overall_band": "LOW",
+      "primary": "age",
+      "secondary": [],
+      "bands": {
+        "age": "LOW",
+        "location": "LOW",
+        "occupation": "LOW",
+        "education": "LOW"
+      },
+      "scores": {
+        "age": 0.05,
+        "location": 0.05,
+        "occupation": 0.05,
+        "education": 0.05
+      },
+      "cues": [],
+      "leakage_delta": 0
+    },
+    "rewritten_text": "Improve this CV header and summary: <PERSON> | 123 <PERSON>, [LOCATION] | [EMAIL] | ([PHONE] | Born 1991 — Senior analyst with <DATE_TIME> of experience in healthcare claims. Please improve the header and summary of the CV. The header includes a name, address, email, phone number, and <DATE_TIME>. The summary describes the applicant's role and experience. Please give me editable file as output.",
+    "presidio_text": "Improve this CV header and summary: <PERSON> | 123 <PERSON>, [LOCATION] | [EMAIL] | ([PHONE] | Born 1991 — Senior analyst with <DATE_TIME> of experience in healthcare claims. Please improve the header and summary of the CV. The header includes a name, address, email, phone number, and <DATE_TIME>. The summary describes the applicant's role and experience. Please give me editable file as output.",
+    "utility_metrics": {
+      "cosine_similarity": 0.8836,
+      "nli_forward": 0.9487,
+      "nli_backward": 0.8222,
+      "contradiction": 0,
+      "utility_score": 0.8878,
+      "degenerate": false,
+      "degenerate_reason": null,
+      "utility_backend": "fallback"
+    },
+    "turn_record": {
+      "turn_number": 2,
+      "session_id": "4",
+      "raw_text": "Improve this CV header and summary: Jordan Lee | 123 Oak Ave, [LOCATION] | [EMAIL] | ([PHONE] | Born 1991 — Senior analyst with six years of experience in healthcare claims. Please improve the header and summary of the CV. The header includes a name, address, email, phone number, and birth year. The summary describes the applicant's role and experience. Please give me editable file as output.",
+      "turn_scores": {
+        "age": 0.05,
+        "location": 0.05,
+        "occupation": 0.05,
+        "education": 0.05
+      },
+      "cumulative_scores": {
+        "age": 0.05,
+        "location": 0.75,
+        "occupation": 0.05,
+        "education": 0.05
+      },
+      "overall_turn_risk": 0.05,
+      "overall_cumulative_risk": 0.75,
+      "joint_entropy": 3.1,
+      "leakage_delta": 0,
+      "is_breached": true,
+      "risk_band": "HIGH",
+      "residual_anonymity_capacity": 3.1
+    },
+    "privacy_report": {
+      "explicit": {
+        "count": 4,
+        "hard_count": 2,
+        "by_type": {
+          "PERSON": 2,
+          "DATE_TIME": 2
+        },
+        "spans": [
+          {
+            "type": "PERSON",
+            "start": 36,
+            "end": 46
+          },
+          {
+            "type": "PERSON",
+            "start": 53,
+            "end": 60
+          },
+          {
+            "type": "DATE_TIME",
+            "start": 128,
+            "end": 137
+          },
+          {
+            "type": "DATE_TIME",
+            "start": 285,
+            "end": 295
+          }
+        ]
+      },
+      "inferential": {
+        "overall": 0.05,
+        "overall_band": "LOW",
+        "primary": "age",
+        "secondary": [],
+        "bands": {
+          "age": "LOW",
+          "location": "LOW",
+          "occupation": "LOW",
+          "education": "LOW"
+        },
+        "scores": {
+          "age": 0.05,
+          "location": 0.05,
+          "occupation": 0.05,
+          "education": 0.05
+        },
+        "cues": [],
+        "leakage_delta": 0
+      }
+    },
+    "comparison": {
+      "verdict": "no_change",
+      "inferential_before": 0.05,
+      "inferential_after": 0.05,
+      "inferential_delta": 0,
+      "per_attribute_delta": {
+        "age": 0,
+        "education": 0,
+        "location": 0,
+        "occupation": 0
+      },
+      "explicit_before": 4,
+      "explicit_after": 0,
+      "hard_pii_remaining": 0,
+      "utility": 0.8878,
+      "utility_floor": 0.7,
+      "notes": [],
+      "is_win": false
+    },
+    "verdict": "no_change",
+    "is_win": false,
+    "rewrite_engine": "presidio_fallback",
+    "rewrite_changed": true,
+    "served_text_sha256": "270c770c522d66775de5ae966d0206988c5d7e6e31313254011816fd2fbca024",
+    "timings_ms": {
+      "presidio": 51.81,
+      "risk_model": 818.878,
+      "rewrite": 430.119,
+      "rescore": 824.716,
+      "utility": 18.116,
+      "total": 3110.9
+    },
+    "debug_info": {
+      "timestamp": 1794893105.7670417,
+      "input_text": "Improve this CV header and summary: Jordan Lee | 123 Oak Ave, [LOCATION] | [EMAIL] | ([PHONE] | Born 1991 — Senior analyst with six years of experience in healthcare claims. Please improve the header and summary of the CV. The header includes a name, address, email, phone number, and birth year. The summary describes the applicant's role and experience. Please give me editable file as output.",
+      "qwen_adapter_loaded": false,
+      "qwen_output_raw": null,
+      "qwen_clean_output": null,
+      "qwen_error": null,
+      "qwen_is_fallback": false,
+      "qwen_changed": false,
+      "qwen_had_pii": false,
+      "candidates_evaluated": [],
+      "decision_reason": "No candidate satisfied Pareto risk threshold; served Presidio baseline.",
+      "selected_engine": "presidio_fallback",
+      "selected_text": "Improve this CV header and summary: <PERSON> | 123 <PERSON>, [LOCATION] | [EMAIL] | ([PHONE] | Born 1991 — Senior analyst with <DATE_TIME> of experience in healthcare claims. Please improve the header and summary of the CV. The header includes a name, address, email, phone number, and <DATE_TIME>. The summary describes the applicant's role and experience. Please give me editable file as output."
+    }
+  }
+}

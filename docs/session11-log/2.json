@@ -1,0 +1,175 @@
+{
+  "session_id": "2",
+  "user_id": "demo_user",
+  "input_text": "I work as a customer onboarding specialist at a regional software company.\nI  have been on the team for seven years and trained three new staff members in the past year.\nI  recently led an internal practice session for client presentations, but I have not yet been assigned a lead role on a client-facing project.\nI have a 20-minute one-on-one with your manager on Friday. Read above information and draft a short opening and two questions for the meeting. I want to find out how formal qualifications and practical experience are weighed, and what I can do to be considered for the next project. I want to raise the issue without questioning my colleagues' qualifications.",
+  "exported_at": "2026-11-17T04:49:34.601Z",
+  "client_latency_seconds": 3.6439000000003725,
+  "response": {
+    "risk_summary": {
+      "overall": 0.75,
+      "overall_band": "HIGH",
+      "primary": "occupation",
+      "secondary": [],
+      "bands": {
+        "age": "LOW",
+        "location": "LOW",
+        "occupation": "HIGH",
+        "education": "LOW"
+      },
+      "scores": {
+        "age": 0.05,
+        "location": 0.05,
+        "occupation": 0.75,
+        "education": 0.05
+      },
+      "cues": [
+        {
+          "span": "[occupation cue]",
+          "attribute": "occupation",
+          "importance": 0.75
+        }
+      ],
+      "leakage_delta": 0.75
+    },
+    "rewritten_text": "I work as a customer onboarding specialist at a regional software company.\nI  have been on the team for <DATE_TIME> and trained three new staff members in <DATE_TIME>.\nI  recently led an internal practice session for client presentations, but I have not yet been assigned a lead role on a client-facing project.\nI have a <DATE_TIME> one-on-one with your manager on <DATE_TIME>. Read above information and draft a short opening and two questions for the meeting. I want to find out how formal qualifications and practical experience are weighed, and what I can do to be considered for the next project. I want to raise the issue without questioning my colleagues' qualifications.",
+    "presidio_text": "I work as a customer onboarding specialist at a regional software company.\nI  have been on the team for <DATE_TIME> and trained three new staff members in <DATE_TIME>.\nI  recently led an internal practice session for client presentations, but I have not yet been assigned a lead role on a client-facing project.\nI have a <DATE_TIME> one-on-one with your manager on <DATE_TIME>. Read above information and draft a short opening and two questions for the meeting. I want to find out how formal qualifications and practical experience are weighed, and what I can do to be considered for the next project. I want to raise the issue without questioning my colleagues' qualifications.",
+    "utility_metrics": {
+      "cosine_similarity": 0.9458,
+      "nli_forward": 0.987,
+      "nli_backward": 0.9157,
+      "contradiction": 0,
+      "utility_score": 0.9506,
+      "degenerate": false,
+      "degenerate_reason": null,
+      "utility_backend": "fallback"
+    },
+    "turn_record": {
+      "turn_number": 1,
+      "session_id": "2",
+      "raw_text": "I work as a customer onboarding specialist at a regional software company.\nI  have been on the team for seven years and trained three new staff members in the past year.\nI  recently led an internal practice session for client presentations, but I have not yet been assigned a lead role on a client-facing project.\nI have a 20-minute one-on-one with your manager on Friday. Read above information and draft a short opening and two questions for the meeting. I want to find out how formal qualifications and practical experience are weighed, and what I can do to be considered for the next project. I want to raise the issue without questioning my colleagues' qualifications.",
+      "turn_scores": {
+        "age": 0.05,
+        "location": 0.05,
+        "occupation": 0.75,
+        "education": 0.05
+      },
+      "cumulative_scores": {
+        "age": 0.05,
+        "location": 0.05,
+        "occupation": 0.75,
+        "education": 0.05
+      },
+      "overall_turn_risk": 0.75,
+      "overall_cumulative_risk": 0.75,
+      "joint_entropy": 3.1,
+      "leakage_delta": 0.75,
+      "is_breached": true,
+      "risk_band": "HIGH",
+      "residual_anonymity_capacity": 3.1
+    },
+    "privacy_report": {
+      "explicit": {
+        "count": 4,
+        "hard_count": 0,
+        "by_type": {
+          "DATE_TIME": 4
+        },
+        "spans": [
+          {
+            "type": "DATE_TIME",
+            "start": 104,
+            "end": 115
+          },
+          {
+            "type": "DATE_TIME",
+            "start": 155,
+            "end": 168
+          },
+          {
+            "type": "DATE_TIME",
+            "start": 323,
+            "end": 332
+          },
+          {
+            "type": "DATE_TIME",
+            "start": 365,
+            "end": 371
+          }
+        ]
+      },
+      "inferential": {
+        "overall": 0.75,
+        "overall_band": "HIGH",
+        "primary": "occupation",
+        "secondary": [],
+        "bands": {
+          "age": "LOW",
+          "location": "LOW",
+          "occupation": "HIGH",
+          "education": "LOW"
+        },
+        "scores": {
+          "age": 0.05,
+          "location": 0.05,
+          "occupation": 0.75,
+          "education": 0.05
+        },
+        "cues": [
+          {
+            "span": "[occupation cue]",
+            "attribute": "occupation",
+            "importance": 0.75
+          }
+        ],
+        "leakage_delta": 0.75
+      }
+    },
+    "comparison": {
+      "verdict": "no_change",
+      "inferential_before": 0.75,
+      "inferential_after": 0.75,
+      "inferential_delta": 0,
+      "per_attribute_delta": {
+        "age": 0,
+        "education": 0,
+        "location": 0,
+        "occupation": 0
+      },
+      "explicit_before": 4,
+      "explicit_after": 0,
+      "hard_pii_remaining": 0,
+      "utility": 0.9506,
+      "utility_floor": 0.7,
+      "notes": [],
+      "is_win": false
+    },
+    "verdict": "no_change",
+    "is_win": false,
+    "rewrite_engine": "presidio_fallback",
+    "rewrite_changed": true,
+    "served_text_sha256": "6610b60b580142b0bbc95b9fe01ba2868a81ebd4323d800f3bb0e93feb4e2ccf",
+    "timings_ms": {
+      "presidio": 66.334,
+      "risk_model": 843.97,
+      "rewrite": 511.046,
+      "rescore": 861.779,
+      "utility": 20.278,
+      "total": 3113.759
+    },
+    "debug_info": {
+      "timestamp": 1794890972.9519033,
+      "input_text": "I work as a customer onboarding specialist at a regional software company.\nI  have been on the team for seven years and trained three new staff members in the past year.\nI  recently led an internal practice session for client presentations, but I have not yet been assigned a lead role on a client-facing project.\nI have a 20-minute one-on-one with your manager on Friday. Read above information and draft a short opening and two questions for the meeting. I want to find out how formal qualifications and practical experience are weighed, and what I can do to be considered for the next project. I want to raise the issue without questioning my colleagues' qualifications.",
+      "qwen_adapter_loaded": false,
+      "qwen_output_raw": null,
+      "qwen_clean_output": null,
+      "qwen_error": null,
+      "qwen_is_fallback": false,
+      "qwen_changed": false,
+      "qwen_had_pii": false,
+      "candidates_evaluated": [],
+      "decision_reason": "No candidate satisfied Pareto risk threshold; served Presidio baseline.",
+      "selected_engine": "presidio_fallback",
+      "selected_text": "I work as a customer onboarding specialist at a regional software company.\nI  have been on the team for <DATE_TIME> and trained three new staff members in <DATE_TIME>.\nI  recently led an internal practice session for client presentations, but I have not yet been assigned a lead role on a client-facing project.\nI have a <DATE_TIME> one-on-one with your manager on <DATE_TIME>. Read above information and draft a short opening and two questions for the meeting. I want to find out how formal qualifications and practical experience are weighed, and what I can do to be considered for the next project. I want to raise the issue without questioning my colleagues' qualifications."
+    }
+  }
+}
