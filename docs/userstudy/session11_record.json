@@ -1,0 +1,234 @@
+[
+  {
+  "participant_id": "anonymous-01",
+  "scenario_id": "S-01",
+  "scenario_mode": "generative",
+  "date": "2026-11-16",
+  "facilitator": "Yiwei Jin",
+  "artifact": "user_studies/session11/anonymous-01.mp4",
+
+  "anchors_available": ["Green Line","Undergraduate degree and second co-op","December lease end and January placement start","Month-to-month renewal, equal rent, and $1,200 moving cost","55-minute versus 25-minute commute, four on-site days per week"
+  ],
+
+  "initial_query": "I am a student live near by campus. My apartment lease will end in this December, however, I still have 8 month until I graduate. I need you to help me decide whether I should renew my current lease or I should move to the second corporation that I am about to work in. My apartment is 55 minutes away to the work place, if taking green line trip and the apartment I am looking is near the loaction. The closer apartment would cost the same monthly rent and cut the commute to about 25 minutes each way. Moving would cost about $1,200 upfront. Help me calculate the monthly expense for each plan and calculate the commute time to spend on each type. Based on this calculation, give me your advice.",
+  "query_formulation_seconds": 300,
+
+  "anchors_used": [
+    "Green Line","Student status and an upcoming second work placement","December lease ends","equal rent, and $1,200 moving cost","55-minute versus 25-minute commute"
+  ],
+
+  "evaluator_intervention_pre_submit": false,
+
+  "detected_risk": true,
+  "risk_score": 0.45,
+  "system_state": "presidio_fallback",
+
+  "warning_in_their_words":
+    "It says the question exposed my loaction, but surprised that it didn't say age ",
+  "warning_comprehension": "correct",
+
+  "requested_rewrite": false,
+  "rewrite_changed_text": true,
+  "rewrite_decision": "not_applicable",
+  "edit_made": "restored 55 minutes away, deleted green line, restored monthly in monthly rent/expenses, restored 25 minutes commute time",
+
+  "usefulness": 5,
+  "would_use_before_sending": false,
+  "adoption_reason":
+    "The program should understand my task first",
+
+  "time_to_decision_seconds": 5,
+  "comments": "",
+
+  "pre_result": {
+    "send_decision": "send_as_written",
+    "decision_reason": "AI might have better calculation with the details",
+    "privacy_response_verbatim": "financial situation",
+    "perceived_private_details": "$1200 upfront",
+    "wants_privacy_rewrite": "no",
+    "rewrite_reason": ""},
+  
+  "post_result": {
+    "final_choice": "original",
+    "choice_reason": "Don't understand why the program deleted something mistaken for private information",
+    "remaining_privacy_concerns": "",
+    "task_details_removed_or_changed": "monthly",
+    "edited_from": "suggestion",
+    "edited_query": "I am a student live near by campus. My apartment lease will end in <DATE_TIME>, however, I still have <DATE_TIME> until I graduate. I need you to help me decide whether I should renew my current lease or I should move to the second corporation that I am about to work in. My apartment is 55 minutes away to the work place and the apartment I am looking is near the loaction. The closer apartment would cost the same monthly rent and cut the commute to 25 mintes each way. Moving would cost about $1,200 upfront. Help me calculate the monthly expense for each plan and calculate the commute time to spend on each type. Based on this calculation, give me your advice." }
+  
+  },
+
+  {
+  "participant_id": "anonymous-02",
+  "scenario_id": "S-02",
+  "scenario_mode": "generative",
+  "date": "2026-11-16",
+  "facilitator": "Yiwei Jin",
+  "artifact": "user_studies/session11/anonymous-02.mp4",
+
+  "anchors_available": ["Exact job title and employer type","Seven years and three trainees","Leading an internal practice session","Colleagues' master's degrees and the user's lack of a postgraduate degree","Friday and the 20-minute meeting"
+  ],
+
+  "initial_query": "I work as a customer onboarding specialist at a regional software company.\nI  have been on the team for seven years and trained three new staff members in the past year.\nI  recently led an internal practice session for client presentations, but I have not yet been assigned a lead role on a client-facing project.\nI have a 20-minute one-on-one with your manager on Friday. Read above information and draft a short opening and two questions for the meeting. I want to find out how formal qualifications and practical experience are weighed, and what I can do to be considered for the next project. I want to raise the issue without questioning my colleagues' qualifications.",
+  "query_formulation_seconds": 180,
+
+  "anchors_used": ["Exact job title and employer type","Seven years and three trainees","Leading an internal practice session","Friday and the 20-minute meeting"
+  ],
+
+  "evaluator_intervention_pre_submit": false,
+
+  "detected_risk": true,
+  "risk_score": 0.75,
+  "system_state": "presidio_fallback",
+
+  "warning_in_their_words":
+    "There's great risk in occupation, very high",
+  "warning_comprehension": "correct",
+
+  "requested_rewrite": false,
+  "rewrite_changed_text": true,
+  "rewrite_decision": "not_applicable",
+  "edit_made": "restored seven years",
+
+  "usefulness": 1,
+  "would_use_before_sending": false,
+  "adoption_reason":
+    "Seven years could be an argument when I want to raise this issue",
+
+  "time_to_decision_seconds": 3,
+  "comments": "Surprised that it detected occupation risk but didn't do anything about it",
+
+  "pre_result": {
+    "send_decision": "not_sure",
+    "decision_reason": "Want to have job title rewritted but not sure about the result",
+    "privacy_response_verbatim": "my job title",
+    "perceived_private_details": "a customer onboarding specialist at a regional software company",
+    "wants_privacy_rewrite": "not sure",
+    "rewrite_reason": "People can find the user knowing the job title and region"},
+  
+  "post_result": {
+    "final_choice": "original",
+    "choice_reason": " something mistaken for private information",
+    "remaining_privacy_concerns": "",
+    "task_details_removed_or_changed": "Friday",
+    "edited_from": "suggestion",
+    "edited_query": "I work as a customer onboarding specialist at a regional software company.\nI  have been on the team for seven years and trained three new staff members in <DATE_TIME>.\nI  recently led an internal practice session for client presentations, but I have not yet been assigned a lead role on a client-facing project.\nI have a <DATE_TIME> one-on-one with your manager on <DATE_TIME>. Read above information and draft a short opening and two questions for the meeting. I want to find out how formal qualifications and practical experience are weighed, and what I can do to be considered for the next project. I want to raise the issue without questioning my colleagues' qualifications."
+    }
+  
+  },
+
+    {
+  "participant_id": "anonymous-03",
+  "scenario_id": "S-03",
+  "scenario_mode": "generative",
+  "date": "2026-11-17",
+  "facilitator": "Yiwei Jin",
+  "artifact": "user_studies/session11/anonymous-03.mp4",
+
+  "anchors_available": ["Exact age","Didsbury","Medicines and timing","Different prescribers and an incomplete picture","Follow-up request"],
+
+  "initial_query": "- You are 58 years old.\n- You started taking metformin about a month ago. You were already taking a statin prescribed by a different clinician.\n- Your GP practice is in Didsbury.\n- At your last appointment, your GP did not raise any concerns about taking the two medicines together.\n- You are still unsure whether both clinicians saw your full medication list. \nPlease decide whether you should send a follow-up message to your GP practice. If you decide to send one, ask for help wording a short message that requests a review of your medication list.",
+  "query_formulation_seconds": 90,
+
+  "anchors_used": ["Exact age","Didsbury","Medicines and timing","Different prescribers and an incomplete picture","Follow-up request"],
+
+  "evaluator_intervention_pre_submit": false,
+
+  "detected_risk": false,
+  "risk_score": 0.45,
+  "system_state": "risk_negative_passthrough",
+
+  "warning_in_their_words":
+    "It tells me age is a concern, but it shouldn't be 0.45. It should be 1 because I said my exact age directly. ",
+  "warning_comprehension": "correct",
+
+  "requested_rewrite": false,
+  "rewrite_changed_text": false,
+  "rewrite_decision": "not_applicable",
+  "edit_made": null,
+
+  "usefulness": 1,
+  "would_use_before_sending": false,
+  "adoption_reason":
+    "It didn't change anything",
+
+  "time_to_decision_seconds": 3,
+  "comments": "It detected risk but didn't do anything. Age, location, occupation and education is only 4 demensions. There should be health state.",
+
+  "pre_result": {
+    "send_decision": "send_as_written",
+    "decision_reason": null,
+    "privacy_response_verbatim": "58 years old, medication, GP location",
+    "perceived_private_details": "58 years old",
+    "wants_privacy_rewrite": "no",
+    "rewrite_reason": "AI help me decide better knowing my exact information"},
+  
+  "post_result": {
+    "final_choice": "original",
+    "choice_reason": "Rewriter didn't change anything",
+    "remaining_privacy_concerns": "",
+    "task_details_removed_or_changed": "",
+    "edited_from": "",
+    "edited_query": "" }
+  
+  },
+
+
+  {
+  "participant_id": "anonymous-04",
+  "scenario_id": "S-04",
+  "scenario_mode": "controlled",
+  "date": "2026-11-17",
+  "facilitator": "Yiwei Jin",
+  "artifact": "user_studies/session11/anonymous-04.mp4",
+
+  "anchors_available": ["Full name","Street address","City and state","Email address","Phone number","Birth year","Professional summary"],
+
+  "initial_query": "Improve this CV header and summary: Jordan Lee | 123 Oak Ave, Denver, CO | jordan.lee@example.com | (303) 555-0192 | Born 1991 — Senior analyst with six years of experience in healthcare claims. Please improve the header and summary of the CV. The header includes a name, address, email, phone number, and birth year. The summary describes the applicant's role and experience.",
+  "query_formulation_seconds": 1,
+
+  "anchors_used": ["Full name","Street address","City and state","Email address","Phone number","Birth year","Professional summary"],
+
+  "evaluator_intervention_pre_submit": false,
+
+  "detected_risk": true,
+  "risk_score": 0.75,
+  "system_state": "heuristic",
+
+  "warning_in_their_words":
+  "It should be my age, location, a little bit occupation and eduation. They should all be high.",
+    "warning_comprehension": "correct",
+
+  "requested_rewrite": false,
+  "rewrite_changed_text": true,
+  "rewrite_decision": "accept_with_edits",
+  "edit_made": "added give me editable files as output",
+
+  "usefulness": 4,
+  "would_use_before_sending": true,
+  "adoption_reason":
+    "It successfully replaced phone number and email",
+
+  "time_to_decision_seconds": 5,
+  "comments": "Surprisingly, after edit, the rewriter detected name and deleted it, but mistook street name as person name.",
+
+  "pre_result": {
+    "send_decision": "send_as_written",
+    "decision_reason": "For this task these information shouldn't be private.",
+    "privacy_response_verbatim": "",
+    "perceived_private_details": "",
+    "wants_privacy_rewrite": "no",
+    "rewrite_reason": ""},
+  
+  "post_result": {
+    "final_choice": "edited_version",
+    "choice_reason": "The suggestion masked the email address and phone number",
+    "remaining_privacy_concerns": "Age risk should be higher",
+    "task_details_removed_or_changed": "name deleted, street name changed",
+    "edited_from": "suggestion",
+    "edited_query": "Improve this CV header and summary: Jordan Lee | 123 Oak Ave, [LOCATION] | [EMAIL] | ([PHONE] | Born 1991 — Senior analyst with six years of experience in healthcare claims. Please improve the header and summary of the CV. The header includes a name, address, email, phone number, and birth year. The summary describes the applicant's role and experience. Please give me editable file as output."
+
+  }
+}
+
+]
