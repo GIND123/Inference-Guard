@@ -1,0 +1,171 @@
+{
+  "session_id": "3",
+  "user_id": "demo_user",
+  "input_text": "- You are 58 years old.\n- You started taking metformin about a month ago. You were already taking a statin prescribed by a different clinician.\n- Your GP practice is in Didsbury.\n- At your last appointment, your GP did not raise any concerns about taking the two medicines together.\n- You are still unsure whether both clinicians saw your full medication list. \nPlease decide whether you should send a follow-up message to your GP practice. If you decide to send one, ask for help wording a short message that requests a review of your medication list.",
+  "exported_at": "2026-11-17T05:03:13.264Z",
+  "client_latency_seconds": 1.453900000002235,
+  "response": {
+    "risk_summary": {
+      "overall": 0.45,
+      "overall_band": "MEDIUM",
+      "primary": "age",
+      "secondary": [],
+      "bands": {
+        "age": "MEDIUM",
+        "location": "LOW",
+        "occupation": "LOW",
+        "education": "LOW"
+      },
+      "scores": {
+        "age": 0.45,
+        "location": 0.05,
+        "occupation": 0.05,
+        "education": 0.05
+      },
+      "cues": [
+        {
+          "span": "[age cue]",
+          "attribute": "age",
+          "importance": 0.45
+        }
+      ],
+      "leakage_delta": 0.45
+    },
+    "rewritten_text": "- You are 58 years old.\n- You started taking metformin about a month ago. You were already taking a statin prescribed by a different clinician.\n- Your GP practice is in Didsbury.\n- At your last appointment, your GP did not raise any concerns about taking the two medicines together.\n- You are still unsure whether both clinicians saw your full medication list. \nPlease decide whether you should send a follow-up message to your GP practice. If you decide to send one, ask for help wording a short message that requests a review of your medication list.",
+    "presidio_text": "- You are <DATE_TIME>.\n- You started taking metformin <DATE_TIME>. You were already taking a statin prescribed by a different clinician.\n- Your GP practice is in <LOCATION>.\n- At your last appointment, your GP did not raise any concerns about taking the two medicines together.\n- You are still unsure whether both clinicians saw your full medication list. \nPlease decide whether you should send a follow-up message to your GP practice. If you decide to send one, ask for help wording a short message that requests a review of your medication list.",
+    "utility_metrics": {
+      "cosine_similarity": 1,
+      "nli_forward": 1,
+      "nli_backward": 1,
+      "contradiction": 0,
+      "utility_score": 1,
+      "degenerate": false,
+      "degenerate_reason": null,
+      "utility_backend": "fallback"
+    },
+    "turn_record": {
+      "turn_number": 1,
+      "session_id": "3",
+      "raw_text": "- You are 58 years old.\n- You started taking metformin about a month ago. You were already taking a statin prescribed by a different clinician.\n- Your GP practice is in Didsbury.\n- At your last appointment, your GP did not raise any concerns about taking the two medicines together.\n- You are still unsure whether both clinicians saw your full medication list. \nPlease decide whether you should send a follow-up message to your GP practice. If you decide to send one, ask for help wording a short message that requests a review of your medication list.",
+      "turn_scores": {
+        "age": 0.45,
+        "location": 0.05,
+        "occupation": 0.05,
+        "education": 0.05
+      },
+      "cumulative_scores": {
+        "age": 0.45,
+        "location": 0.05,
+        "occupation": 0.05,
+        "education": 0.05
+      },
+      "overall_turn_risk": 0.45,
+      "overall_cumulative_risk": 0.45,
+      "joint_entropy": 3.4,
+      "leakage_delta": 0.45,
+      "is_breached": false,
+      "risk_band": "MEDIUM",
+      "residual_anonymity_capacity": 3.4
+    },
+    "privacy_report": {
+      "explicit": {
+        "count": 3,
+        "hard_count": 0,
+        "by_type": {
+          "DATE_TIME": 2,
+          "LOCATION": 1
+        },
+        "spans": [
+          {
+            "type": "DATE_TIME",
+            "start": 10,
+            "end": 22
+          },
+          {
+            "type": "DATE_TIME",
+            "start": 55,
+            "end": 72
+          },
+          {
+            "type": "LOCATION",
+            "start": 169,
+            "end": 177
+          }
+        ]
+      },
+      "inferential": {
+        "overall": 0.45,
+        "overall_band": "MEDIUM",
+        "primary": "age",
+        "secondary": [],
+        "bands": {
+          "age": "MEDIUM",
+          "location": "LOW",
+          "occupation": "LOW",
+          "education": "LOW"
+        },
+        "scores": {
+          "age": 0.45,
+          "location": 0.05,
+          "occupation": 0.05,
+          "education": 0.05
+        },
+        "cues": [
+          {
+            "span": "[age cue]",
+            "attribute": "age",
+            "importance": 0.45
+          }
+        ],
+        "leakage_delta": 0.45
+      }
+    },
+    "comparison": {
+      "verdict": "no_change",
+      "inferential_before": 0.45,
+      "inferential_after": 0.45,
+      "inferential_delta": 0,
+      "per_attribute_delta": {
+        "age": 0,
+        "education": 0,
+        "location": 0,
+        "occupation": 0
+      },
+      "explicit_before": 3,
+      "explicit_after": 3,
+      "hard_pii_remaining": 0,
+      "utility": 1,
+      "utility_floor": 0.7,
+      "notes": [],
+      "is_win": false
+    },
+    "verdict": "no_change",
+    "is_win": false,
+    "rewrite_engine": "passthrough_low_risk",
+    "rewrite_changed": false,
+    "served_text_sha256": "20b59f363c9d1e1f61ef52af8758e6f8dae9f4df9c93a44154d0996d01f0bf5b",
+    "timings_ms": {
+      "presidio": 58.153,
+      "risk_model": 873.344,
+      "rewrite": null,
+      "rescore": null,
+      "utility": 18.129,
+      "total": 949.974
+    },
+    "debug_info": {
+      "timestamp": 1794890972.9519033,
+      "input_text": "I work as a customer onboarding specialist at a regional software company.\nI  have been on the team for seven years and trained three new staff members in the past year.\nI  recently led an internal practice session for client presentations, but I have not yet been assigned a lead role on a client-facing project.\nI have a 20-minute one-on-one with your manager on Friday. Read above information and draft a short opening and two questions for the meeting. I want to find out how formal qualifications and practical experience are weighed, and what I can do to be considered for the next project. I want to raise the issue without questioning my colleagues' qualifications.",
+      "qwen_adapter_loaded": false,
+      "qwen_output_raw": null,
+      "qwen_clean_output": null,
+      "qwen_error": null,
+      "qwen_is_fallback": false,
+      "qwen_changed": false,
+      "qwen_had_pii": false,
+      "candidates_evaluated": [],
+      "decision_reason": "No candidate satisfied Pareto risk threshold; served Presidio baseline.",
+      "selected_engine": "presidio_fallback",
+      "selected_text": "I work as a customer onboarding specialist at a regional software company.\nI  have been on the team for <DATE_TIME> and trained three new staff members in <DATE_TIME>.\nI  recently led an internal practice session for client presentations, but I have not yet been assigned a lead role on a client-facing project.\nI have a <DATE_TIME> one-on-one with your manager on <DATE_TIME>. Read above information and draft a short opening and two questions for the meeting. I want to find out how formal qualifications and practical experience are weighed, and what I can do to be considered for the next project. I want to raise the issue without questioning my colleagues' qualifications."
+    }
+  }
+}

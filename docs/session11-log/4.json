@@ -1,0 +1,201 @@
+{
+  "session_id": "4",
+  "user_id": "demo_user",
+  "input_text": "Improve this CV header and summary: Jordan Lee | 123 Oak Ave, Denver, CO | jordan.lee@example.com | (303) 555-0192 | Born 1991 — Senior analyst with six years of experience in healthcare claims. Please improve the header and summary of the CV. The header includes a name, address, email, phone number, and birth year. The summary describes the applicant's role and experience.",
+  "exported_at": "2026-11-17T05:20:17.666Z",
+  "client_latency_seconds": 3.583900000002235,
+  "response": {
+    "risk_summary": {
+      "overall": 0.75,
+      "overall_band": "HIGH",
+      "primary": "location",
+      "secondary": [],
+      "bands": {
+        "age": "LOW",
+        "location": "HIGH",
+        "occupation": "LOW",
+        "education": "LOW"
+      },
+      "scores": {
+        "age": 0.05,
+        "location": 0.75,
+        "occupation": 0.05,
+        "education": 0.05
+      },
+      "cues": [
+        {
+          "span": "[location cue]",
+          "attribute": "location",
+          "importance": 0.75
+        }
+      ],
+      "leakage_delta": 0.75
+    },
+    "rewritten_text": "Improve this CV header and summary: Jordan Lee | 123 Oak Ave, [LOCATION] | [EMAIL] | ([PHONE] | Born 1991 — Senior analyst with six years of experience in healthcare claims. Please improve the header and summary of the CV. The header includes a name, address, email, phone number, and birth year. The summary describes the applicant's role and experience.",
+    "presidio_text": "Improve this CV header and summary: <PERSON> | 123 <PERSON>, <LOCATION>, CO | <EMAIL_ADDRESS> | <PHONE_NUMBER> | <DATE_TIME> — Senior analyst with <DATE_TIME> of experience in healthcare claims. Please improve the header and summary of the CV. The header includes a name, address, email, phone number, and <DATE_TIME>. The summary describes the applicant's role and experience.",
+    "utility_metrics": {
+      "cosine_similarity": 0.9554,
+      "nli_forward": 0.9744,
+      "nli_backward": 0.8444,
+      "contradiction": 0,
+      "utility_score": 0.9334,
+      "degenerate": false,
+      "degenerate_reason": null,
+      "utility_backend": "fallback"
+    },
+    "turn_record": {
+      "turn_number": 1,
+      "session_id": "4",
+      "raw_text": "Improve this CV header and summary: Jordan Lee | 123 Oak Ave, Denver, CO | jordan.lee@example.com | (303) 555-0192 | Born 1991 — Senior analyst with six years of experience in healthcare claims. Please improve the header and summary of the CV. The header includes a name, address, email, phone number, and birth year. The summary describes the applicant's role and experience.",
+      "turn_scores": {
+        "age": 0.05,
+        "location": 0.75,
+        "occupation": 0.05,
+        "education": 0.05
+      },
+      "cumulative_scores": {
+        "age": 0.05,
+        "location": 0.75,
+        "occupation": 0.05,
+        "education": 0.05
+      },
+      "overall_turn_risk": 0.75,
+      "overall_cumulative_risk": 0.75,
+      "joint_entropy": 3.1,
+      "leakage_delta": 0.75,
+      "is_breached": true,
+      "risk_band": "HIGH",
+      "residual_anonymity_capacity": 3.1
+    },
+    "privacy_report": {
+      "explicit": {
+        "count": 8,
+        "hard_count": 4,
+        "by_type": {
+          "PERSON": 2,
+          "LOCATION": 1,
+          "EMAIL_ADDRESS": 1,
+          "PHONE_NUMBER": 1,
+          "DATE_TIME": 3
+        },
+        "spans": [
+          {
+            "type": "PERSON",
+            "start": 36,
+            "end": 46
+          },
+          {
+            "type": "PERSON",
+            "start": 53,
+            "end": 60
+          },
+          {
+            "type": "LOCATION",
+            "start": 62,
+            "end": 68
+          },
+          {
+            "type": "EMAIL_ADDRESS",
+            "start": 75,
+            "end": 97
+          },
+          {
+            "type": "PHONE_NUMBER",
+            "start": 100,
+            "end": 114
+          },
+          {
+            "type": "DATE_TIME",
+            "start": 117,
+            "end": 126
+          },
+          {
+            "type": "DATE_TIME",
+            "start": 149,
+            "end": 158
+          },
+          {
+            "type": "DATE_TIME",
+            "start": 306,
+            "end": 316
+          }
+        ]
+      },
+      "inferential": {
+        "overall": 0.75,
+        "overall_band": "HIGH",
+        "primary": "location",
+        "secondary": [],
+        "bands": {
+          "age": "LOW",
+          "location": "HIGH",
+          "occupation": "LOW",
+          "education": "LOW"
+        },
+        "scores": {
+          "age": 0.05,
+          "location": 0.75,
+          "occupation": 0.05,
+          "education": 0.05
+        },
+        "cues": [
+          {
+            "span": "[location cue]",
+            "attribute": "location",
+            "importance": 0.75
+          }
+        ],
+        "leakage_delta": 0.75
+      }
+    },
+    "comparison": {
+      "verdict": "explicit_pii_remains",
+      "inferential_before": 0.75,
+      "inferential_after": 0.05,
+      "inferential_delta": 0.7,
+      "per_attribute_delta": {
+        "age": 0,
+        "education": 0,
+        "location": 0.7,
+        "occupation": 0
+      },
+      "explicit_before": 8,
+      "explicit_after": 4,
+      "hard_pii_remaining": 2,
+      "utility": 0.9334,
+      "utility_floor": 0.7,
+      "notes": [
+        "2 identifying span(s) still present after rewrite"
+      ],
+      "is_win": false
+    },
+    "verdict": "explicit_pii_remains",
+    "is_win": false,
+    "rewrite_engine": "heuristic",
+    "rewrite_changed": true,
+    "served_text_sha256": "bb0fba35ed800f5d33fe4f6afb3c841fb7ecc6ff2040543e50d9736fb85d9b79",
+    "timings_ms": {
+      "presidio": 56.298,
+      "risk_model": 825.759,
+      "rewrite": 497.477,
+      "rescore": 846.924,
+      "utility": 15.993,
+      "total": 3050.496
+    },
+    "debug_info": {
+      "timestamp": 1794892816.095167,
+      "input_text": "Improve this CV header and summary: Jordan Lee | 123 Oak Ave, Denver, CO | jordan.lee@example.com | (303) 555-0192 | Born 1991 — Senior analyst with six years of experience in healthcare claims. Please improve the header and summary of the CV. The header includes a name, address, email, phone number, and birth year. The summary describes the applicant's role and experience.",
+      "qwen_adapter_loaded": false,
+      "qwen_output_raw": null,
+      "qwen_clean_output": null,
+      "qwen_error": null,
+      "qwen_is_fallback": false,
+      "qwen_changed": false,
+      "qwen_had_pii": false,
+      "candidates_evaluated": [],
+      "decision_reason": "Heuristic candidate satisfied strict Pareto thresholds.",
+      "selected_engine": "heuristic",
+      "selected_text": "Improve this CV header and summary: Jordan Lee | 123 Oak Ave, [LOCATION] | [EMAIL] | ([PHONE] | Born 1991 — Senior analyst with six years of experience in healthcare claims. Please improve the header and summary of the CV. The header includes a name, address, email, phone number, and birth year. The summary describes the applicant's role and experience."
+    }
+  }
+}
