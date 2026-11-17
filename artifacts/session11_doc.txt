@@ -1,10 +1,12 @@
-# Session 10 — Privacy Judgments Before and After Seeing a Rewrite
+# Session 11 — Privacy Judgments Before and After Seeing a Rewrite
 
 ## Overview
 
 Four user tests were carried out on whether InferenceGuard's suggestions protected the details they considered private while preserving the information needed for their tasks. 
 
 Three scenarios used participant-written prompts (moving, workplace discussion, and contacting a GP). The CV scenario used a controlled prompt. The analysis pairs four participant records with six unique system submissions. Two scenarios had a second submission, and one duplicate CV export was excluded.
+
+Video: https://drive.google.com/drive/folders/1cPrtL-Ac9COAxPd9CWPgNTHRAb3FYgA8?usp=drive_link
 
 ## Participant Feedback
 
