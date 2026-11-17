@@ -12,7 +12,7 @@ import numpy as np
 from sklearn.metrics import f1_score
 
 from src.contracts.schemas import AttributeName
-from src.risk_model.taxonomy import ATTRIBUTE_TAXONOMY
+from src.risk_model.taxonomy import ATTRIBUTE_TAXONOMY, normalize_to_taxonomy_label
 
 
 def compute_method_metrics(
@@ -31,6 +31,19 @@ def compute_method_metrics(
     for attr, valid_labels in ATTRIBUTE_TAXONOMY.items():
         preds = predictions_by_attr.get(attr, [])
         trues = ground_truth_by_attr.get(attr, [])
+
+        # Ground truth arrives as free text ("41", "Bangkok, Thailand",
+        # "Masters in Business Administration"), but predictions are coarse
+        # taxonomy labels ("35-44", "asia_pacific", "master"). Collapse the
+        # ground truth into the same taxonomy label space before comparing, so a
+        # correct coarse inference is actually counted. Without this the
+        # membership filter below (t in valid_labels) dropped every pair, which
+        # zeroed attack accuracy for every method including raw. Values already
+        # equal to a taxonomy label (or "UNKNOWN") pass through unchanged.
+        trues = [
+            t if t in valid_labels or t == "UNKNOWN" else normalize_to_taxonomy_label(attr, t)
+            for t in trues
+        ]
 
         valid_pairs = [(p, t) for p, t in zip(preds, trues) if t in valid_labels]
         if not valid_pairs:

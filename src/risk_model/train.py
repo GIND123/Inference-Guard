@@ -2,6 +2,21 @@
 
 Handles profile-disjoint data splitting, dynamic class weighting,
 multi-task Focal/BCE loss, AdamW optimization, linear warmup, and metric evaluation.
+
+Label-source reconciliation (decision #4, docs/methodology-review.md item 2):
+the AUTHORITATIVE training signal for the reported risk estimator is the
+``reviews.human`` inferability labels (reviews.human[attr].estimate, extracted by
+``extract_inferability_labels``). These are the ground-truth "was this attribute
+inferable?" labels and are what the project's reported risk numbers are trained
+on.
+
+The categorical multi-task path (``train_multitask_modernbert`` +
+``SynthPAIMultiTaskDataset``) trains on PROFILE attributes via
+``map_to_taxonomy_id`` and is retained as an AUXILIARY/DIAGNOSTIC path (it
+predicts which taxonomy class an attribute takes, not whether it is inferable).
+It is kept for analysis and head-level diagnostics; it is not the authoritative
+source of the reported risk metric. ``train_risk_model`` dispatches between the
+two via ``model_type`` (see that function's docstring for the default).
 """
 
 from __future__ import annotations
@@ -78,13 +93,27 @@ def map_to_taxonomy_id(attr: AttributeName, raw_val: Any) -> int:
             return mapping["25-34"]
 
     elif attr == AttributeName.EDUCATION:
-        if any(w in val_str for w in ["phd", "doctor", "master", "postgraduate", "jd", "md"]):
-            return mapping["graduate_professional"]
-        elif any(w in val_str for w in ["bachelor", "undergraduate", "college", "bs", "ba"]):
-            return mapping["undergraduate"]
+        # SynthPAI paper four-way scale: high_school / college / master / phd.
+        # Keyword matching is substring-based, so order and token choice avoid
+        # collisions: doctoral terms first; then master terms (note the bare
+        # "graduate" token is deliberately NOT used, because "undergraduate"
+        # contains it); then college. "high school" is checked before the plain
+        # "school" fallback is reached. The paper scale has no "other"/"unknown"
+        # bucket, so unmatched text defaults to "high_school" (the
+        # lowest-attainment, lowest-information class) rather than inventing a
+        # class the paper does not define. See docs/methodology-review.md dated
+        # note 2026-11, decision #7. Professional doctorates ("md", "jd") map to
+        # "master" (graduate-professional) rather than the research-"phd" class,
+        # since the paper's "PhD" bucket is the research doctorate.
+        if any(w in val_str for w in ["phd", "ph.d", "doctor", "doctoral", "postdoc"]):
+            return mapping["phd"]
+        elif any(w in val_str for w in ["master", "msc", "mba", "postgraduate", "jd", "md"]):
+            return mapping["master"]
+        elif any(w in val_str for w in ["bachelor", "undergraduate", "college", "university", "bs", "ba"]):
+            return mapping["college"]
         elif any(w in val_str for w in ["high school", "secondary", "ged"]):
             return mapping["high_school"]
-        return mapping["other_unknown"]
+        return mapping["high_school"]
 
     elif attr == AttributeName.OCCUPATION:
         if any(w in val_str for w in ["student", "intern", "co-op"]):
@@ -483,7 +512,15 @@ def train_multitask_modernbert(
     backbone: Optional[nn.Module] = None,
     device: Optional[str] = None,
 ) -> Dict[str, Any]:
-    """Train MultiTaskModernBERTRiskModel on categorical taxonomy heads with Focal Loss."""
+    """Train MultiTaskModernBERTRiskModel on categorical taxonomy heads with Focal Loss.
+
+    AUXILIARY/DIAGNOSTIC path (decision #4). This trains on PROFILE attributes
+    mapped to taxonomy classes via ``map_to_taxonomy_id`` and predicts which
+    class an attribute takes, not whether it is inferable. It is NOT the
+    authoritative risk signal; the reported risk numbers come from the
+    ``reviews.human`` inferability-label path (see ``train_risk_model`` and
+    ``extract_inferability_labels``).
+    """
     selected_device = torch.device(device or ("cuda" if torch.cuda.is_available() else "cpu"))
     output_path = Path(output_dir)
     output_path.mkdir(parents=True, exist_ok=True)
@@ -566,9 +603,25 @@ def train_risk_model(
     weight_decay: float = 0.01,
     backbone: Optional[nn.Module] = None,
     device: Optional[str] = None,
-    model_type: str = "multitask_modernbert",
+    model_type: str = "inferability_labels",
 ) -> Dict[str, Any]:
-    """Train risk classifier supporting either multi-task taxonomy or legacy BCE classifier."""
+    """Train the risk classifier; AUTHORITATIVE path uses reviews.human inferability labels.
+
+    Decision #4 (docs/methodology-review.md item 2): the default and reported
+    training signal is the ``reviews.human`` inferability-label path. It trains
+    the 4-head BCE ``ModernBertRiskClassifier`` on binary
+    "is this attribute inferable?" targets produced by
+    ``extract_inferability_labels`` (reviews.human[attr].estimate).
+
+    ``model_type`` selects the path and preserves backward-compatible aliases:
+
+    - ``"inferability_labels"`` (default, alias ``"binary_classifier"``):
+      AUTHORITATIVE inferability-label path. Produces the reported risk numbers.
+    - ``"multitask_modernbert"``: AUXILIARY/DIAGNOSTIC categorical taxonomy path
+      (``train_multitask_modernbert``). Trains on PROFILE attributes via
+      ``map_to_taxonomy_id``; retained for diagnostics, not reported as the
+      risk metric.
+    """
     if model_type == "multitask_modernbert":
         return train_multitask_modernbert(
             data_path=data_path,
@@ -677,7 +730,17 @@ if __name__ == "__main__":
     parser.add_argument("--val_data", "--val_path", type=str, default=None, help="Path to pre-split val jsonl")
     parser.add_argument("--output_dir", type=str, default="artifacts/risk_model")
     parser.add_argument("--model_name", type=str, default="answerdotai/ModernBERT-base")
-    parser.add_argument("--model_type", type=str, choices=["multitask_modernbert", "binary_classifier"], default="multitask_modernbert")
+    parser.add_argument(
+        "--model_type",
+        type=str,
+        choices=["inferability_labels", "binary_classifier", "multitask_modernbert"],
+        default="inferability_labels",
+        help=(
+            "Risk-estimator training signal. 'inferability_labels' (default, "
+            "alias 'binary_classifier') is the AUTHORITATIVE reviews.human path; "
+            "'multitask_modernbert' is the auxiliary/diagnostic profile-attribute path."
+        ),
+    )
     parser.add_argument("--epochs", type=int, default=3)
     parser.add_argument("--batch_size", type=int, default=16)
     parser.add_argument("--lr", type=float, default=3e-5)

@@ -191,6 +191,103 @@ def test_bayesian_evidence_gating_prevents_false_positive_alarm_on_20_innocent_t
     assert last_rec.residual_anonymity_capacity == last_rec.joint_entropy
 
 
+def test_conversation_tracker_delete_session():
+    """Verify delete_session clears history and reports presence idempotently."""
+    tracker = ConversationTracker()
+    tracker.risk_estimator_fn = lambda _: {"age": 0.05, "location": 0.05, "occupation": 0.05, "education": 0.05}
+    session_id = "delete_sess"
+
+    tracker.add_turn("Hello there.", session_id=session_id)
+    assert len(tracker.get_history(session_id)) == 1
+
+    # First delete removes present state and returns True.
+    assert tracker.delete_session(session_id) is True
+    assert tracker.get_history(session_id) == []
+    assert session_id not in tracker.sessions
+    assert session_id not in tracker.session_last_seen
+
+    # Second delete is idempotent and returns False (nothing present).
+    assert tracker.delete_session(session_id) is False
+
+    # Unknown session also returns False.
+    assert tracker.delete_session("never_seen") is False
+
+
+def test_conversation_tracker_reset_session_still_works():
+    """Verify reset_session remains backward compatible and clears last-seen."""
+    tracker = ConversationTracker()
+    tracker.risk_estimator_fn = lambda _: {"age": 0.05, "location": 0.05, "occupation": 0.05, "education": 0.05}
+    session_id = "reset_sess"
+
+    tracker.add_turn("A turn.", session_id=session_id, now=100.0)
+    assert session_id in tracker.sessions
+    assert session_id in tracker.session_last_seen
+
+    tracker.reset_session(session_id)
+    assert session_id not in tracker.sessions
+    assert session_id not in tracker.session_last_seen
+    # Idempotent: no error resetting an absent session.
+    tracker.reset_session(session_id)
+
+
+def test_conversation_tracker_evict_idle_ttl():
+    """Verify sessions idle beyond the TTL are reaped while fresh ones survive."""
+    tracker = ConversationTracker()
+    tracker.risk_estimator_fn = lambda _: {"age": 0.05, "location": 0.05, "occupation": 0.05, "education": 0.05}
+
+    # Inject explicit timestamps (no real sleeps).
+    tracker.add_turn("old", session_id="old_sess", now=0.0)
+    tracker.add_turn("fresh", session_id="fresh_sess", now=1000.0)
+
+    # At t=1000 with ttl=600, old_sess (idle 1000s) expires, fresh_sess stays.
+    evicted = tracker.evict_idle(ttl_seconds=600, max_sessions=None, now=1000.0)
+
+    assert evicted == ["old_sess"]
+    assert "old_sess" not in tracker.sessions
+    assert "old_sess" not in tracker.session_last_seen
+    assert "fresh_sess" in tracker.sessions
+    assert tracker.get_history("fresh_sess")
+
+    # TTL disabled (None) removes nothing.
+    assert tracker.evict_idle(ttl_seconds=None, max_sessions=None, now=5000.0) == []
+    assert "fresh_sess" in tracker.sessions
+
+
+def test_conversation_tracker_evict_idle_lru_cap():
+    """Verify over-cap sessions trigger LRU eviction of the least-recently-seen."""
+    tracker = ConversationTracker()
+    tracker.risk_estimator_fn = lambda _: {"age": 0.05, "location": 0.05, "occupation": 0.05, "education": 0.05}
+
+    # Three sessions with strictly increasing last-seen timestamps.
+    tracker.add_turn("s1", session_id="s1", now=10.0)
+    tracker.add_turn("s2", session_id="s2", now=20.0)
+    tracker.add_turn("s3", session_id="s3", now=30.0)
+
+    # Cap at 2 with TTL disabled: the single oldest (s1) is LRU-evicted.
+    evicted = tracker.evict_idle(ttl_seconds=None, max_sessions=2, now=40.0)
+
+    assert evicted == ["s1"]
+    assert "s1" not in tracker.sessions
+    assert set(tracker.sessions) == {"s2", "s3"}
+
+
+def test_conversation_tracker_evict_idle_ttl_then_lru():
+    """Verify TTL pass runs before the LRU cap and evicted ids are reported in order."""
+    tracker = ConversationTracker()
+    tracker.risk_estimator_fn = lambda _: {"age": 0.05, "location": 0.05, "occupation": 0.05, "education": 0.05}
+
+    tracker.add_turn("a", session_id="a", now=0.0)      # idle -> TTL expired
+    tracker.add_turn("b", session_id="b", now=900.0)
+    tracker.add_turn("c", session_id="c", now=950.0)
+    tracker.add_turn("d", session_id="d", now=1000.0)
+
+    # ttl=600 expires 'a'; of the 3 survivors, cap=2 LRU-evicts the oldest ('b').
+    evicted = tracker.evict_idle(ttl_seconds=600, max_sessions=2, now=1000.0)
+
+    assert evicted == ["a", "b"]
+    assert set(tracker.sessions) == {"c", "d"}
+
+
 def test_bayesian_evidence_gating_monotonicity_under_baseline_fluctuation():
     """Verify that cumulative scores do not decrease when turn scores fluctuate below noise floor."""
     tracker = ConversationTracker(high_risk_threshold=0.60)

@@ -25,7 +25,7 @@ from src.rewriter.generate_training_data import (
     generate_candidate_rewrites_heuristic,
     pareto_rejection_sample,
 )
-from src.risk_model.calibration import compute_ece
+from src.risk_model.calibrate import compute_ece
 from web.api import app
 
 

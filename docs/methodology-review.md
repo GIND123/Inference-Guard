@@ -280,3 +280,77 @@ are Session 05–07 work and belong in issues, not in this document.
 - Model configs and parameter counts: Hugging Face model API and each
   repository's `config.json`, checked 2026-09-21. Recorded in
   `configs/models.yaml`.
+
+---
+
+## Addendum 2026-11: decisions #4 and #7 reconciled in code
+
+This dated note records two reconciliation decisions taken against the "What I
+would do, in order" items above (item 2 and item 3). It does not rewrite the
+findings above; it records what was actually implemented and why.
+
+### Decision #4 — risk-estimator label source is `reviews.human` inferability labels (authoritative)
+
+The risk estimator's reported training signal is now the **`reviews.human`
+inferability labels** (`reviews.human[attr].estimate`, read by
+`extract_inferability_labels` in `src/risk_model/train.py`). This is the
+multi-label, class-weighted, ModernBERT-fine-tuned signal called for in item 2:
+where the dataset supplies explicit "was this attribute inferable?" labels, we
+train on those directly rather than on profile attributes.
+
+Concretely, `train_risk_model(..., model_type=...)` now defaults to
+`"inferability_labels"` (backward-compatible alias `"binary_classifier"`), which
+trains the 4-head BCE `ModernBertRiskClassifier` on the inferability targets.
+The categorical multi-task path (`train_multitask_modernbert` +
+`SynthPAIMultiTaskDataset`, selected by `model_type="multitask_modernbert"`) is
+**retained as an auxiliary/diagnostic path only**: it trains on PROFILE
+attributes via `map_to_taxonomy_id` and predicts which taxonomy class an
+attribute takes, which is useful for head-level diagnostics but is not the
+reported risk metric. No path was deleted; the default was changed and both are
+documented in the module/function docstrings. The `--model_type` CLI flag and
+the `--mock` backbone behavior are preserved.
+
+### Decision #7 — education adopts the paper's four-way scale; location is free-text generate-and-score
+
+**Education.** `ATTRIBUTE_TAXONOMY[EDUCATION]` in `src/risk_model/taxonomy.py`
+is now the SynthPAI paper's four-way scale — `high_school`, `college`,
+`master`, `phd` — replacing the previous `high_school` / `undergraduate` /
+`graduate_professional` / `other_unknown` split. The paper reports support of
+college 38.3% / master 37.7% / PhD 15.7% / high school 8.3%, so this scale is
+directly comparable to the paper. The paper scale has **no "other"/"unknown"
+bucket**; `map_to_taxonomy_id` therefore defaults unmatched education text to
+`high_school` (the lowest-attainment, lowest-information class) rather than
+inventing a class the paper does not define. The mapping checks doctoral terms
+before master, and master before college, so "master" is never swallowed by the
+college branch.
+
+**Location.** We do **not** report the coarse frozen location buckets
+(`us_northeast`, …, `uk_europe`, `other_global`). As the review above argues, the
+Europe-vs-Other style collapse makes a coarse location accuracy number
+near-meaningless (7% of profiles are in the USA at all). The **reportable**
+location metric is the free-text generate-and-score path: the held-out adversary
+guesses a free-text city/state/region (the location prompt already asks for
+"City, State, or Region") and `Phi4MiniAttacker.evaluate_success` scores it
+token-wise against the ground truth. The coarse location taxonomy is retained
+**only** as an auxiliary/diagnostic signal for the multi-task heads (keeping head
+widths and the taxonomy consumers stable); it is documented as such in
+`taxonomy.py` and must not be reported as the headline location result.
+
+Residual (flagged for a later session): location is not yet a *separate*
+dedicated generative head — it rides on the existing free-text adversary scoring
+plus the retained coarse auxiliary bucket. Fully removing the coarse location
+head would change the multi-task architecture and every taxonomy consumer, which
+cannot be validated without a runnable test suite; it is left as follow-up.
+
+### Consumers kept in sync
+
+`artifacts/taxonomy.json` was stale (no `location` key, free-text education
+labels, an extra age `unknown` bucket, drifted occupation labels). It is now
+regenerated from `ATTRIBUTE_TAXONOMY` and matches it exactly (age, education,
+occupation, location). `scripts/make_artifacts.py` now derives its taxonomy dict
+from `ATTRIBUTE_TAXONOMY` so the artifact can no longer drift from the code. The
+held-out adversary heuristic (`_heuristic_fallback_adversary`) and the demo
+ground-truth rows in `src/evaluation/run.py` were updated to the new education
+keys. `model.py` head widths, `privacy_metrics.py`, `conversation/leakage.py`,
+and `calibrate.py` iterate `ATTRIBUTE_TAXONOMY` dynamically and required no
+changes.

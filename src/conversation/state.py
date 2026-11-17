@@ -11,6 +11,7 @@ from __future__ import annotations
 import json
 import logging
 import os
+import time
 import uuid
 from dataclasses import asdict, dataclass, field
 from typing import Any, Callable, Dict, List, Optional, Sequence
@@ -67,6 +68,10 @@ class ConversationTracker:
 
         # session_id -> list of TurnRiskRecord
         self.sessions: Dict[str, List[TurnRiskRecord]] = {}
+        # session_id -> wall-clock timestamp of the last add_turn, for TTL / LRU
+        # eviction so the in-memory tracker cannot grow unbounded. Mirrors the
+        # session_timestamps pattern in src/pipeline/orchestrator.py.
+        self.session_last_seen: Dict[str, float] = {}
 
     def _compute_cumulative_scores(
         self,
@@ -125,12 +130,20 @@ class ConversationTracker:
         """Backward-compatible alias for _compute_residual_anonymity_capacity."""
         return self._compute_residual_anonymity_capacity(cumulative_scores)
 
-    def add_turn(self, raw_text: str, session_id: str = "default") -> TurnRiskRecord:
+    def add_turn(
+        self,
+        raw_text: str,
+        session_id: str = "default",
+        now: Optional[float] = None,
+    ) -> TurnRiskRecord:
         """Process a new conversational turn and compute updated dynamic risk metrics.
 
         Args:
             raw_text: User message text in the conversation.
             session_id: Session identifier.
+            now: Optional wall-clock timestamp (seconds) recorded as the session's
+                last-activity time. Defaults to ``time.time()``; injectable so tests
+                can drive TTL / LRU eviction without real sleeps.
 
         Returns:
             TurnRiskRecord containing turn scores, cumulative scores, joint entropy, and leakage_delta.
@@ -184,6 +197,7 @@ class ConversationTracker:
         )
 
         self.sessions[session_id].append(record)
+        self.session_last_seen[session_id] = time.time() if now is None else now
         return record
 
     def get_history(self, session_id: str = "default") -> List[TurnRiskRecord]:
@@ -191,9 +205,77 @@ class ConversationTracker:
         return list(self.sessions.get(session_id, []))
 
     def reset_session(self, session_id: str = "default") -> None:
-        """Reset history for a session."""
-        if session_id in self.sessions:
-            del self.sessions[session_id]
+        """Reset history for a session (backward-compatible)."""
+        self.sessions.pop(session_id, None)
+        self.session_last_seen.pop(session_id, None)
+
+    def delete_session(self, session_id: str = "default") -> bool:
+        """Delete all tracked state for a session.
+
+        Clears the session's conversation/turn/risk history and its last-seen
+        timestamp. Idempotent: returns ``True`` when state was present and
+        removed, ``False`` when the session was unknown. Standardizes on the
+        same removal as :meth:`reset_session`, which remains for backward
+        compatibility.
+        """
+        existed = session_id in self.sessions or session_id in self.session_last_seen
+        self.reset_session(session_id)
+        return existed
+
+    def evict_idle(
+        self,
+        ttl_seconds: Optional[float] = None,
+        max_sessions: Optional[int] = None,
+        now: Optional[float] = None,
+    ) -> List[str]:
+        """Reap sessions so the in-memory tracker cannot grow unbounded.
+
+        Two cheap dict-scan passes (no background thread), mirroring the TTL
+        cleanup pattern in src/pipeline/orchestrator.py:
+
+        1. TTL: remove any session whose last activity is older than
+           ``ttl_seconds`` (when provided and positive).
+        2. Cap: if more than ``max_sessions`` remain, LRU-evict the
+           least-recently-seen sessions until the count is within the cap.
+
+        Args:
+            ttl_seconds: Idle time-to-live in seconds; ``None``/non-positive
+                disables the TTL pass.
+            max_sessions: Maximum number of sessions to retain; ``None``/
+                non-positive disables the cap.
+            now: Optional current timestamp (seconds); defaults to
+                ``time.time()``. Injectable so tests avoid real sleeps.
+
+        Returns:
+            The list of evicted session ids (TTL-expired first, then LRU).
+        """
+        current = time.time() if now is None else now
+        evicted: List[str] = []
+
+        # 1. TTL pass.
+        if ttl_seconds is not None and ttl_seconds > 0:
+            expired = [
+                sid
+                for sid, last_seen in self.session_last_seen.items()
+                if current - last_seen > ttl_seconds
+            ]
+            for sid in expired:
+                self.reset_session(sid)
+                evicted.append(sid)
+
+        # 2. Max-session cap via LRU eviction.
+        if max_sessions is not None and max_sessions > 0:
+            overflow = len(self.session_last_seen) - max_sessions
+            if overflow > 0:
+                # Oldest last-seen first (least recently used).
+                lru_order = sorted(
+                    self.session_last_seen.items(), key=lambda kv: kv[1]
+                )
+                for sid, _ in lru_order[:overflow]:
+                    self.reset_session(sid)
+                    evicted.append(sid)
+
+        return evicted
 
 
 # Backward-compatible lightweight SessionState and SessionManager

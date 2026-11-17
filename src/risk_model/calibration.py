@@ -1,4 +1,14 @@
-"""Post-hoc probability calibration and Expected Calibration Error (ECE) suite.
+"""DEPRECATED: superseded by src/risk_model/calibrate.py.
+
+This module's per-head binary calibration suite (TemperatureScaler, compute_ece,
+CalibrationMetrics, BandValidationResult, generate_reliability_diagram) has been
+folded into the authoritative calibration module ``src.risk_model.calibrate`` so
+that calibration lives in a single place. All importers (tests included) now import
+these symbols from ``src.risk_model.calibrate``. This file is retained only until
+CI is green and is scheduled for physical deletion once the migrated tests pass
+against ``calibrate.py``. Do not add new imports of this module.
+
+Post-hoc probability calibration and Expected Calibration Error (ECE) suite.
 
 Provides head-specific Temperature Scaling, Platt Scaling fallback, ECE/MCE/Brier
 metrics, risk band threshold validation (0.30 / 0.60), and reliability diagram generation.

@@ -4,22 +4,31 @@
     "25-34",
     "35-44",
     "45-54",
-    "55+",
-    "unknown"
+    "55+"
   ],
   "education": [
-    "high school",
+    "high_school",
     "college",
     "master",
-    "PhD"
+    "phd"
   ],
   "occupation": [
     "student",
     "technology",
     "healthcare",
-    "education",
+    "education_academic",
     "business_finance",
-    "service",
+    "service_retail",
     "other"
+  ],
+  "location": [
+    "us_northeast",
+    "us_midwest",
+    "us_south",
+    "us_west",
+    "uk_europe",
+    "canada",
+    "asia_pacific",
+    "other_global"
   ]
 }

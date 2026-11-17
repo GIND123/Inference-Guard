@@ -932,6 +932,14 @@ class QwenPrivacyRewriterService:
         self.device = device or ("cuda" if torch.cuda.is_available() else "cpu")
         self.base_model_name = base_model_name
         self.has_adapter = False
+        # The rewrite-time system prompt. protect() builds its ChatML turn from
+        # this; it is the same instruction the SFT rows were generated with
+        # (src.rewriter.prompting.REWRITER_SYSTEM_PROMPT), so the adapter is
+        # served what it was trained on. Previously protect() referenced a bare
+        # module-level ``SYSTEM_PROMPT`` that does not exist in this module, so
+        # every real-model rewrite raised NameError and the benchmark silently
+        # fell back to unchanged text.
+        self.system_prompt = REWRITER_SYSTEM_PROMPT
 
         if tokenizer is not None:
             self.tokenizer = tokenizer
@@ -1032,7 +1040,7 @@ class QwenPrivacyRewriterService:
 
         # Generalized ChatML prompt without demographic cue conditioning
         messages = [
-            {"role": "system", "content": SYSTEM_PROMPT},
+            {"role": "system", "content": self.system_prompt},
             {"role": "user", "content": pseudonymized_text},
         ]
         if hasattr(self.tokenizer, "apply_chat_template"):
@@ -1051,7 +1059,7 @@ class QwenPrivacyRewriterService:
                 )
         else:
             prompt = (
-                f"<|im_start|>system\n{SYSTEM_PROMPT}<|im_end|>\n"
+                f"<|im_start|>system\n{self.system_prompt}<|im_end|>\n"
                 f"<|im_start|>user\n{pseudonymized_text}<|im_end|>\n"
                 f"<|im_start|>assistant\n"
             )

@@ -209,8 +209,9 @@ is the last session in which starting it is still possible.
     unreliable. Closes #60.
 
 - **Anna Thomas (Data&Eval):**
-  - No new pull requests this week. PR #89, merged 10 November, delivered the hosting and
-    containerization work that this session's findings concern.
+  - **ModernBERT training notebook and HF hosting (`improvements/modernbert-addition`):** Authored `InferenceGuard_modernbert_train_and_host.ipynb` covering end-to-end ModernBERT fine-tuning, multitask head training, and publishing to Hugging Face Hub; updated `load_risk_classifier` to load the hosted multitask checkpoint (`multitask_heads.pt`) from Hub or local dir, with sidecar validation and loud failure on mismatched head sizes.
+  - **Eval pipeline repairs and held-out adversary wiring:** Fixed the held-out Phi-4 adversary parse, rewriter wiring, and multi-turn mode flags; scored the attacker against taxonomy-normalized ground truth; added multi-turn leakage curve scaffolding and a synthetic PromptPAI eval set; reconciled label source to `reviews.human` and aligned education/location taxonomy with the SynthPAI paper.
+  - **Requirements audit, doc cleanup, and serving hardening:** Produced `docs/requirements-coverage.md` gap analysis, refreshed the README with local-first setup, pinned hosted model IDs in `/health` with degraded/strict risk-model state surfacing, added session TTL/LRU eviction and `DELETE /session`, and updated the improvements backlog marking P0 items implemented.
 
 ## Lean canvas changes (if any)
 

@@ -17,17 +17,23 @@ import numpy as np
 from datasets import load_dataset
 from sklearn.model_selection import train_test_split
 
+import sys
+
 from src.data.dataset_pin import DATASET_ID, pinned_revision
 
 ARTIFACTS = Path(__file__).resolve().parent.parent / "artifacts"
 SEED = 42
 
-# Identical to the notebook's taxonomy dict
-taxonomy = {
-    "age": ["18-24","25-34","35-44","45-54","55+","unknown"],
-    "education": ["high school", "college", "master", "PhD"],
-    "occupation": ["student","technology","healthcare","education","business_finance","service","other"]
-}
+# Single source of truth: derive the serialized taxonomy from
+# src/risk_model/taxonomy.ATTRIBUTE_TAXONOMY so artifacts/taxonomy.json can
+# never drift from the code the risk model and attacker actually use
+# (decision #7, docs/methodology-review.md). This supersedes the old hand-kept
+# dict that had drifted (missing the location key, free-text education labels,
+# and an extra age "unknown" bucket).
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+from src.risk_model.taxonomy import ATTRIBUTE_TAXONOMY  # noqa: E402
+
+taxonomy = {attr.value: list(labels) for attr, labels in ATTRIBUTE_TAXONOMY.items()}
 
 
 def get_profile_id(ex):
