@@ -56,6 +56,18 @@ north_star:
   while serving artifacts nobody had evaluated, which is precisely what happened. Fails
   closed. (evidence: PR #94, `configs/production/session10.yaml`)
 
+- **Session 11 release-evidence reconciliation gate.**
+  Extended the production evidence work from a single serving configuration to the
+  repository's current multi-role model stack. `scripts/check_release_evidence.py`
+  reconciles the web risk model, held-out risk model, hosted rewriter, and held-out
+  adversary against `artifacts/model_manifest.json`, Docker/runtime configuration, and
+  registered evaluation artifacts. The current repository passes the manifest-contract
+  and runtime-role alignment checks but remains fail-closed on incomplete manifest
+  verification, missing evaluation evidence, unusable risk-band evidence, and the absence
+  of a reportable held-out result. (evidence:
+  `configs/operations/session11_release.yaml`,
+  `artifacts/operations/session11_release_evidence.json`)
+
 - **`.env` is now gitignored, with guards.** Session 10 shipped documentation telling
   people to put a Hugging Face write token in `.env` in a public repository, and nothing
   ignored it. Nothing leaked. (evidence: PR #91)
@@ -181,11 +193,28 @@ is the last session in which starting it is still possible.
   - Set out the three decisions the team now owes an answer to.
 
 - **Bingqi Lian (Operations):**
-  - PR #94: production evidence gate separating service availability from evidence
-    readiness, with a fail-closed contract (`scripts/check_production_evidence.py`,
-    `configs/production/session10.yaml`, `artifacts/production/session10_evidence.json`).
-    Written directly in response to the Session 10 finding that the API could report
-    `ready=true` while serving unevaluated artifacts.
+  - **Release-evidence reconciliation:** Extended the PR #94 production evidence work
+    into a Session 11 multi-role release contract (`configs/operations/session11_release.yaml`,
+    `scripts/check_release_evidence.py`). The gate resolves the web risk model from Docker,
+    the held-out risk model and adversary from the evaluation runner, and reconciles those
+    runtime roles with the hosted-model manifest and registered evaluation artifacts.
+  - **Artifact and runtime provenance:** Added fail-closed checks for manifest-role
+    completeness, runtime-to-manifest model identity, immutable revision pins, verified
+    status, expected-file SHA-256 coverage, evaluation model/revision matching, reportable
+    rewriter evidence, and held-out attacker identity/mode/reportability.
+  - **Current release status:** Generated
+    `artifacts/operations/session11_release_evidence.json`. Manifest Contract and Runtime
+    Role Alignment pass, but the release remains `BLOCKED`: hosted model revisions and
+    verified checksums are not yet populated, the held-out risk model and hosted rewriter
+    lack registered evaluation artifacts, the web risk model's fitted bands are unusable,
+    and no reportable held-out result is registered.
+  - **Regression coverage:** Added 10 deterministic Session 11 release-evidence tests,
+    including a complete READY fixture and failure cases for runtime drift, missing
+    manifest roles, incomplete verification, wrong evaluation identity, unusable risk
+    bands, non-reportable rewriter evidence, and invalid held-out provenance. Repository
+    regression completed with **577 passed / 22 skipped** after excluding the two
+    pre-existing TRL-dependent collection files in the fresh Colab environment;
+    `git diff --check` was clean.
 
 - **Govind Arun (Product):**
   - PR #91: found that `.env` was not gitignored after Session 10 shipped documentation
