@@ -16,6 +16,7 @@ artifacts/risk_model/
 artifacts/risk_model_smoke/
 scratch/
 HANDOFF.md
+docs/PITCH_AND_DEFENSE_QA.md
 artifacts/rewriter_qlora/README.md
 artifacts/rewriter_qlora/chat_template.jinja
 artifacts/rewriter_qlora/tokenizer.json

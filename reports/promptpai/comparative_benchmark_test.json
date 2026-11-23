@@ -1,0 +1,191 @@
+{
+  "split": "test",
+  "sample_count": 50,
+  "attacker_model_id": "microsoft/Phi-4-mini-instruct",
+  "attacker_mode": "model",
+  "reportable_as_held_out": true,
+  "risk_model_id": "AT707/inferenceguard-modernbert-risk",
+  "rewriter_model_id": "AT707/inferenceguard-rewriter-v1",
+  "risk_model_loaded": true,
+  "methods": {
+    "raw": {
+      "overall_attack_success_rate": 0.365,
+      "overall_attacker_macro_f1": 0.4462,
+      "overall_attacker_abstention_rate": 0.505,
+      "per_attribute": {
+        "age": {
+          "attack_accuracy": 0.32,
+          "macro_f1": 0.4714,
+          "abstention_rate": 0.48
+        },
+        "education": {
+          "attack_accuracy": 0.28,
+          "macro_f1": 0.3092,
+          "abstention_rate": 0.66
+        },
+        "occupation": {
+          "attack_accuracy": 0.42,
+          "macro_f1": 0.5962,
+          "abstention_rate": 0.52
+        },
+        "location": {
+          "attack_accuracy": 0.44,
+          "macro_f1": 0.4078,
+          "abstention_rate": 0.36
+        }
+      },
+      "mean_bidirectional_entailment": 1.0,
+      "mean_semantic_similarity": 1.0,
+      "contradiction_rate": 0.0,
+      "p95_latency_ms": 0.0
+    },
+    "presidio": {
+      "overall_attack_success_rate": 0.36,
+      "overall_attacker_macro_f1": 0.3938,
+      "overall_attacker_abstention_rate": 0.49,
+      "per_attribute": {
+        "age": {
+          "attack_accuracy": 0.34,
+          "macro_f1": 0.4703,
+          "abstention_rate": 0.46
+        },
+        "education": {
+          "attack_accuracy": 0.3,
+          "macro_f1": 0.3093,
+          "abstention_rate": 0.6
+        },
+        "occupation": {
+          "attack_accuracy": 0.48,
+          "macro_f1": 0.6043,
+          "abstention_rate": 0.48
+        },
+        "location": {
+          "attack_accuracy": 0.32,
+          "macro_f1": 0.1915,
+          "abstention_rate": 0.42
+        }
+      },
+      "mean_bidirectional_entailment": 0.7026,
+      "mean_semantic_similarity": 0.9961,
+      "contradiction_rate": 0.04,
+      "p95_latency_ms": 8.46
+    },
+    "prompt_baseline": {
+      "overall_attack_success_rate": 0.185,
+      "overall_attacker_macro_f1": 0.1894,
+      "overall_attacker_abstention_rate": 0.565,
+      "per_attribute": {
+        "age": {
+          "attack_accuracy": 0.1,
+          "macro_f1": 0.0826,
+          "abstention_rate": 0.56
+        },
+        "education": {
+          "attack_accuracy": 0.22,
+          "macro_f1": 0.2451,
+          "abstention_rate": 0.64
+        },
+        "occupation": {
+          "attack_accuracy": 0.24,
+          "macro_f1": 0.3339,
+          "abstention_rate": 0.58
+        },
+        "location": {
+          "attack_accuracy": 0.18,
+          "macro_f1": 0.0959,
+          "abstention_rate": 0.48
+        }
+      },
+      "mean_bidirectional_entailment": 0.1087,
+      "mean_semantic_similarity": 0.9361,
+      "contradiction_rate": 0.06,
+      "p95_latency_ms": 3499.43
+    },
+    "qlora_sft": {
+      "overall_attack_success_rate": 0.15,
+      "overall_attacker_macro_f1": 0.1263,
+      "overall_attacker_abstention_rate": 0.405,
+      "per_attribute": {
+        "age": {
+          "attack_accuracy": 0.12,
+          "macro_f1": 0.0902,
+          "abstention_rate": 0.36
+        },
+        "education": {
+          "attack_accuracy": 0.14,
+          "macro_f1": 0.0897,
+          "abstention_rate": 0.44
+        },
+        "occupation": {
+          "attack_accuracy": 0.24,
+          "macro_f1": 0.271,
+          "abstention_rate": 0.36
+        },
+        "location": {
+          "attack_accuracy": 0.1,
+          "macro_f1": 0.0542,
+          "abstention_rate": 0.46
+        }
+      },
+      "mean_bidirectional_entailment": 0.013,
+      "mean_semantic_similarity": 0.9535,
+      "contradiction_rate": 0.0,
+      "p95_latency_ms": 2232.27
+    }
+  },
+  "per_attribute_attack_success": {
+    "raw": {
+      "age": 0.32,
+      "education": 0.28,
+      "occupation": 0.42,
+      "location": 0.44
+    },
+    "presidio": {
+      "age": 0.34,
+      "education": 0.3,
+      "occupation": 0.48,
+      "location": 0.32
+    },
+    "prompt_baseline": {
+      "age": 0.1,
+      "education": 0.22,
+      "occupation": 0.24,
+      "location": 0.18
+    },
+    "qlora_sft": {
+      "age": 0.12,
+      "education": 0.14,
+      "occupation": 0.24,
+      "location": 0.1
+    }
+  },
+  "asr_reduction": {
+    "presidio": {
+      "overall_asr_reduction_vs_raw": 0.005,
+      "per_attribute_asr_reduction_vs_raw": {
+        "age": -0.02,
+        "education": -0.02,
+        "occupation": -0.06,
+        "location": 0.12
+      }
+    },
+    "prompt_baseline": {
+      "overall_asr_reduction_vs_raw": 0.18,
+      "per_attribute_asr_reduction_vs_raw": {
+        "age": 0.22,
+        "education": 0.06,
+        "occupation": 0.18,
+        "location": 0.26
+      }
+    },
+    "qlora_sft": {
+      "overall_asr_reduction_vs_raw": 0.215,
+      "per_attribute_asr_reduction_vs_raw": {
+        "age": 0.2,
+        "education": 0.14,
+        "occupation": 0.18,
+        "location": 0.34
+      }
+    }
+  }
+}
