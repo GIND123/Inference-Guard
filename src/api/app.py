@@ -176,26 +176,21 @@ class RuleGuidedCalibratedPredictor:
         )
 
 
-# Instantiate production MultiTaskModernBERT model or fallback
+# Instantiate trained ModernBERT risk model or fallback
+_local_risk_dir = Path("artifacts/risk_model/best_model")
+_risk_source = str(_local_risk_dir) if _local_risk_dir.exists() else os.getenv("RISK_MODEL_ID", "AT707/inferenceguard-modernbert-risk")
 try:
-    from transformers import AutoTokenizer
-    from src.risk_model.model import MultiTaskModernBERTRiskModel
-    logger.info("Initializing MultiTaskModernBERTRiskModel backbone...")
-    tokenizer = AutoTokenizer.from_pretrained("answerdotai/ModernBERT-base")
+    import torch
     device = "cuda" if torch.cuda.is_available() else "cpu"
-    modernbert_model = MultiTaskModernBERTRiskModel(model_name="answerdotai/ModernBERT-base").to(device)
-    risk_estimator = CalibratedRiskPredictor(
-        model=modernbert_model,
-        tokenizer=tokenizer,
-        scaler=scaler,
+    logger.info("Initializing CalibratedRiskPredictor from '%s'...", _risk_source)
+    risk_estimator = CalibratedRiskPredictor.from_pretrained(_risk_source, device=device)
+    cue_attributor = SyntaxAlignedCueAttributor(
+        model=risk_estimator.model,
+        tokenizer=risk_estimator.tokenizer,
+        scaler=risk_estimator.scaler,
         device=device,
     )
-    cue_attributor = SyntaxAlignedCueAttributor(
-        model=modernbert_model,
-        tokenizer=tokenizer,
-        scaler=scaler,
-    )
-    logger.info("MultiTaskModernBERTRiskModel loaded successfully.")
+    logger.info("CalibratedRiskPredictor loaded successfully from '%s'.", _risk_source)
 except Exception as exc:
     logger.warning("Could not initialize ModernBERT model (%s). Using RuleGuidedCalibratedPredictor.", exc)
     risk_estimator = RuleGuidedCalibratedPredictor(scaler=scaler)
@@ -216,7 +211,15 @@ pipeline = InferenceGuardPipeline(
     leakage_tracker=leakage_tracker,
 )
 
-conversation_tracker = ConversationTracker(risk_estimator_fn=None)
+
+def _api_risk_fn(text: str) -> Dict[str, float]:
+    rep = risk_estimator.predict(text)
+    return {a.value: round(float(d.inferability_risk_score), 4) for a, d in rep.attributes.items()}
+
+
+conversation_tracker = ConversationTracker(
+    risk_estimator_fn=_api_risk_fn if isinstance(risk_estimator, CalibratedRiskPredictor) else None
+)
 
 
 # ---------------------------------------------------------------------------
@@ -434,17 +437,25 @@ def reset_session(session_id: str) -> Dict[str, str]:
 
 
 @app.get("/ready", response_model=ReadinessResponse)
-def readiness_check() -> ReadinessResponse:
+def readiness_check() -> Any:
     """Readiness probe checking model availability and hardware execution state."""
     cuda_ready = torch is not None and torch.cuda.is_available() if "torch" in globals() and torch is not None else False
-    return ReadinessResponse(
-        ready=True,
-        model_id=os.getenv("RISK_MODEL_ID", "AT707/InferenceGuard-Roberta-Risk"),
+    risk_loaded = isinstance(risk_estimator, CalibratedRiskPredictor)
+    adapter_loaded = bool(getattr(rewriter_service, "has_adapter", False))
+    is_ready = risk_loaded and adapter_loaded
+    err = None if is_ready else "Risk model or rewriter adapter is not loaded."
+    resp = ReadinessResponse(
+        ready=is_ready,
+        model_id=_risk_source if risk_loaded else os.getenv("RISK_MODEL_ID", "AT707/inferenceguard-modernbert-risk"),
         rewriter_model_id=os.getenv("REWRITER_MODEL_ID", "AT707/inferenceguard-rewriter-v1"),
-        device=os.getenv("DEVICE", "cpu"),
+        device=os.getenv("DEVICE", "cuda" if cuda_ready else "cpu"),
         cuda_available=cuda_ready,
-        error=None,
+        error=err,
     )
+    if os.getenv("IG_REQUIRE_MODEL", "").strip().lower() in {"1", "true", "yes"} and not is_ready:
+        from fastapi.responses import JSONResponse
+        return JSONResponse(status_code=503, content=resp.model_dump())
+    return resp
 
 
 @app.post("/analyze", response_model=AnalyzeResponse)
@@ -663,3 +674,9 @@ def launch_tunnel(port: int = 8000, tunnel_type: Optional[str] = None) -> str:
 web_dir = Path("web")
 if web_dir.exists():
     app.mount("/", StaticFiles(directory=str(web_dir), html=True), name="static")
+
+
+def main() -> None:
+    import uvicorn
+    uvicorn.run("src.api.app:app", host="0.0.0.0", port=8000)
+

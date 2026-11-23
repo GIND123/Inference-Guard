@@ -214,6 +214,13 @@ def neutralize_text(text: str, matcher: Optional[PersonaMatcher] = None) -> str:
         else:
             replacement = ""
         out = out[: m.start] + replacement + out[m.end :]
+    # Neutralize exact birthdates ("born on March 14, 1998" -> "born years ago")
+    out = re.sub(
+        r"\bborn\s+(?:on\s+)?(?:[A-Z][a-z]+\s+\d{1,2},?\s+\d{4}|\d{1,2}[/-]\d{1,2}[/-]\d{2,4}|\d{4})\b",
+        "born years ago",
+        out,
+        flags=re.IGNORECASE,
+    )
     # Tidy grammar artifacts left by mechanical substitution.
     out = re.sub(r"\b(ADDRESS_\d+)\s+in\s+(?:my area|the area|my city)\b", r"\1", out, flags=re.IGNORECASE)
     out = re.sub(r"\b(my area|the area|my city),\s*[A-Z]{2}\b", r"\1", out)
