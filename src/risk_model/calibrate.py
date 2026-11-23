@@ -106,38 +106,66 @@ class AttributeTemperatureScaler(nn.Module):
             if len(labels_valid) == 0:
                 continue
 
-            # Pre-calibration diagnostics
-            raw_probs = F.softmax(logits_valid, dim=-1).cpu().numpy()
+            is_binary_head = (logits_valid.ndim == 1 or logits_valid.shape[-1] == 1)
             labels_np = labels_valid.cpu().numpy()
-            ece_before = compute_expected_calibration_error(raw_probs, labels_np)
-            nll_before = float(F.cross_entropy(logits_valid, labels_valid).item())
 
-            # Optimize log_temp with L-BFGS
-            log_temp_param = self.log_temps[key]
-            optimizer = torch.optim.LBFGS([log_temp_param], lr=0.05, max_iter=100)
+            if is_binary_head:
+                logits_1d = logits_valid.view(-1)
+                labels_float = labels_valid.float().view(-1)
+                raw_probs = torch.sigmoid(logits_1d).cpu().numpy()
+                nll_before = float(F.binary_cross_entropy_with_logits(logits_1d, labels_float).item())
 
-            def eval_closure():
-                optimizer.zero_grad()
-                temp = torch.exp(log_temp_param).clamp(min=0.05, max=10.0)
-                loss = F.cross_entropy(logits_valid / temp, labels_valid)
-                loss.backward()
-                return loss
+                log_temp_param = self.log_temps[key]
+                optimizer = torch.optim.LBFGS([log_temp_param], lr=0.05, max_iter=100)
 
-            optimizer.step(eval_closure)
+                def eval_closure_bin():
+                    optimizer.zero_grad()
+                    temp = torch.exp(log_temp_param).clamp(min=0.05, max=10.0)
+                    loss = F.binary_cross_entropy_with_logits(logits_1d / temp, labels_float)
+                    loss.backward()
+                    return loss
 
-            # Post-calibration diagnostics
-            learned_temp = float(self.get_temperature(attr).item())
-            cal_probs = F.softmax(logits_valid / learned_temp, dim=-1).cpu().numpy()
-            ece_after = compute_expected_calibration_error(cal_probs, labels_np)
-            nll_after = float(F.cross_entropy(logits_valid / learned_temp, labels_valid).item())
+                optimizer.step(eval_closure_bin)
+                learned_temp = float(self.get_temperature(attr).item())
+                cal_probs = torch.sigmoid(logits_1d / learned_temp).cpu().numpy()
+                nll_after = float(F.binary_cross_entropy_with_logits(logits_1d / learned_temp, labels_float).item())
 
-            # Derive Youden's J thresholds
-            raw_inferability = np.array([
-                self._compute_raw_inferability_from_probs(p) for p in cal_probs
-            ])
-            correct_indicators = (np.argmax(cal_probs, axis=-1) == labels_np).astype(np.int32)
-            med_thresh, high_thresh = self._derive_roc_thresholds(raw_inferability, correct_indicators)
-            self.thresholds[key] = {"medium": med_thresh, "high": high_thresh}
+                ece_before = compute_expected_calibration_error(np.stack([1.0 - raw_probs, raw_probs], axis=-1), labels_np)
+                ece_after = compute_expected_calibration_error(np.stack([1.0 - cal_probs, cal_probs], axis=-1), labels_np)
+                med_thresh, high_thresh = 0.30, 0.60
+                self.thresholds[key] = {"medium": med_thresh, "high": high_thresh}
+            else:
+                # Pre-calibration diagnostics
+                raw_probs = F.softmax(logits_valid, dim=-1).cpu().numpy()
+                ece_before = compute_expected_calibration_error(raw_probs, labels_np)
+                nll_before = float(F.cross_entropy(logits_valid, labels_valid).item())
+
+                # Optimize log_temp with L-BFGS
+                log_temp_param = self.log_temps[key]
+                optimizer = torch.optim.LBFGS([log_temp_param], lr=0.05, max_iter=100)
+
+                def eval_closure():
+                    optimizer.zero_grad()
+                    temp = torch.exp(log_temp_param).clamp(min=0.05, max=10.0)
+                    loss = F.cross_entropy(logits_valid / temp, labels_valid)
+                    loss.backward()
+                    return loss
+
+                optimizer.step(eval_closure)
+
+                # Post-calibration diagnostics
+                learned_temp = float(self.get_temperature(attr).item())
+                cal_probs = F.softmax(logits_valid / learned_temp, dim=-1).cpu().numpy()
+                ece_after = compute_expected_calibration_error(cal_probs, labels_np)
+                nll_after = float(F.cross_entropy(logits_valid / learned_temp, labels_valid).item())
+
+                # Derive Youden's J thresholds
+                raw_inferability = np.array([
+                    self._compute_raw_inferability_from_probs(p) for p in cal_probs
+                ])
+                correct_indicators = (np.argmax(cal_probs, axis=-1) == labels_np).astype(np.int32)
+                med_thresh, high_thresh = self._derive_roc_thresholds(raw_inferability, correct_indicators)
+                self.thresholds[key] = {"medium": med_thresh, "high": high_thresh}
 
             diagnostics[key] = {
                 "temperature": round(learned_temp, 4),
@@ -218,10 +246,17 @@ class AttributeTemperatureScaler(nn.Module):
         ui_score = float(np.clip(ui_score, 0.0, 1.0))
         return round(ui_score, 4), band
 
-    def score_logits(self, logits_dict: Dict[str, Any]) -> Dict[AttributeName, AttributeRiskDistribution]:
+    def score_logits(self, logits_dict: Union[Dict[str, Any], Sequence[Any]]) -> Dict[AttributeName, AttributeRiskDistribution]:
         """Convert multi-head model logits into calibrated probability distributions and risk scores.
-        Supports multi-class heads, single-logit binary heads, and float dictionary fallbacks."""
+        Supports multi-class heads, single-logit binary heads, sequence of head logits, and float dictionary fallbacks."""
+        if isinstance(logits_dict, (list, tuple)):
+            from src.risk_model.model import ATTRIBUTES
+            logits_dict = {
+                ATTRIBUTES[i]: logits_dict[i]
+                for i in range(min(len(ATTRIBUTES), len(logits_dict)))
+            }
         results: Dict[AttributeName, AttributeRiskDistribution] = {}
+        from src.product.risk_bands import HIGH_EDGE, MEDIUM_EDGE
         for attr in AttributeName:
             key = attr.value
             temp = float(self.get_temperature(attr).item())
@@ -255,8 +290,8 @@ class AttributeTemperatureScaler(nn.Module):
                 risk_score = round(prob, 4)
                 band = (
                     RiskBand.HIGH
-                    if risk_score >= 0.70
-                    else (RiskBand.MEDIUM if risk_score >= 0.40 else RiskBand.LOW)
+                    if risk_score >= HIGH_EDGE
+                    else (RiskBand.MEDIUM if risk_score >= MEDIUM_EDGE else RiskBand.LOW)
                 )
                 pred_label = "SENSITIVE" if risk_score >= 0.50 else (
                     ID_TO_LABEL[attr][0] if (band != RiskBand.LOW and attr in ID_TO_LABEL and ID_TO_LABEL[attr]) else "UNKNOWN"
@@ -308,14 +343,18 @@ class AttributeTemperatureScaler(nn.Module):
                 )
         return results
 
-    def save(self, path: Path) -> None:
-        """Persist calibrated temperatures and Youden's J thresholds to JSON."""
-        path.parent.mkdir(parents=True, exist_ok=True)
-        payload = {
+    def to_dict(self) -> Dict[str, Any]:
+        """Convert temperatures and thresholds to a serializable dictionary."""
+        return {
             "temperatures": {attr.value: float(self.get_temperature(attr).item()) for attr in AttributeName},
             "thresholds": self.thresholds,
         }
-        path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
+
+    def save(self, path: Path) -> None:
+        """Persist calibrated temperatures and Youden's J thresholds to JSON."""
+        path = Path(path)
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(json.dumps(self.to_dict(), indent=2), encoding="utf-8")
 
     @classmethod
     def load(cls, path: Path) -> "AttributeTemperatureScaler":

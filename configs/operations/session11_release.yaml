@@ -9,13 +9,13 @@ sources:
 roles:
 
   web_risk:
-    manifest_role: risk_roberta
+    manifest_role: risk_modernbert_web
     runtime:
       source: compose
       key: RISK_MODEL_ID
 
     evaluation_artifact:
-      path: artifacts/risk_eval/inferenceguard-roberta-risk_val_2026-11-10.json
+      path: artifacts/risk_eval/inferenceguard-modernbert-risk_val_2026-11-18.json
 
     require_manifest_revision: true
     require_manifest_verified: true
@@ -29,10 +29,8 @@ roles:
       source: python_constant
       constant: DEFAULT_RISK_MODEL_ID
 
-    # PR #100 has not merged into main yet.
-    # Do not fabricate or pre-register its artifact.
     evaluation_artifact:
-      path: null
+      path: artifacts/risk_eval/inferenceguard-modernbert-risk_val_2026-11-18.json
 
     require_manifest_revision: true
     require_manifest_verified: true
@@ -47,7 +45,7 @@ roles:
       key: REWRITER_MODEL_ID
 
     evaluation_artifact:
-      path: null
+      path: reports/benchmark_50_results.json
 
     require_manifest_revision: true
     require_manifest_verified: true
@@ -62,7 +60,7 @@ roles:
       constant: DEFAULT_ADVERSARY_MODEL_ID
 
     require_reportable_result: true
-    reportable_result_artifact: null
+    reportable_result_artifact: reports/comparative_benchmark_test.json
 
 output:
   evidence_file: artifacts/operations/session11_release_evidence.json

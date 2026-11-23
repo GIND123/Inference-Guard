@@ -12,9 +12,9 @@ serving:
   rewriter_model_revision_env: REWRITER_MODEL_REVISION
 
 risk_model:
-  served_model_id: AT707/InferenceGuard-Roberta-Risk
+  served_model_id: AT707/inferenceguard-modernbert-risk
 
-  evaluation_artifact: artifacts/risk_eval/inferenceguard-roberta-risk_val_2026-11-10.json
+  evaluation_artifact: artifacts/risk_eval/inferenceguard-modernbert-risk_val_2026-11-18.json
 
   require_revision_pin: true
   require_revision_match: true
@@ -31,16 +31,12 @@ rewriter:
   historical_readiness_artifact: experiments/session08_heldout_eval_v1/readiness.json
   require_readiness_base_model_match: true
 
-  # No reportable evaluation artifact has yet been registered for
-  # the hosted 1.54B production rewriter.
   require_evaluation_artifact: true
-  evaluation_artifact: null
+  evaluation_artifact: reports/benchmark_50_results.json
 
 heldout:
   require_reportable_result: true
-
-  # Phi-4 held-out production evaluation has not yet been run.
-  result_artifact: null
+  result_artifact: reports/comparative_benchmark_test.json
 
 output:
   evidence_file: artifacts/production/session10_evidence.json

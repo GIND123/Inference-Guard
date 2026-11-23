@@ -380,14 +380,16 @@ def main():
 
     logger.info(f"Loading dataset from {args.dataset_path}")
     dataset = load_dataset("json", data_files=args.dataset_path, split="train")
-    if "text" not in dataset.column_names:
+    has_messages = "messages" in dataset.column_names
+
+    if not has_messages and "text" not in dataset.column_names:
         dataset = dataset.map(get_formatting_func(tokenizer))
 
     eval_dataset = None
     if args.val_path and Path(args.val_path).exists():
         logger.info(f"Loading validation dataset from {args.val_path}")
         eval_dataset = load_dataset("json", data_files=args.val_path, split="train")
-        if "text" not in eval_dataset.column_names:
+        if not has_messages and "text" not in eval_dataset.column_names:
             eval_dataset = eval_dataset.map(get_formatting_func(tokenizer))
 
     device_map = {"": 0} if torch.cuda.is_available() else "cpu"
@@ -470,7 +472,8 @@ def main():
             "use_cpu": not is_cuda,
             "gradient_checkpointing": is_cuda,
             "max_length": args.max_length,
-            "dataset_text_field": "text",
+            "dataset_text_field": None if has_messages else "text",
+            "assistant_only_loss": True if has_messages else False,
             **get_warmup_kwargs(SFTConfig, 0.05),
         }
         if args.max_steps is not None and args.max_steps > 0:

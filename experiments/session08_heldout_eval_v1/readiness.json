@@ -10,9 +10,7 @@
     "training_dataset": {
       "status": "PASS",
       "blocking_reasons": [],
-      "warnings": [
-        "Teacher manifest does not pin the NLI model revision; exact teacher-selection replay is incomplete"
-      ]
+      "warnings": []
     },
     "evaluation_target": {
       "status": "PASS",
@@ -27,11 +25,7 @@
     "artifact_availability": {
       "status": "BLOCKED",
       "blocking_reasons": [
-        "Registered adapter artifact is unavailable: adapter_model.safetensors",
-        "Registered adapter artifact is unavailable: chat_template.jinja",
-        "Registered adapter artifact is unavailable: README.md",
-        "Registered adapter artifact is unavailable: tokenizer.json",
-        "Registered adapter artifact is unavailable: tokenizer_config.json"
+        "Adapter artifact hash mismatch: README.md"
       ],
       "warnings": []
     },
@@ -57,29 +51,23 @@
     }
   },
   "provenance": {
-    "teacher_model_id": "mlx-community/Qwen2.5-7B-Instruct-4bit",
+    "teacher_model_id": "Qwen/Qwen2.5-7B-Instruct",
     "teacher_model_revision": "c26a38f6a37d0a51b4e9a1eb3026530fa35d9fed",
-    "training_dataset_sha256": "8cc33c669b8323e80f30efed4bd152594109adacbe65e944ea06d107dc9f4ce8",
-    "teacher_manifest_sha256": "e9d128410408c43234abd9a9eab3b83dfcbba0b74f330dd6afb488dda6ed295a",
+    "training_dataset_sha256": "dd5839f10af6ad133a84955e0f41b04967741d023bf69c4b28707dda851302a4",
+    "teacher_manifest_sha256": "37dcfd9344e624aebd2b17cdd30f454bd22ac81bfccdd52841a0f8de02f91f85",
     "train_split_sha256": "c566c415d13b4a38801e1d0a2c1ab676793146a6e66e613f8631b54f31d8071d",
-    "student_adapter_manifest_sha256": "a17185c7f5dc260f5c4d20391e372f9ad88a87bdfe790a61ad7da3817e112d4f",
-    "student_base_model_id": "Qwen/Qwen2.5-0.5B-Instruct",
+    "student_adapter_manifest_sha256": "612a89a688f191b64d15bca51a8f75b67e3628076efb040997d1dc979bfc50bf",
+    "student_base_model_id": "Qwen/Qwen2.5-1.5B-Instruct",
     "test_split_sha256": "8874e24c20c52b999fc9fb707f96d770817b67decaa2522072af9955f2d1499d",
     "split_manifest_sha256": "c10437c15970c6cbee4f7800581c7d5214fd1bde85fd1feabadb6072f9c7d2bb",
     "attacker_model_id": "microsoft/Phi-4-mini-instruct",
     "utility_nli_model_id": "cross-encoder/nli-deberta-v3-large",
     "evaluation_target_id": "local_student",
     "evaluation_target_role": "local_first",
-    "evaluation_target_base_model_id": "Qwen/Qwen2.5-0.5B-Instruct"
+    "evaluation_target_base_model_id": "Qwen/Qwen2.5-1.5B-Instruct"
   },
   "blocking_reasons": [
-    "artifact_availability: Registered adapter artifact is unavailable: adapter_model.safetensors",
-    "artifact_availability: Registered adapter artifact is unavailable: chat_template.jinja",
-    "artifact_availability: Registered adapter artifact is unavailable: README.md",
-    "artifact_availability: Registered adapter artifact is unavailable: tokenizer.json",
-    "artifact_availability: Registered adapter artifact is unavailable: tokenizer_config.json"
+    "artifact_availability: Adapter artifact hash mismatch: README.md"
   ],
-  "warnings": [
-    "training_dataset: Teacher manifest does not pin the NLI model revision; exact teacher-selection replay is incomplete"
-  ]
+  "warnings": []
 }

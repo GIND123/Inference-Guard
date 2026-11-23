@@ -116,6 +116,7 @@ class QwenRewriterInference:
         self,
         model_name_or_path: str = DEFAULT_BASE_MODEL,
         adapter_path: Optional[str] = "artifacts/rewriter_qlora",
+        adapter_revision: Optional[str] = None,
         device: Optional[str] = None,
         load_in_4bit: bool = False,
         torch_dtype: Optional[torch.dtype] = None,
@@ -125,7 +126,8 @@ class QwenRewriterInference:
 
         Args:
             model_name_or_path: HuggingFace base model identifier or local directory.
-            adapter_path: Path to directory containing PEFT LoRA adapter weights.
+            adapter_path: Local directory or Hugging Face Hub repo ID containing PEFT LoRA adapter weights.
+            adapter_revision: Optional git commit/branch/tag revision when loading from Hugging Face Hub.
             device: Execution device ('cuda', 'cpu'). Auto-resolved if None.
             load_in_4bit: Whether to load with 4-bit NF4 quantization (requires CUDA).
             torch_dtype: Explicit PyTorch precision. Auto-resolved if None.
@@ -138,6 +140,7 @@ class QwenRewriterInference:
         )
         self.model_name_or_path: str = model_name_or_path
         self.adapter_path: Optional[str] = adapter_path
+        self.adapter_revision: Optional[str] = adapter_revision
         self.load_in_4bit: bool = load_in_4bit
         self._is_adapter_loaded: bool = False
         # What is actually in VRAM, which is not always what was asked for.
@@ -176,48 +179,42 @@ class QwenRewriterInference:
         else:
             self.torch_dtype: torch.dtype = torch_dtype
 
-        # 4. Safe adapter inspection
+        # 4. Safe adapter inspection (supports local directory OR Hugging Face Hub repo ID)
         if not self.adapter_path:
             logger.info("No adapter_path provided. Operating in heuristic fallback mode.")
             return
 
         adapter_p = Path(self.adapter_path)
-        if not adapter_p.exists() or not adapter_p.is_dir():
-            logger.warning(
-                "Adapter directory '%s' does not exist. Operating in heuristic fallback mode.",
-                self.adapter_path,
-            )
-            return
+        is_local_adapter = adapter_p.exists() and adapter_p.is_dir()
+        is_hub_repo = (not is_local_adapter) and ("/" in str(self.adapter_path)) and (not str(self.adapter_path).startswith(("/", "\\", "."))) and (":" not in str(self.adapter_path))
 
-        cfg_file = adapter_p / "adapter_config.json"
-        if not cfg_file.exists():
-            logger.warning(
-                "Missing 'adapter_config.json' in '%s'. Operating in heuristic fallback mode.",
-                self.adapter_path,
-            )
-            return
-
-        # Defensive weight existence check
-        has_weights = any(
-            (adapter_p / name).exists()
-            for name in [
-                "adapter_model.safetensors",
-                "adapter_model.bin",
-                "adapter_model.safetensors.index.json",
-            ]
-        )
-        if not has_weights:
-            logger.warning(
-                "No adapter weight files found in '%s'. Operating in heuristic fallback mode.",
-                self.adapter_path,
-            )
-            return
-
-        # Extract base model identifier from adapter_config.json or fallback to PeftConfig
         resolved_base_model = self.model_name_or_path
-        cfg_file = adapter_p / "adapter_config.json"
         extracted_base = None
-        if cfg_file.exists():
+
+        if is_local_adapter:
+            cfg_file = adapter_p / "adapter_config.json"
+            if not cfg_file.exists():
+                logger.warning(
+                    "Missing 'adapter_config.json' in '%s'. Operating in heuristic fallback mode.",
+                    self.adapter_path,
+                )
+                return
+
+            has_weights = any(
+                (adapter_p / name).exists()
+                for name in [
+                    "adapter_model.safetensors",
+                    "adapter_model.bin",
+                    "adapter_model.safetensors.index.json",
+                ]
+            )
+            if not has_weights:
+                logger.warning(
+                    "No adapter weight files found in '%s'. Operating in heuristic fallback mode.",
+                    self.adapter_path,
+                )
+                return
+
             try:
                 import json
 
@@ -233,12 +230,41 @@ class QwenRewriterInference:
                 self.tokenizer = None
                 self._is_adapter_loaded = False
                 return
+        elif is_hub_repo:
+            try:
+                import json
+                from huggingface_hub import hf_hub_download
+
+                hub_cfg_path = hf_hub_download(
+                    repo_id=str(self.adapter_path),
+                    filename="adapter_config.json",
+                    revision=self.adapter_revision,
+                )
+                cfg_data = json.loads(Path(hub_cfg_path).read_text(encoding="utf-8"))
+                extracted_base = cfg_data.get("base_model_name_or_path")
+            except Exception as exc:
+                logger.warning(
+                    "Could not resolve Hub adapter '%s' (rev=%s): %s. Operating in heuristic fallback mode.",
+                    self.adapter_path,
+                    self.adapter_revision,
+                    exc,
+                )
+                return
+        else:
+            logger.warning(
+                "Adapter directory '%s' does not exist. Operating in heuristic fallback mode.",
+                self.adapter_path,
+            )
+            return
 
         if not extracted_base:
             try:
                 from peft import PeftConfig
 
-                peft_cfg = PeftConfig.from_pretrained(str(adapter_p))
+                peft_cfg = PeftConfig.from_pretrained(
+                    str(adapter_p) if is_local_adapter else str(self.adapter_path),
+                    revision=self.adapter_revision if is_hub_repo else None,
+                )
                 extracted_base = getattr(peft_cfg, "base_model_name_or_path", None)
             except Exception as exc:
                 logger.warning(
@@ -290,12 +316,22 @@ class QwenRewriterInference:
                 tokenizer.pad_token_id = tokenizer.eos_token_id
 
             logger.info("Loading base causal LM for '%s'...", resolved_base_model)
-            device_map = "auto" if is_cuda else None
+            import gc as _gc
+            _gc.collect()
+            if is_cuda:
+                torch.cuda.empty_cache()
+            if is_cuda and self.load_in_4bit:
+                device_map: Any = {"": 0}
+            elif is_cuda:
+                device_map = {"": 0}
+            else:
+                device_map = None
             base_model = AutoModelForCausalLM.from_pretrained(
                 resolved_base_model,
                 quantization_config=quantization_config,
                 torch_dtype=self.torch_dtype,
                 device_map=device_map,
+                low_cpu_mem_usage=True,
                 trust_remote_code=True,
             )
             if device_map is None and self.device:
@@ -324,9 +360,16 @@ class QwenRewriterInference:
         try:
             from peft import PeftModel
 
-            logger.info("Attaching LoRA adapter from '%s'...", self.adapter_path)
-            self.model = PeftModel.from_pretrained(self.model, str(self.adapter_path))
+            logger.info("Attaching LoRA adapter from '%s' (rev=%s)...", self.adapter_path, self.adapter_revision)
+            peft_kwargs: Dict[str, Any] = {}
+            if is_hub_repo and self.adapter_revision:
+                peft_kwargs["revision"] = self.adapter_revision
+            self.model = PeftModel.from_pretrained(self.model, str(self.adapter_path), **peft_kwargs)
             self.model.eval()
+            if any(getattr(p, "is_meta", False) for p in self.model.parameters()):
+                raise RuntimeError(
+                    "Detected offloaded meta tensors in Qwen LoRA model after PeftModel.from_pretrained."
+                )
             self._is_adapter_loaded = True
             logger.info(
                 "LoRA adapter successfully attached from '%s'.", self.adapter_path
@@ -409,14 +452,23 @@ class QwenRewriterInference:
             return LogitsProcessorList([proc])
         return [proc]
 
-    def format_chat_prompt(self, text: str) -> str:
+    def format_chat_prompt(self, text: str, extra_instruction: Optional[str] = None) -> str:
         """Format input text into a ChatML prompt with system instruction and disabled thinking.
 
         The messages come from src.rewriter.prompting, which SFT data
         construction also uses, so the adapter is served the prompt it was
         trained on.
         """
-        messages = build_rewrite_messages(text, self.system_prompt)
+        sys_prompt = self.system_prompt
+        if re.search(r"\b(?:PERSON|EMAIL|PHONE|ADDRESS|HOSPITAL|UNIVERSITY|ORG|LOCATION)_\d+\b", text):
+            sys_prompt += (
+                "\n6. Alias preservation: Preserve any placeholder tokens like PERSON_1, EMAIL_1, "
+                "PHONE_1, ADDRESS_1, HOSPITAL_1, UNIVERSITY_1, ORG_1, or LOCATION_1 exactly as written."
+            )
+        user_text = text
+        if extra_instruction:
+            user_text = f"{text}\n\n[Guidance: {extra_instruction}]"
+        messages = build_rewrite_messages(user_text, sys_prompt)
 
         if self.tokenizer is not None and hasattr(self.tokenizer, "apply_chat_template"):
             # Tier 1: apply_chat_template with enable_thinking=False
@@ -666,15 +718,16 @@ class QwenRewriterInference:
                 return QwenRewriterInference._heuristic_fallback(original_text)
             return text
 
-        # 14. Persona pruning safety post-guard: Neutralize any autobiographical framing
-        try:
-            from src.rewriter.prompting import prune_persona_bidirectional
+        # 14. Persona pruning safety post-guard: only prune if no original_text or model echoed input
+        if not original_text or text.strip().lower() == original_text.strip().lower():
+            try:
+                from src.rewriter.prompting import prune_persona_bidirectional
 
-            pruned = prune_persona_bidirectional(text)
-            if pruned and len(pruned) >= 5:
-                text = pruned
-        except Exception:
-            pass
+                pruned = prune_persona_bidirectional(text)
+                if pruned and len(pruned) >= 5:
+                    text = pruned
+            except Exception:
+                pass
 
         # 15. Echo guard: If generated text is an unchanged verbatim identity echo of the input AND the input contained personal disclosures or PII, fall back
         if original_text and text.strip().lower() == original_text.strip().lower():
@@ -702,6 +755,13 @@ class QwenRewriterInference:
             except Exception:
                 pass
 
+        # Normalize any accidental lowercase/mixed-case alias token drift (e.g. Person_1 -> PERSON_1)
+        text = re.sub(
+            r"\b(person|email|phone|address|hospital|university|org|location)_(\d+)\b",
+            lambda m: f"{m.group(1).upper()}_{m.group(2)}",
+            text,
+            flags=re.IGNORECASE,
+        )
         return text
 
     def rewrite(
@@ -710,6 +770,7 @@ class QwenRewriterInference:
         max_new_tokens: int = 128,
         temperature: float = 0.0,
         do_sample: bool = False,
+        extra_instruction: Optional[str] = None,
     ) -> str:
         """Rewrite input text to eliminate inferential cues and scrub PII.
 
@@ -718,6 +779,7 @@ class QwenRewriterInference:
             max_new_tokens: Maximum tokens to generate.
             temperature: Sampling temperature (ignored if do_sample is False).
             do_sample: Whether to use multinomial sampling instead of greedy decoding.
+            extra_instruction: Optional cue-guidance instruction for targeted second pass.
 
         Returns:
             Sanitized, clean rewritten string.
@@ -730,7 +792,7 @@ class QwenRewriterInference:
 
         self.last_error = None
         try:
-            prompt = self.format_chat_prompt(text)
+            prompt = self.format_chat_prompt(text, extra_instruction=extra_instruction)
             inputs = self.tokenizer(
                 prompt,
                 return_tensors="pt",
@@ -932,21 +994,26 @@ class QwenPrivacyRewriterService:
         self.device = device or ("cuda" if torch.cuda.is_available() else "cpu")
         self.base_model_name = base_model_name
         self.has_adapter = False
-        # The rewrite-time system prompt. protect() builds its ChatML turn from
-        # this; it is the same instruction the SFT rows were generated with
-        # (src.rewriter.prompting.REWRITER_SYSTEM_PROMPT), so the adapter is
-        # served what it was trained on. Previously protect() referenced a bare
-        # module-level ``SYSTEM_PROMPT`` that does not exist in this module, so
-        # every real-model rewrite raised NameError and the benchmark silently
-        # fell back to unchanged text.
         self.system_prompt = REWRITER_SYSTEM_PROMPT
+
+        resolved_base = base_model_name
+        if adapter_dir and Path(adapter_dir).exists():
+            cfg_file = Path(adapter_dir) / "adapter_config.json"
+            if cfg_file.exists():
+                try:
+                    import json as _json
+                    cfg_data = _json.loads(cfg_file.read_text(encoding="utf-8"))
+                    if cfg_data.get("base_model_name_or_path"):
+                        resolved_base = cfg_data["base_model_name_or_path"]
+                except Exception:
+                    pass
 
         if tokenizer is not None:
             self.tokenizer = tokenizer
         elif load_model:
             try:
                 from transformers import AutoTokenizer
-                self.tokenizer = AutoTokenizer.from_pretrained(base_model_name, trust_remote_code=True)
+                self.tokenizer = AutoTokenizer.from_pretrained(resolved_base, trust_remote_code=True)
             except Exception:
                 self.tokenizer = None
         else:
@@ -970,10 +1037,10 @@ class QwenPrivacyRewriterService:
                         bnb_4bit_compute_dtype=torch.bfloat16 if use_bf16 else torch.float16,
                     )
                 base = AutoModelForCausalLM.from_pretrained(
-                    base_model_name,
+                    resolved_base,
                     quantization_config=bnb_config,
                     torch_dtype=torch.bfloat16 if use_bf16 else (torch.float16 if is_cuda else torch.float32),
-                    device_map="auto" if is_cuda else None,
+                    device_map={"": 0} if is_cuda else None,
                     trust_remote_code=True,
                 )
                 if adapter_dir and Path(adapter_dir).exists():

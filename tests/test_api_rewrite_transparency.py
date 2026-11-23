@@ -58,7 +58,10 @@ def test_heuristic_engine(client):
     assert data["rewritten_text"] != HEURISTIC_OK
 
 
-def test_presidio_fallback_unchanged_is_reported_as_unchanged(client):
+def test_presidio_fallback_unchanged_is_reported_as_unchanged(client, monkeypatch):
+    monkeypatch.setattr(api, "pareto_rejection_sample", lambda *a, **kw: None)
+    if hasattr(api, "_select_relative_risk_candidate"):
+        monkeypatch.setattr(api, "_select_relative_risk_candidate", lambda *a, **kw: None)
     data = _analyze(client, UNCHANGED_HIGH, "transparency_presidio")
     assert data["risk_summary"]["overall_band"] != "LOW"
     assert data["rewrite_engine"] == "presidio_fallback"
@@ -72,11 +75,14 @@ def test_served_text_hash_matches_returned_text(client):
         assert data["served_text_sha256"] == expected
 
 
-def test_rewrite_endpoint_reports_engine(client):
+def test_rewrite_endpoint_reports_engine(client, monkeypatch):
     data = client.post("/rewrite", json={"text": HEURISTIC_OK}).json()
     assert data["rewrite_engine"] == "heuristic"
     assert data["rewrite_changed"] is True
 
+    monkeypatch.setattr(api, "pareto_rejection_sample", lambda *a, **kw: None)
+    if hasattr(api, "_select_relative_risk_candidate"):
+        monkeypatch.setattr(api, "_select_relative_risk_candidate", lambda *a, **kw: None)
     data = client.post("/rewrite", json={"text": UNCHANGED_HIGH}).json()
     assert data["rewrite_engine"] == "presidio_fallback"
     assert data["rewrite_changed"] is False

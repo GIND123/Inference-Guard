@@ -301,7 +301,12 @@ def test_no_real_looking_token_is_committed():
     token_like = re.compile(r"\bhf_[A-Za-z0-9]{30,}")
     offenders = []
     for path in sorted(ROOT.glob("**/*")):
-        if ".git" in path.parts or not path.is_file() or path.stat().st_size > 2_000_000:
+        if (
+            ".git" in path.parts
+            or any(part.startswith(".venv") for part in path.parts)
+            or not path.is_file()
+            or path.stat().st_size > 2_000_000
+        ):
             continue
         if path.suffix in {".safetensors", ".bin", ".pt", ".png", ".jpg", ".pptx", ".pdf"}:
             continue

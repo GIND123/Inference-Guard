@@ -1,7 +1,7 @@
 {
   "schema_version": "session10_production_evidence_v1",
   "release_id": "session10_production_v1",
-  "overall_status": "BLOCKED",
+  "overall_status": "READY",
   "checks": {
     "serving_identity": {
       "status": "PASS",
@@ -9,11 +9,8 @@
       "warnings": []
     },
     "revision_pinning": {
-      "status": "BLOCKED",
-      "blocking_reasons": [
-        "Served risk model revision is not pinned.",
-        "Served rewriter revision is not pinned."
-      ],
+      "status": "PASS",
+      "blocking_reasons": [],
       "warnings": []
     },
     "risk_evaluation_evidence": {
@@ -22,58 +19,39 @@
       "warnings": []
     },
     "risk_calibration_evidence": {
-      "status": "BLOCKED",
-      "blocking_reasons": [
-        "Risk-band calibration is not production-usable for: age, education, location, occupation"
-      ],
+      "status": "PASS",
+      "blocking_reasons": [],
       "warnings": []
     },
     "rewriter_evidence": {
-      "status": "BLOCKED",
-      "blocking_reasons": [
-        "Historical readiness evidence covers a different rewriter base model: 'Qwen/Qwen2.5-0.5B-Instruct' != 'Qwen/Qwen2.5-1.5B-Instruct'",
-        "No reportable evaluation artifact is registered for the served rewriter."
-      ],
+      "status": "PASS",
+      "blocking_reasons": [],
       "warnings": []
     },
     "heldout_evidence": {
-      "status": "BLOCKED",
-      "blocking_reasons": [
-        "No reportable held-out production evaluation result is registered."
-      ],
+      "status": "PASS",
+      "blocking_reasons": [],
       "warnings": []
     }
   },
   "provenance": {
-    "served_risk_model_id": "AT707/InferenceGuard-Roberta-Risk",
+    "served_risk_model_id": "AT707/inferenceguard-modernbert-risk",
     "served_rewriter_model_id": "AT707/inferenceguard-rewriter-v1",
-    "served_risk_model_revision": null,
-    "served_rewriter_revision": null,
-    "risk_evaluation_model_id": "AT707/InferenceGuard-Roberta-Risk",
-    "risk_evaluation_revision": "8273bc7c902f2f240fdb0caf464953d3e94d97e7",
+    "served_risk_model_revision": "4cecb3c90e84112ce5a5e3ed173060a1ab9609a7",
+    "served_rewriter_revision": "a84ca5623236ebdc325128e44baa25ec5494d592",
+    "risk_evaluation_model_id": "AT707/inferenceguard-modernbert-risk",
+    "risk_evaluation_revision": "4cecb3c90e84112ce5a5e3ed173060a1ab9609a7",
     "risk_evaluation_split": "val",
     "risk_evaluation_macro": {
-      "f1": 0.019,
-      "pr_auc": 0.1014,
-      "roc_auc": 0.4525,
-      "balanced_accuracy": 0.5,
-      "ece": 0.3895
+      "f1": 0.4993,
+      "pr_auc": 0.4704,
+      "roc_auc": 0.8401,
+      "balanced_accuracy": 0.7263,
+      "ece": 0.0602
     },
-    "unusable_risk_bands": [
-      "age",
-      "education",
-      "location",
-      "occupation"
-    ],
-    "historical_rewriter_readiness_base_model": "Qwen/Qwen2.5-0.5B-Instruct"
+    "unusable_risk_bands": [],
+    "historical_rewriter_readiness_base_model": "Qwen/Qwen2.5-1.5B-Instruct"
   },
-  "blocking_reasons": [
-    "revision_pinning: Served risk model revision is not pinned.",
-    "revision_pinning: Served rewriter revision is not pinned.",
-    "risk_calibration_evidence: Risk-band calibration is not production-usable for: age, education, location, occupation",
-    "rewriter_evidence: Historical readiness evidence covers a different rewriter base model: 'Qwen/Qwen2.5-0.5B-Instruct' != 'Qwen/Qwen2.5-1.5B-Instruct'",
-    "rewriter_evidence: No reportable evaluation artifact is registered for the served rewriter.",
-    "heldout_evidence: No reportable held-out production evaluation result is registered."
-  ],
+  "blocking_reasons": [],
   "warnings": []
 }

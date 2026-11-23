@@ -1,0 +1,46 @@
+{
+  "created_at": "2026-11-18T10:08:04",
+  "split": "train",
+  "rows": 4034,
+  "synthpai_accepted": 1429,
+  "augmented_rows": 2000,
+  "identity_noops": 605,
+  "val_rows": 360,
+  "git_dirty": false,
+  "git_commit": "4fc44fe885e3b5e4c0aa0be5c66b26ecf173160a",
+  "input": {
+    "path": "data/splits/train.jsonl",
+    "sha256": "c566c415d13b4a38801e1d0a2c1ab676793146a6e66e613f8631b54f31d8071d"
+  },
+  "teacher": {
+    "model_id": "Qwen/Qwen2.5-7B-Instruct",
+    "revision": "c26a38f6a37d0a51b4e9a1eb3026530fa35d9fed",
+    "backend": "hf",
+    "dtype": "bfloat16",
+    "decoding": "greedy",
+    "enable_thinking": false
+  },
+  "nli": {
+    "model_id": "cross-encoder/nli-deberta-v3-large",
+    "revision": "46907d0f19a0a0ab1f6f87b649d21c43b9e4a3b7",
+    "device": "cpu"
+  },
+  "outputs": {
+    "sft": {
+      "path": "data/sft/teacher_v2/train.jsonl",
+      "sha256": "dd5839f10af6ad133a84955e0f41b04967741d023bf69c4b28707dda851302a4"
+    },
+    "train": {
+      "path": "data/sft/teacher_v2/train.jsonl",
+      "sha256": "dd5839f10af6ad133a84955e0f41b04967741d023bf69c4b28707dda851302a4"
+    },
+    "val": {
+      "path": "data/sft/teacher_v2/val.jsonl",
+      "sha256": "cd199c0c8d6d1018a3a156d286a721d06a9328bc2443f2e3c9c6fba5ca43fb02"
+    },
+    "candidates": {
+      "path": "data/sft/teacher_v2/candidates_train.jsonl",
+      "sha256": "b8accfec8a2cd2b5843bc1281f52fb62b89b310fb336f4cf735253b0ad2ea30e"
+    }
+  }
+}

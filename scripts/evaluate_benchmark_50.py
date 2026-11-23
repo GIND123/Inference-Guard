@@ -111,11 +111,15 @@ def run_benchmark(
 
     rewriter = None
     if rewriter_fn is None:
+        import torch
         from src.rewriter.inference import QwenRewriterInference
 
         print(f"Loading rewriter with adapter: {adapter_path}...")
-        rewriter = QwenRewriterInference(model_name_or_path=model_name, adapter_path=adapter_path,
-                                         load_in_4bit=False)
+        rewriter = QwenRewriterInference(
+            model_name_or_path=model_name,
+            adapter_path=adapter_path,
+            load_in_4bit=torch.cuda.is_available(),
+        )
         print(f"Adapter active: {rewriter._is_adapter_loaded} (Base: {rewriter.resolved_base_model})")
 
     new_value_scanner = None
@@ -203,6 +207,10 @@ def run_benchmark(
 
     passed_count = sum(1 for r in results if r["passed"])
     summary = {
+        "model_id": "AT707/inferenceguard-rewriter-v1",
+        "base_model": rewriter.resolved_base_model if rewriter else model_name,
+        "adapter_path": adapter_path,
+        "reportable": bool(rewriter._is_adapter_loaded) if rewriter else False,
         "benchmark_file": str(bench_path),
         "total_cases": len(cases),
         "passed_cases": passed_count,

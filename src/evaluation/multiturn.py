@@ -34,7 +34,8 @@ logger = logging.getLogger(__name__)
 # Cumulative prefix lengths requested by backlog item #8.
 DEFAULT_TURN_COUNTS: Sequence[int] = (1, 2, 4, 8)
 
-DEFAULT_STAGED_INPUT = "data/evaluation/staged_turns_sample.jsonl"
+_STAGED_TEST = Path("data/evaluation/staged_turns_test.jsonl")
+DEFAULT_STAGED_INPUT = str(_STAGED_TEST) if _STAGED_TEST.exists() else "data/evaluation/staged_turns_sample.jsonl"
 
 
 def _load_staged_records(input_file: Optional[str]) -> List[Dict[str, Any]]:

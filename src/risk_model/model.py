@@ -155,6 +155,23 @@ class ModernBertRiskClassifier(nn.Module):
 
         return logits
 
+    def forward_from_embeds(
+        self,
+        inputs_embeds: torch.Tensor,
+        attention_mask: Optional[torch.Tensor] = None,
+        apply_temperature: bool = False,
+    ) -> Dict[str, torch.Tensor]:
+        """Forward pass directly from token embeddings for Integrated Gradients.
+
+        Returns a dictionary mapping attribute name to logit tensor [batch_size, num_classes_per_head].
+        """
+        logits_list = self.forward(
+            inputs_embeds=inputs_embeds,
+            attention_mask=attention_mask,
+            apply_temperature=apply_temperature,
+        )
+        return {attr: logits_list[i] for i, attr in enumerate(ATTRIBUTES)}
+
     def predict_proba(
         self,
         input_ids: Optional[torch.Tensor] = None,
@@ -178,11 +195,24 @@ class ModernBertRiskClassifier(nn.Module):
                 probs[attr] = torch.softmax(head_logit, dim=-1)[:, 1:2]
         return probs
 
-    def save_pretrained(self, save_dir: Union[str, Path]) -> None:
-        """Save model weights and architecture configuration."""
+    def save_pretrained(
+        self,
+        save_dir: Union[str, Path],
+        tokenizer: Optional[Any] = None,
+        calibration_params: Optional[Dict[str, Any]] = None,
+    ) -> None:
+        """Save model weights (safetensors and pt), architecture configuration, tokenizer, and calibration."""
         save_path = Path(save_dir)
         save_path.mkdir(parents=True, exist_ok=True)
-        torch.save(self.state_dict(), save_path / "model.pt")
+        state_dict = self.state_dict()
+        torch.save(state_dict, save_path / "model.pt")
+
+        try:
+            from safetensors.torch import save_file
+            save_file(state_dict, save_path / "model.safetensors")
+        except Exception as exc:
+            logging.getLogger(__name__).debug("Could not save model.safetensors: %s", exc)
+
         config_data = {
             "model_name": self.model_name,
             "num_heads": self.num_heads,
@@ -193,6 +223,26 @@ class ModernBertRiskClassifier(nn.Module):
         with open(save_path / "risk_model_config.json", "w", encoding="utf-8") as f:
             json.dump(config_data, f, indent=2)
 
+        if hasattr(self, "config") and self.config is not None:
+            try:
+                if hasattr(self.config, "save_pretrained"):
+                    self.config.save_pretrained(save_path)
+                elif hasattr(self.config, "to_json_file"):
+                    self.config.to_json_file(save_path / "config.json")
+                elif isinstance(self.config, dict):
+                    with open(save_path / "config.json", "w", encoding="utf-8") as f:
+                        json.dump(self.config, f, indent=2)
+            except Exception as exc:
+                logging.getLogger(__name__).debug("Could not save config.json: %s", exc)
+
+        if tokenizer is not None and hasattr(tokenizer, "save_pretrained"):
+            tokenizer.save_pretrained(save_path)
+
+        calib = calibration_params or getattr(self, "_calibration_params", None)
+        if calib is not None:
+            with open(save_path / "calibration_params.json", "w", encoding="utf-8") as f:
+                json.dump(calib, f, indent=2)
+
     @classmethod
     def from_pretrained(
         cls,
@@ -200,21 +250,73 @@ class ModernBertRiskClassifier(nn.Module):
         device: Union[str, torch.device] = "cpu",
         backbone: Optional[nn.Module] = None,
     ) -> ModernBertRiskClassifier:
-        """Instantiate model and load serialized weights and temperatures."""
+        """Instantiate model and load serialized weights and temperatures from local path or Hub."""
         load_path = Path(load_dir)
-        with open(load_path / "risk_model_config.json", "r", encoding="utf-8") as f:
+        cfg_file = None
+        if load_path.exists() and (load_path / "risk_model_config.json").exists():
+            cfg_file = load_path / "risk_model_config.json"
+        else:
+            resolved = _resolve_repo_file(str(load_dir), "risk_model_config.json")
+            if resolved:
+                cfg_file = Path(resolved)
+
+        if cfg_file is None or not cfg_file.exists():
+            raise FileNotFoundError(f"Could not find risk_model_config.json in {load_dir}")
+
+        with open(cfg_file, "r", encoding="utf-8") as f:
             config_data = json.load(f)
 
         model = cls(
-            model_name=config_data["model_name"],
-            num_heads=config_data["num_heads"],
-            num_classes_per_head=config_data["num_classes_per_head"],
+            model_name=config_data.get("model_name", "answerdotai/ModernBERT-base"),
+            num_heads=config_data.get("num_heads", 4),
+            num_classes_per_head=config_data.get("num_classes_per_head", 1),
             backbone=backbone,
         )
-        state_dict = torch.load(load_path / "model.pt", map_location=device)
+
+        weight_path = None
+        is_safetensors = False
+        if load_path.exists():
+            if (load_path / "model.safetensors").exists():
+                weight_path = load_path / "model.safetensors"
+                is_safetensors = True
+            elif (load_path / "model.pt").exists():
+                weight_path = load_path / "model.pt"
+
+        if weight_path is None:
+            sf_file = _resolve_repo_file(str(load_dir), "model.safetensors")
+            if sf_file and Path(sf_file).exists():
+                weight_path = Path(sf_file)
+                is_safetensors = True
+            else:
+                pt_file = _resolve_repo_file(str(load_dir), "model.pt")
+                if pt_file and Path(pt_file).exists():
+                    weight_path = Path(pt_file)
+
+        if weight_path is None:
+            raise FileNotFoundError(f"Could not find model.safetensors or model.pt in {load_dir}")
+
+        if is_safetensors:
+            from safetensors.torch import load_file
+            state_dict = load_file(str(weight_path), device=str(device))
+        else:
+            state_dict = torch.load(weight_path, map_location=device)
+
         model.load_state_dict(state_dict)
         if "temperatures" in config_data:
             model.set_temperatures(config_data["temperatures"])
+
+        calib_path = (
+            (load_path / "calibration_params.json")
+            if load_path.exists()
+            else _resolve_repo_file(str(load_dir), "calibration_params.json")
+        )
+        if calib_path and Path(calib_path).exists():
+            try:
+                with open(calib_path, "r", encoding="utf-8") as f:
+                    model._calibration_params = json.load(f)
+            except Exception:
+                pass
+
         model.to(device)
         return model
 
@@ -533,12 +635,11 @@ def load_risk_classifier(
     available = _available_model_files(model_name_or_path)
     is_local_dir = model_path.exists() and model_path.is_dir()
 
-    # (a) Local ModernBertRiskClassifier custom format: risk_model_config.json (+ model.pt).
-    if is_local_dir and (model_path / "risk_model_config.json").exists():
-        model = ModernBertRiskClassifier(model_name=str(model_path))
-        if hasattr(model, "to"):
-            model = model.to(device)
-        return model
+    # (a) ModernBertRiskClassifier custom format: risk_model_config.json present (local or Hub).
+    if "risk_model_config.json" in available or (
+        is_local_dir and (model_path / "risk_model_config.json").exists()
+    ):
+        return ModernBertRiskClassifier.from_pretrained(model_name_or_path, device=device)
 
     # (b) Multitask ModernBERT layout: multitask_heads.pt present (local or Hub).
     if "multitask_heads.pt" in available or (
