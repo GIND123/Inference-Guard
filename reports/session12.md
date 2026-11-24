@@ -126,7 +126,19 @@ Merge the 4 stacked PRs into `main`, complete the final demo dry run using `laun
   - (To be added)
 
 - **Govind Arun (Product):**
-  - (To be added)
+  - **Reviewed and merged the Session 12 stack** (#102-#105) and #107, re-deriving the
+    headline rather than accepting it: the mean of the four per-attribute rates in
+    `reports/promptpai/comparative_benchmark_test.json` gives 0.3650 / 0.3600 / 0.1850 /
+    0.1500, matching both the report and Engineering's independent interval run in #109.
+  - **Narrowed two claims that the evidence does not carry** -- the fine-tuned versus
+    prompt-only comparison, and the per-attribute Presidio result. Both below.
+  - Earlier in the arc that produced this week's result: flagged in Session 10 (#91) that
+    the risk model had silently changed to RoBERTa with no accuracy number and no
+    disclosure, which is what #92 and #93 then acted on; and closed #21 and #62 (#84) so
+    the profile split is reproducible and a fresh clone can fetch the dataset.
+  - Test-suite hygiene across the session so a non-zero exit means something is actually
+    wrong: 251 passed, 37 skipped, zero collection errors on a machine with no model
+    stack.
 
 - **Yiwei Jin (Users&Research):**
   - (To be added)
@@ -137,4 +149,35 @@ Merge the 4 stacked PRs into `main`, complete the final demo dry run using `laun
 ## Lean canvas changes (if any)
 
 - **Dual-edition positioning crystallized for Demo Day:** InferenceGuard Personal (message inspector and personal prompt shield) serves as the user-facing privacy workflow, while InferenceGuard Business (drop-in OpenAI-compatible customer support gateway and helpdesk webhook middleware) targets the enterprise compliance pain point (GDPR Art. 5/17 minimization and zero-PII CRM/Datadog/Snowflake logs).
+- **Two numbers to narrow before the deck, both from #109's intervals.**
+
+  **Fine-tuned versus prompt-only is not distinguishable at n=50.** The 95% intervals are
+  0.107-0.206 and 0.137-0.245 -- substantially overlapping. The honest claim is "our
+  rewriters roughly halve attack success where Presidio does not", not "the fine-tuned
+  model is what did it". If a reviewer asks whether the QLoRA fine-tuning helped, the
+  answer is that we cannot tell at this sample size, and 58.9% should not be offered as
+  though it answers that question.
+
+  **Presidio is worse than raw on three attributes of four, which is stronger than the
+  aggregate.** The report leads with -1.4% relative, and "-1.4%" reads as "roughly no
+  effect". The breakdown reads as something sharper:
+
+  | attribute | raw | Presidio |
+  |---|---:|---:|
+  | age | 0.32 | **0.34** |
+  | education | 0.28 | **0.30** |
+  | occupation | 0.42 | **0.48** |
+  | location | 0.44 | 0.32 |
+
+  Redaction removes the surface identifiers and leaves the inferential signal intact --
+  on occupation it appears to sharpen it. That is the thesis of this project stated in
+  our own held-out numbers, and it belongs on the slide ahead of the aggregate.
+
+- **And the scope it has to be claimed within.** The run is 50 templated PromptPAI
+  prompts scored on coarse categories, not the SynthPAI profile-disjoint test split the
+  north star defines, and per-sample outputs are not committed so it cannot be re-checked
+  from the repository. It is a real held-out result against a model we never trained
+  against, and it is the first one this project has had. It is not yet the measurement we
+  said we would make. Both halves of that should be said on the day.
+
 - **What we can now claim on demo day:** Backed by held-out `Phi-4-mini` adversary evaluation (`58.9%` relative ASR reduction vs. `1.4%` for Presidio), calibrated ModernBERT risk detection (`0.8401` ROC-AUC, `0.0602` ECE), and `100%` hard-PII removal with `98%` order/ticket/statute retention across 50 personas and 10 domains.

@@ -2,6 +2,12 @@
 
 from __future__ import annotations
 
+import pytest
+
+# Guard above the heavy imports so this reports as skipped rather than
+# failing collection without the stack. See tests/README.md.
+pytest.importorskip("fastapi", reason="needs optional fastapi; see tests/README.md")
+
 import secrets
 from fastapi.testclient import TestClient
 

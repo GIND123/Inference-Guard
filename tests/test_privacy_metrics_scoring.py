@@ -20,6 +20,11 @@ from __future__ import annotations
 
 import pytest
 
+# numpy and sklearn are already guarded per-test below, but pydantic arrives
+# at module scope via src.contracts.schemas and so defeats that: the module
+# fails collection before any in-test guard runs. See tests/README.md.
+pytest.importorskip("pydantic", reason="needs optional pydantic; see tests/README.md")
+
 from src.contracts.schemas import AttributeName
 from src.risk_model.taxonomy import normalize_to_taxonomy_label
 
