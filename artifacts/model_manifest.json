@@ -1,0 +1,35 @@
+{
+  "schema_version": 1,
+  "note": "Authoritative hosted model ids for InferenceGuard. Revisions and checksums are populated by `python scripts/verify_hf_models.py --write-manifest` on a networked host; they are NOT fabricated. A null revision or empty checksums means the field has not yet been pinned from a real HfApi query. Weights live on the Hugging Face Hub and are NOT committed to git.",
+  "generated_by": "scripts/verify_hf_models.py --write-manifest",
+  "verified_at": null,
+  "models": [
+    {
+      "role": "risk_modernbert",
+      "repo_id": "AT707/inferenceguard-modernbert-risk",
+      "base_model": "answerdotai/ModernBERT-base",
+      "revision": null,
+      "expected_files": ["config.json", "model.safetensors", "tokenizer.json"],
+      "checksums": {},
+      "verified": false
+    },
+    {
+      "role": "risk_roberta",
+      "repo_id": "AT707/InferenceGuard-Roberta-Risk",
+      "base_model": "roberta-base",
+      "revision": null,
+      "expected_files": ["config.json", "model.safetensors", "tokenizer.json"],
+      "checksums": {},
+      "verified": false
+    },
+    {
+      "role": "rewriter",
+      "repo_id": "AT707/inferenceguard-rewriter-v1",
+      "base_model": "Qwen/Qwen2.5-1.5B-Instruct",
+      "revision": null,
+      "expected_files": ["config.json", "model.safetensors", "tokenizer.json"],
+      "checksums": {},
+      "verified": false
+    }
+  ]
+}

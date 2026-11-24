@@ -41,11 +41,21 @@ risk_estimator:
   roberta_hub:
     repo_id: AT707/InferenceGuard-Roberta-Risk
     base_model: roberta-base
+    revision:          # TODO pin after verify_hf_models.py --write-manifest on a networked host
     params: 125_000_000
     vram_fp16_gb: 0.25
     context: 512
     verified: encoder, RobertaForMaskedLM, vocab 50265
-    why: High-throughput standard architecture easily deployable across CPU and GPU runtimes.
+    why: High-throughput standard architecture easily deployable across CPU and GPU runtimes. Serving default for web/api.py + scripts/score_risk_model.py.
+  modernbert_hub:
+    repo_id: AT707/inferenceguard-modernbert-risk
+    base_model: answerdotai/ModernBERT-base
+    revision:          # TODO pin after verify_hf_models.py --write-manifest on a networked host
+    why: >-
+      Hosted fine-tuned ModernBERT risk model — the P0 #1 north-star scorer
+      used by src/evaluation/run.py (DEFAULT_RISK_MODEL_ID). load_risk_classifier
+      auto-detects ModernBERT vs RoBERTa, so this does not disturb the RoBERTa
+      serving default.
   chosen: answerdotai/ModernBERT-base
   params: 149_607_936
   vram_fp16_gb: 0.30
@@ -68,6 +78,7 @@ rewriter:
   hub_model:
     repo_id: AT707/inferenceguard-rewriter-v1
     base_model: Qwen/Qwen2.5-1.5B-Instruct
+    revision:          # TODO pin after verify_hf_models.py --write-manifest on a networked host
     params: 1_543_714_816
     vram_fp16_gb: 3.09
     vram_nf4_gb: 0.98

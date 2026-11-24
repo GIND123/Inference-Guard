@@ -3,6 +3,12 @@
 
 Wraps the base causal language model without adapters using deterministic structured
 prompting, serving as the experimental baseline (Ablation B) against QLoRA SFT.
+
+SUPERSEDED: ``PromptBaselineRewriter`` is no longer on the live evaluation path. The
+prompt-only baseline is now produced by ``rewriter.protect(..., mode=RewriteMode.PROMPT_BASELINE)``
+via ``src/rewriter/inference.py``, driven from ``src/evaluation/run.py``. This class is
+never instantiated by production or evaluation code and is retained only pending green CI
+before deletion.
 """
 
 from __future__ import annotations

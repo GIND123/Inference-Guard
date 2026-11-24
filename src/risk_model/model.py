@@ -9,7 +9,7 @@ from __future__ import annotations
 import json
 import logging
 from pathlib import Path
-from typing import Dict, List, Optional, Sequence, Tuple, Union
+from typing import Any, Dict, List, Optional, Sequence, Set, Tuple, Union
 
 import torch
 import torch.nn as nn
@@ -360,22 +360,227 @@ class MultiTaskModernBERTRiskModel(nn.Module):
         return result
 
 
+def _available_model_files(model_name_or_path: str) -> Set[str]:
+    """Return the set of filenames available for a local dir or a Hub repo id.
+
+    For a local directory this is the names of its immediate entries. For a
+    non-local repo id this lazily queries ``huggingface_hub.HfApi().list_repo_files``
+    (import kept INSIDE this function so the module imports with huggingface_hub
+    absent). If the listing cannot be obtained the available-file set is treated
+    as unknown (empty) and the caller falls through gracefully."""
+    model_path = Path(model_name_or_path)
+    if model_path.exists() and model_path.is_dir():
+        try:
+            return {p.name for p in model_path.iterdir()}
+        except Exception:
+            return set()
+    # Non-local: try the Hub. Keep the import lazy/local (sandbox has no hub dep).
+    try:
+        from huggingface_hub import HfApi
+
+        return set(HfApi().list_repo_files(model_name_or_path))
+    except Exception as exc:
+        logging.getLogger(__name__).debug(
+            "Could not list repo files for '%s' (%s: %s); treating file set as unknown.",
+            model_name_or_path, type(exc).__name__, exc,
+        )
+        return set()
+
+
+def _resolve_repo_file(model_name_or_path: str, filename: str) -> Optional[str]:
+    """Resolve ``filename`` to a local path, downloading from the Hub if needed.
+
+    Returns the filesystem path as a string, or ``None`` if it cannot be
+    obtained. The ``huggingface_hub`` import is lazy/local."""
+    model_path = Path(model_name_or_path)
+    if model_path.exists() and model_path.is_dir():
+        candidate = model_path / filename
+        return str(candidate) if candidate.exists() else None
+    try:
+        from huggingface_hub import hf_hub_download
+
+        return hf_hub_download(repo_id=model_name_or_path, filename=filename)
+    except Exception as exc:
+        logging.getLogger(__name__).debug(
+            "Could not download '%s' from '%s' (%s: %s).",
+            filename, model_name_or_path, type(exc).__name__, exc,
+        )
+        return None
+
+
+def _load_multitask_modernbert(
+    model_name_or_path: str,
+    device: str = "cpu",
+    base_model: str = "answerdotai/ModernBERT-base",
+) -> "MultiTaskModernBERTRiskModel":
+    """Load the hosted multitask ModernBERT risk model (multitask_heads.pt layout).
+
+    Handles both a local directory and a Hugging Face Hub repo id. Head sizes come
+    from ATTRIBUTE_TAXONOMY (via the MultiTaskModernBERTRiskModel constructor); an
+    optional ``multitask_config.json`` sidecar may override the base model. Reads
+    ``calibration_params.json`` when present and attaches the parsed temperatures to
+    the returned model as ``model._calibration_params`` for predict.py to consume.
+
+    Raises if the state dict does not match this architecture at all, so that
+    format detection in load_risk_classifier falls through rather than returning a
+    mis-loaded model."""
+    # Optional sidecar config (FEAT-002 will start uploading it; absent today).
+    resolved_base_model = base_model
+    sidecar_path = _resolve_repo_file(model_name_or_path, "multitask_config.json")
+    if sidecar_path is not None:
+        sidecar: Optional[Dict[str, Any]] = None
+        try:
+            with open(sidecar_path, "r", encoding="utf-8") as f:
+                sidecar = json.load(f)
+        except Exception as exc:
+            logging.getLogger(__name__).debug(
+                "Ignoring unreadable multitask_config.json for '%s' (%s: %s).",
+                model_name_or_path, type(exc).__name__, exc,
+            )
+            sidecar = None
+        if isinstance(sidecar, dict):
+            resolved_base_model = (
+                sidecar.get("base_model")
+                or sidecar.get("model_name")
+                or resolved_base_model
+            )
+            # Validate declared head sizes against the live taxonomy BEFORE loading
+            # the state dict, so a taxonomy/weights drift surfaces as a named,
+            # actionable error instead of a shape error that the caller swallows
+            # into the untrained fallback. Only validate when the sidecar actually
+            # declares num_classes_per_head; the current no-sidecar repo is untouched.
+            num_classes_per_head = sidecar.get("num_classes_per_head")
+            if isinstance(num_classes_per_head, dict):
+                from src.risk_model.taxonomy import ATTRIBUTE_TAXONOMY
+
+                expected = {
+                    attr.value: len(labels)
+                    for attr, labels in ATTRIBUTE_TAXONOMY.items()
+                }
+                for attr_name, sidecar_size in num_classes_per_head.items():
+                    if attr_name in expected and sidecar_size != expected[attr_name]:
+                        raise ValueError(
+                            f"multitask_config.json head size mismatch for "
+                            f"'{attr_name}': sidecar={sidecar_size} but current "
+                            f"ATTRIBUTE_TAXONOMY={expected[attr_name]}; the hosted "
+                            "weights were trained under a different taxonomy - "
+                            "re-align the taxonomy or re-upload"
+                        )
+
+    weights_path = _resolve_repo_file(model_name_or_path, "multitask_heads.pt")
+    if weights_path is None:
+        raise FileNotFoundError(
+            f"multitask_heads.pt could not be resolved for '{model_name_or_path}'."
+        )
+
+    model = MultiTaskModernBERTRiskModel(model_name=resolved_base_model)
+
+    loaded = torch.load(weights_path, map_location=device)
+    # Defensively unwrap a top-level 'state_dict' and strip 'module.' prefixes.
+    if isinstance(loaded, dict) and "state_dict" in loaded and isinstance(loaded["state_dict"], dict):
+        loaded = loaded["state_dict"]
+    state_dict = {}
+    for key, value in loaded.items():
+        new_key = key[len("module."):] if key.startswith("module.") else key
+        state_dict[new_key] = value
+
+    result = model.load_state_dict(state_dict, strict=False)
+    # If none of the architecture-defining keys loaded, the weights do not match
+    # this model; raise so detection falls through to the next branch.
+    missing = set(getattr(result, "missing_keys", []) or [])
+    model_keys = set(model.state_dict().keys())
+    loaded_arch_keys = [
+        k for k in model_keys
+        if ("classifiers" in k or "attention_poolers" in k) and k not in missing
+    ]
+    if not loaded_arch_keys:
+        raise ValueError(
+            f"multitask_heads.pt from '{model_name_or_path}' did not match "
+            "MultiTaskModernBERTRiskModel (no classifier/attention_pooler keys loaded)."
+        )
+
+    # Optional calibration params -> attach for predict.py to build the scaler.
+    calib_path = _resolve_repo_file(model_name_or_path, "calibration_params.json")
+    if calib_path is not None:
+        try:
+            with open(calib_path, "r", encoding="utf-8") as f:
+                model._calibration_params = json.load(f)
+        except Exception as exc:
+            logging.getLogger(__name__).debug(
+                "Ignoring unreadable calibration_params.json for '%s' (%s: %s).",
+                model_name_or_path, type(exc).__name__, exc,
+            )
+
+    model.to(device)
+    model.eval()
+    return model
+
+
 def load_risk_classifier(
     model_name_or_path: str,
     device: str = "cpu",
     trust_remote_code: bool = True,
 ) -> Any:
     """Load a trained risk classifier from a local directory or Hugging Face Hub.
-    Inspects model metadata to automatically instantiate RoBERTa or ModernBERT.
+
+    Performs explicit, ordered format detection by inspecting available files:
+      (a) local ModernBertRiskClassifier custom format (risk_model_config.json + model.pt),
+      (b) multitask ModernBERT layout (multitask_heads.pt, local file OR in the Hub list),
+      (c) RoBERTa / HF-standard (config.json + safetensors/bin),
+      (d) a LOUD untrained fallback whose message names the files actually found.
     Returns the initialized model transferred to the specified target device."""
     model_path = Path(model_name_or_path)
+    available = _available_model_files(model_name_or_path)
+    is_local_dir = model_path.exists() and model_path.is_dir()
 
-    if model_path.exists() and (model_path / "risk_model_config.json").exists():
+    # (a) Local ModernBertRiskClassifier custom format: risk_model_config.json (+ model.pt).
+    if is_local_dir and (model_path / "risk_model_config.json").exists():
         model = ModernBertRiskClassifier(model_name=str(model_path))
         if hasattr(model, "to"):
             model = model.to(device)
         return model
 
+    # (b) Multitask ModernBERT layout: multitask_heads.pt present (local or Hub).
+    if "multitask_heads.pt" in available or (
+        is_local_dir and (model_path / "multitask_heads.pt").exists()
+    ):
+        try:
+            return _load_multitask_modernbert(model_name_or_path, device=device)
+        except ValueError as exc:
+            # ValueError is the architecture-mismatch signal from
+            # _load_multitask_modernbert (no classifier/attention_pooler keys
+            # loaded, or a sidecar head-size mismatch): these weights genuinely
+            # are not this format, so fall through to try RoBERTa and then the
+            # loud untrained fallback. Log so this is debuggable.
+            logging.getLogger(__name__).warning(
+                "multitask_heads.pt detected for '%s' but could not be loaded (%s: %s); "
+                "falling through to other formats.",
+                model_name_or_path, type(exc).__name__, exc,
+            )
+        except Exception as exc:
+            # Any other exception (ImportError, ModuleNotFoundError, RuntimeError,
+            # OSError, FileNotFoundError, ...) means the weights ARE the detected
+            # multitask format but the ENVIRONMENT/LOADING failed (e.g. a broken
+            # torchvision breaks transformers' lazy vision imports, or a download
+            # failed). Silently degrading to an UNTRAINED model would serve random
+            # risk scores, so fail fast with the real cause instead of falling
+            # through. (ValueError == "not this format"; everything else == a
+            # detected-but-unloadable trained checkpoint.)
+            logging.getLogger(__name__).error(
+                "multitask_heads.pt detected for '%s' but could not be loaded due to an "
+                "environment/dependency error (%s: %s); refusing to fall back to an "
+                "untrained model.",
+                model_name_or_path, type(exc).__name__, exc,
+            )
+            raise RuntimeError(
+                f"Detected a trained multitask risk checkpoint (multitask_heads.pt) for "
+                f"'{model_name_or_path}' but could not load it due to an "
+                f"environment/dependency error: {exc}. Refusing to fall back to an untrained "
+                f"model. Fix the environment (e.g. a broken torchvision breaks transformers' "
+                f"lazy vision imports) and retry."
+            ) from exc
+
+    # (c) RoBERTa / HF-standard format.
     try:
         from src.risk_model.roberta_model import RobertaRiskClassifier, RobertaRiskConfig
         model = RobertaRiskClassifier.from_pretrained(
@@ -386,12 +591,13 @@ def load_risk_classifier(
             model = model.to(device)
         return model
     except Exception as exc:
-        # This fallback builds an untrained model. It used to be silent, and
+        # (d) This fallback builds an untrained model. It used to be silent, and
         # the product served random heads without anyone noticing (Session 10).
+        found = sorted(available) if available else "unknown (could not list files)"
         logging.getLogger(__name__).error(
-            "Could not load risk classifier '%s' (%s: %s). Falling back to an UNTRAINED "
-            "RobertaRiskClassifier: risk scores from it are not meaningful.",
-            model_name_or_path, type(exc).__name__, exc,
+            "Could not load risk classifier '%s' (%s: %s); found files: %s. Falling back to "
+            "an UNTRAINED RobertaRiskClassifier: risk scores from it are not meaningful.",
+            model_name_or_path, type(exc).__name__, exc, found,
         )
         from src.risk_model.roberta_model import RobertaRiskClassifier, RobertaRiskConfig
         config = RobertaRiskConfig(base_model_name=model_name_or_path)

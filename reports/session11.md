@@ -56,6 +56,18 @@ north_star:
   while serving artifacts nobody had evaluated, which is precisely what happened. Fails
   closed. (evidence: PR #94, `configs/production/session10.yaml`)
 
+- **Session 11 release-evidence reconciliation gate.**
+  Extended the production evidence work from a single serving configuration to the
+  repository's current multi-role model stack. `scripts/check_release_evidence.py`
+  reconciles the web risk model, held-out risk model, hosted rewriter, and held-out
+  adversary against `artifacts/model_manifest.json`, Docker/runtime configuration, and
+  registered evaluation artifacts. The current repository passes the manifest-contract
+  and runtime-role alignment checks but remains fail-closed on incomplete manifest
+  verification, missing evaluation evidence, unusable risk-band evidence, and the absence
+  of a reportable held-out result. (evidence:
+  `configs/operations/session11_release.yaml`,
+  `artifacts/operations/session11_release_evidence.json`)
+
 - **`.env` is now gitignored, with guards.** Session 10 shipped documentation telling
   people to put a Hugging Face write token in `.env` in a public repository, and nothing
   ignored it. Nothing leaked. (evidence: PR #91)
@@ -116,6 +128,39 @@ comment in MEDIUM, for every attribute.
 
 Separately, the served edges (0.40/0.70 in `calibrate.py`) disagree with the documented
 ones (0.30/0.60 in `risk_bands.py`, the model card, and the UI). Recorded, not changed.
+
+### The ModernBERT the held-out eval now defaults to, scored the same way
+
+PR #97 (merged today) made `AT707/inferenceguard-modernbert-risk` the default risk scorer in
+`src/evaluation/run.py`. It is a different ModernBERT from Session 05's: it is the multitask
+model whose heads predict a taxonomy class (age bracket, region, and so on), and the product
+turns its confidence into an inferability score with the hosted `calibration_params.json`.
+`python scripts/score_risk_model.py --model-id AT707/inferenceguard-modernbert-risk`
+scores exactly that served number, on the same 45 profiles and labels. CPU, 12 s; revision
+`0ed8bdcc`; all 170 checkpoint tensors verified identical to what the product loads. Output:
+`artifacts/risk_eval/inferenceguard-modernbert-risk_val_2026-11-17.json`.
+
+| | macro F1 | macro PR-AUC | macro ROC-AUC | ROC-AUC age / loc / occ / edu |
+|---|---:|---:|---:|---|
+| ModernBERT-base, Session 05 (not hosted) | 0.461 | 0.457 | **0.853** | 0.753 / 0.907 / 0.870 / 0.883 |
+| multitask ModernBERT `0ed8bdcc` (eval default) | 0.116 | 0.117 | **0.539** | 0.664 / 0.524 / 0.416 / 0.552 |
+| RoBERTa `8273bc7c` (container) | 0.019 | 0.101 | **0.453** | 0.390 / 0.388 / 0.567 / 0.466 |
+
+- **It barely beats chance as a risk detector.** Macro ROC-AUC 0.539; occupation is below
+  chance (0.416).
+- **Its served bands are unusable.** With the hosted calibration, 98% of validation comments
+  are HIGH for location and 91% for education, while occupation is never HIGH and 79% of
+  occupation-inferable comments land in LOW. `src/product/thresholds.py` marks all four
+  attributes degraded: no threshold reaches 60% precision.
+- **Its own task is half-learned.** Against the profile's class, top-1 accuracy beats the
+  train-majority baseline for age (0.485 vs 0.310) and education (0.676 vs 0.403), but not
+  for location (0.450 vs 0.452) or occupation (0.412 vs 0.457), where it predicts only two
+  classes. So the low risk scores are partly undertraining (the notebook trains 3 epochs) and partly the
+  conversion: "how confident is the category guess" is not "is this attribute inferable".
+- **So we still serve no measured risk model.** The only one with good numbers is Session
+  05's inferability-label ModernBERT, and that checkpoint is not hosted. The `run.py`
+  default was left as is for the team to decide; a held-out number from either hosted model
+  would measure a detector that does not work.
 
 ### Is this the same model running in the product?
 
@@ -179,13 +224,36 @@ is the last session in which starting it is still possible.
   - Fixed the loader, hardened `host_roberta_on_hf.py` so an untrained checkpoint cannot
     be published again, and added 9 offline tests, three of which fail on the pre-fix code.
   - Set out the three decisions the team now owes an answer to.
+  - PR for #99: extended `scripts/score_risk_model.py` to the multitask ModernBERT layout PR #97
+    introduced, scoring the exact risk score the product serves from it, and refusing a
+    checkpoint the product loader would accept with missing tensors (it loads with
+    `strict=False`) or without its calibration file. Scored the eval default: macro ROC-AUC
+    0.539, all four bands unusable (above). Added a class-accuracy check that separates
+    undertraining from the score conversion, and 5 offline tests.
 
 - **Bingqi Lian (Operations):**
-  - PR #94: production evidence gate separating service availability from evidence
-    readiness, with a fail-closed contract (`scripts/check_production_evidence.py`,
-    `configs/production/session10.yaml`, `artifacts/production/session10_evidence.json`).
-    Written directly in response to the Session 10 finding that the API could report
-    `ready=true` while serving unevaluated artifacts.
+  - **Release-evidence reconciliation:** Extended the PR #94 production evidence work
+    into a Session 11 multi-role release contract (`configs/operations/session11_release.yaml`,
+    `scripts/check_release_evidence.py`). The gate resolves the web risk model from Docker,
+    the held-out risk model and adversary from the evaluation runner, and reconciles those
+    runtime roles with the hosted-model manifest and registered evaluation artifacts.
+  - **Artifact and runtime provenance:** Added fail-closed checks for manifest-role
+    completeness, runtime-to-manifest model identity, immutable revision pins, verified
+    status, expected-file SHA-256 coverage, evaluation model/revision matching, reportable
+    rewriter evidence, and held-out attacker identity/mode/reportability.
+  - **Current release status:** Generated
+    `artifacts/operations/session11_release_evidence.json`. Manifest Contract and Runtime
+    Role Alignment pass, but the release remains `BLOCKED`: hosted model revisions and
+    verified checksums are not yet populated, the held-out risk model and hosted rewriter
+    lack registered evaluation artifacts, the web risk model's fitted bands are unusable,
+    and no reportable held-out result is registered.
+  - **Regression coverage:** Added 10 deterministic Session 11 release-evidence tests,
+    including a complete READY fixture and failure cases for runtime drift, missing
+    manifest roles, incomplete verification, wrong evaluation identity, unusable risk
+    bands, non-reportable rewriter evidence, and invalid held-out provenance. Repository
+    regression completed with **577 passed / 22 skipped** after excluding the two
+    pre-existing TRL-dependent collection files in the fresh Colab environment;
+    `git diff --check` was clean.
 
 - **Govind Arun (Product):**
   - PR #91: found that `.env` was not gitignored after Session 10 shipped documentation
@@ -208,8 +276,9 @@ is the last session in which starting it is still possible.
   - Results analysis (session11_doc.txt). Compared participant feedback with system logs and found that some rewrites removed details needed for the task while leaving information participants wanted to protect.
 
 - **Anna Thomas (Data&Eval):**
-  - No new pull requests this week. PR #89, merged 10 November, delivered the hosting and
-    containerization work that this session's findings concern.
+  - **ModernBERT training notebook and HF hosting (`improvements/modernbert-addition`):** Authored `InferenceGuard_modernbert_train_and_host.ipynb` covering end-to-end ModernBERT fine-tuning, multitask head training, and publishing to Hugging Face Hub; updated `load_risk_classifier` to load the hosted multitask checkpoint (`multitask_heads.pt`) from Hub or local dir, with sidecar validation and loud failure on mismatched head sizes.
+  - **Eval pipeline repairs and held-out adversary wiring:** Fixed the held-out Phi-4 adversary parse, rewriter wiring, and multi-turn mode flags; scored the attacker against taxonomy-normalized ground truth; added multi-turn leakage curve scaffolding and a synthetic PromptPAI eval set; reconciled label source to `reviews.human` and aligned education/location taxonomy with the SynthPAI paper.
+  - **Requirements audit, doc cleanup, and serving hardening:** Produced `docs/requirements-coverage.md` gap analysis, refreshed the README with local-first setup, pinned hosted model IDs in `/health` with degraded/strict risk-model state surfacing, added session TTL/LRU eviction and `DELETE /session`, and updated the improvements backlog marking P0 items implemented.
 
 ## Lean canvas changes (if any)
 

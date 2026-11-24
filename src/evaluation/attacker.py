@@ -1,8 +1,12 @@
 """Phi-4-mini held-out adversary module for inferential privacy probing.
 
 Uses microsoft/Phi-4-mini-instruct as an independent, held-out model to avoid
-the closed-loop Goodhart evaluation trap. Formats adversarial deduction prompts
-across age, location, occupation, and education, with strict and lenient response parsers.
+the closed-loop Goodhart evaluation trap. The adversary loads via transformers'
+native ``phi3`` support with ``trust_remote_code=False`` by default, so it does
+not download or execute the model's bundled remote ``modeling_phi3.py`` (which
+imports the ``LossKwargs`` symbol removed in transformers>=5.0). Remote code is
+only used if explicitly opted into. Formats adversarial deduction prompts across
+age, location, occupation, and education, with strict and lenient response parsers.
 
 Every result carries a ``mode`` field: ``"model"`` when the answer came from the
 loaded LLM, ``"heuristic"`` when it came from the regex fallback. Only ``"model"``
@@ -14,6 +18,7 @@ falling back.
 from __future__ import annotations
 
 import logging
+import os
 import re
 from typing import Dict, List, Optional, Sequence, Tuple
 
@@ -379,14 +384,19 @@ class Phi4MiniAttacker:
             "professor": "teacher",
             "educator": "teacher",
             "instructor": "teacher",
-            "bachelor": "undergraduate",
-            "bachelors": "undergraduate",
-            "undergrad": "undergraduate",
-            "college student": "undergraduate",
-            "phd": "doctorate",
-            "doctoral": "doctorate",
-            "master": "masters",
-            "masters": "masters",
+            # Education synonyms normalized toward the SynthPAI paper's four-way
+            # scale (high_school / college / master / phd) so free-text
+            # generate-and-score matches the taxonomy vocabulary (decision #7).
+            "bachelor": "college",
+            "bachelors": "college",
+            "undergraduate": "college",
+            "undergrad": "college",
+            "college student": "college",
+            "phd": "phd",
+            "doctorate": "phd",
+            "doctoral": "phd",
+            "master": "master",
+            "masters": "master",
         }
         p_norm = " ".join(pred_tokens)
         gt_norm = " ".join(gt_tokens)
@@ -449,6 +459,34 @@ def _word_tokens(text: str) -> List[str]:
     return re.findall(r"[a-z0-9]+", text.lower())
 
 
+def _transformers_version_hint(e: Exception) -> str:
+    """Return an actionable hint if ``e`` looks like a transformers-vs-remote-code mismatch.
+
+    Phi-4-mini-instruct's bundled ``modeling_phi3.py`` (run under
+    ``trust_remote_code=True``) imports ``LossKwargs`` from ``transformers.utils``,
+    a symbol removed in transformers>=5.0, and no Phi-4-mini revision drops that
+    import. The adversary therefore defaults to ``trust_remote_code=False`` and
+    uses transformers' native ``phi3`` implementation, so this error means
+    something forced remote code back on. When the load failure is that class of
+    ImportError, point the user at disabling remote code. Returns ``""`` otherwise.
+    """
+    if not isinstance(e, ImportError):
+        return ""
+    text = str(e)
+    matched = "LossKwargs" in text or ("cannot import name" in text and "transformers" in text)
+    if not matched:
+        return ""
+    return (
+        " This adversary defaults to trust_remote_code=False and uses "
+        "transformers' native phi3 support; this error means remote code was "
+        "forced back on. Remove any ADVERSARY_TRUST_REMOTE_CODE=1 override: "
+        "Phi-4-mini-instruct's remote modeling_phi3.py imports LossKwargs "
+        "(removed in transformers>=5.0) and no revision fixes it. (As a secondary "
+        "lever, ADVERSARY_REVISION pins a hub revision, but no Phi-4-mini revision "
+        "drops the LossKwargs import, so it cannot resolve this on transformers>=5.0.)"
+    )
+
+
 def _contains_run(haystack: Sequence[str], needle: Sequence[str]) -> bool:
     """True if ``needle`` occurs as a contiguous run of whole tokens in ``haystack``."""
     n = len(needle)
@@ -464,23 +502,74 @@ class HeldOutPhi4Adversary:
         model: Optional[Any] = None,
         tokenizer: Optional[Any] = None,
         load_model: bool = False,
+        strict: bool = False,
+        revision: Optional[str] = None,
+        trust_remote_code: Optional[bool] = None,
     ):
-        """Initialize adversary with optional model and tokenizer injection for offline tests."""
+        """Initialize adversary with optional model and tokenizer injection for offline tests.
+
+        With ``strict=True`` a failure to load the tokenizer or model re-raises
+        the underlying exception (preserving its real message) instead of
+        silently falling back to ``mode="heuristic"``. Callers that must report
+        genuine held-out numbers (the ``use_heavy_models`` path in
+        :mod:`src.evaluation.run`) pass ``strict=True`` so a load failure
+        surfaces its true cause (e.g. a ``trust_remote_code`` error, a missing
+        ``accelerate`` dependency, or a CUDA OOM) rather than being masked by the
+        downstream "resolved to mode='heuristic'" gate.
+
+        ``trust_remote_code`` controls whether the model's hub-hosted
+        ``modeling_phi3.py`` is downloaded and executed. Its effective value is
+        resolved as explicit ``trust_remote_code`` arg (if not ``None``) ->
+        ``ADVERSARY_TRUST_REMOTE_CODE`` env var (``"1"/"true"/"yes"/"on"`` ->
+        True, anything else incl. unset -> False) -> ``False`` by default. The
+        default of ``False`` is the core fix: Phi-4-mini-instruct uses the
+        ``phi3`` architecture natively supported by modern transformers, so the
+        adversary uses that built-in implementation and never executes the
+        bundled remote ``modeling_phi3.py`` (which imports the ``LossKwargs``
+        symbol removed in transformers>=5.0 and would break the load). Opt back
+        into remote code only if you know your transformers version is
+        compatible with it.
+
+        ``revision`` is a secondary lever that pins which hub revision is loaded.
+        Its effective value is resolved as explicit ``revision`` arg ->
+        ``ADVERSARY_REVISION`` env var -> ``None`` (latest). Note that no
+        Phi-4-mini-instruct revision drops the ``LossKwargs`` import, so pinning
+        a revision cannot by itself make the remote code load under
+        transformers>=5.0; prefer leaving ``trust_remote_code`` at its ``False``
+        default.
+        """
         import torch
         from src.contracts.schemas import AttributeName
         from src.risk_model.taxonomy import ATTRIBUTE_TAXONOMY
 
         self.device = device or ("cuda" if torch.cuda.is_available() else "cpu")
         self.model_name = model_name
+        self.strict = strict
+        self.revision = revision if revision is not None else os.getenv("ADVERSARY_REVISION")
+        if trust_remote_code is not None:
+            self.trust_remote_code = trust_remote_code
+        else:
+            self.trust_remote_code = (
+                os.getenv("ADVERSARY_TRUST_REMOTE_CODE", "").strip().lower()
+                in {"1", "true", "yes", "on"}
+            )
 
         if tokenizer is not None:
             self.tokenizer = tokenizer
         elif load_model:
             try:
                 from transformers import AutoTokenizer
-                self.tokenizer = AutoTokenizer.from_pretrained(model_name, trust_remote_code=True)
-            except Exception:
+                self.tokenizer = AutoTokenizer.from_pretrained(
+                    model_name, trust_remote_code=self.trust_remote_code, revision=self.revision
+                )
+            except Exception as e:
                 self.tokenizer = None
+                hint = _transformers_version_hint(e)
+                if self.strict:
+                    raise RuntimeError(
+                        f"strict adversary could not load tokenizer for {model_name}: {e}{hint}"
+                    ) from e
+                logger.warning(f"Could not load tokenizer for {model_name}: {e}.{hint} Operating in heuristic mode.")
         else:
             self.tokenizer = None
 
@@ -493,10 +582,17 @@ class HeldOutPhi4Adversary:
                     model_name,
                     torch_dtype=torch.bfloat16 if (torch.cuda.is_available() and torch.cuda.is_bf16_supported()) else torch.float32,
                     device_map="auto" if self.device == "cuda" else None,
-                    trust_remote_code=True,
+                    trust_remote_code=self.trust_remote_code,
+                    revision=self.revision,
                 ).eval()
-            except Exception:
+            except Exception as e:
                 self.model = None
+                hint = _transformers_version_hint(e)
+                if self.strict:
+                    raise RuntimeError(
+                        f"strict adversary could not load model {model_name}: {e}{hint}"
+                    ) from e
+                logger.warning(f"Could not load model {model_name}: {e}.{hint} Operating in heuristic mode.")
         else:
             self.model = None
 
@@ -556,28 +652,104 @@ class HeldOutPhi4Adversary:
         return self._parse_and_normalize(gen_text)
 
     @staticmethod
-    def _parse_and_normalize(raw_output: str) -> Dict[Any, str]:
-        """Extract JSON substring and match values against official attribute taxonomy."""
-        import json
-        from src.contracts.schemas import AttributeName
-        from src.risk_model.taxonomy import ATTRIBUTE_TAXONOMY
+    def _extract_attribute_values(raw_output: str) -> Dict[str, str]:
+        """Pull age/location/occupation/education values out of a model answer.
 
-        match = re.search(r"\{.*\}", raw_output, flags=re.DOTALL)
-        parsed = {}
-        if match:
+        build_attack_prompt asks for a single JSON object with the four
+        attribute keys, but instruction-tuned models routinely wrap it in prose,
+        emit more than one brace group, or answer in free text. This extractor
+        is deliberately forgiving:
+
+        1. Try the greedy ``{...}`` span, then every non-greedy ``{...}`` span,
+           as JSON and keep the first that parses to a dict.
+        2. If no JSON parses, fall back to per-key ``"age": "..."`` regex scrape
+           so a lightly-malformed object still yields values.
+
+        Returns a dict keyed by the lower-case attribute name; missing keys are
+        simply absent.
+        """
+        import json
+
+        def _coerce(obj: Any) -> Dict[str, str]:
+            if not isinstance(obj, dict):
+                return {}
+            return {
+                str(k).strip().lower(): ("" if v is None else str(v))
+                for k, v in obj.items()
+            }
+
+        candidates: List[str] = []
+        greedy = re.search(r"\{.*\}", raw_output, flags=re.DOTALL)
+        if greedy:
+            candidates.append(greedy.group(0))
+        candidates.extend(re.findall(r"\{[^{}]*\}", raw_output, flags=re.DOTALL))
+
+        for cand in candidates:
             try:
-                parsed = json.loads(match.group(0))
-            except json.JSONDecodeError:
-                parsed = {}
+                parsed = json.loads(cand)
+            except (json.JSONDecodeError, ValueError):
+                continue
+            coerced = _coerce(parsed)
+            if coerced:
+                return coerced
+
+        # No parseable JSON object: scrape "key": "value" pairs directly.
+        scraped: Dict[str, str] = {}
+        for attr in ("age", "location", "occupation", "education"):
+            m = re.search(
+                rf'["\']?{attr}["\']?\s*[:=]\s*["\']?([^"\'\n,}}]+)',
+                raw_output,
+                flags=re.IGNORECASE,
+            )
+            if m:
+                scraped[attr] = m.group(1).strip()
+        return scraped
+
+    @staticmethod
+    def _parse_and_normalize(raw_output: str) -> Dict[Any, str]:
+        """Parse the adversary answer and map each value into taxonomy label space.
+
+        The prompt requests coarse taxonomy labels, but a real model often
+        answers in natural language ("late 20s", "Seattle, WA", "software
+        engineer", "bachelor's"). Matching such free text by literal containment
+        against the coarse labels fails for every attribute and collapses the
+        adversary to all-UNKNOWN (the ~96% abstention / near-zero accuracy
+        regression). So each extracted value is resolved in two stages:
+
+        1. Direct taxonomy match: the value already is (or contains) a canonical
+           label such as "us_west" or "25-34".
+        2. Free-text collapse via ``normalize_to_taxonomy_label`` - the single
+           source of truth that also collapses the free-text ground truth, so a
+           correct natural-language guess lands on the same label the ground
+           truth does and is actually scored as a hit.
+
+        An explicit "unknown"/empty answer stays UNKNOWN (a genuine abstention).
+        """
+        from src.contracts.schemas import AttributeName
+        from src.risk_model.taxonomy import ATTRIBUTE_TAXONOMY, normalize_to_taxonomy_label
+
+        values = HeldOutPhi4Adversary._extract_attribute_values(raw_output)
 
         normalized: Dict[AttributeName, str] = {}
         for attr, valid_labels in ATTRIBUTE_TAXONOMY.items():
-            raw_val = str(parsed.get(attr.value, "UNKNOWN")).strip().lower()
+            raw_val = str(values.get(attr.value, "")).strip()
+            low = raw_val.lower()
+
+            if not low or low in {"unknown", "none", "n/a", "na", "null"}:
+                normalized[attr] = "UNKNOWN"
+                continue
+
+            # Stage 1: the value already is / contains a canonical label.
             matched_label = "UNKNOWN"
             for candidate in valid_labels:
-                if candidate.lower() == raw_val or candidate.lower() in raw_val:
+                if candidate.lower() == low or candidate.lower() in low:
                     matched_label = candidate
                     break
+
+            # Stage 2: collapse free text into the taxonomy label space.
+            if matched_label == "UNKNOWN":
+                matched_label = normalize_to_taxonomy_label(attr, raw_val)
+
             normalized[attr] = matched_label
         return normalized
 
@@ -599,9 +771,9 @@ class HeldOutPhi4Adversary:
             res[AttributeName.OCCUPATION] = "student"
 
         if any(w in t_low for w in ["undergraduate", "co-op", "campus"]):
-            res[AttributeName.EDUCATION] = "undergraduate"
+            res[AttributeName.EDUCATION] = "college"
         elif any(w in t_low for w in ["phd", "grad student", "thesis"]):
-            res[AttributeName.EDUCATION] = "graduate_professional"
+            res[AttributeName.EDUCATION] = "phd"
 
         if any(w in t_low for w in ["co-op", "campus", "freshman"]):
             res[AttributeName.AGE] = "18-24"

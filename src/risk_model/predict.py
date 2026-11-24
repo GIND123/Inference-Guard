@@ -62,8 +62,59 @@ class CalibratedRiskPredictor:
         except Exception:
             tokenizer = None
 
-        resolved_scaler = scaler if scaler is not None else AttributeTemperatureScaler()
+        if scaler is not None:
+            resolved_scaler = scaler
+        else:
+            resolved_scaler = cls._scaler_from_calibration_params(
+                getattr(model, "_calibration_params", None)
+            )
         return cls(model=model, tokenizer=tokenizer, scaler=resolved_scaler, device=resolved_device)
+
+    @staticmethod
+    def _scaler_from_calibration_params(
+        calibration_params: Optional[Dict],
+    ) -> AttributeTemperatureScaler:
+        """Build an AttributeTemperatureScaler from hosted calibration_params.json.
+
+        Mirrors AttributeTemperatureScaler.load semantics: set per-attribute
+        log-temperatures from ``temperatures`` and thresholds from ``thresholds``
+        when present. Falls back to a default (identity) scaler when params are
+        absent or malformed, so the RoBERTa/other path is unchanged."""
+        scaler = AttributeTemperatureScaler()
+        if not isinstance(calibration_params, dict):
+            return scaler
+        import math
+
+        temperatures = calibration_params.get("temperatures")
+        if isinstance(temperatures, dict):
+            try:
+                with torch.no_grad():
+                    for attr_key, temp_val in temperatures.items():
+                        if attr_key in scaler.log_temps and temp_val and float(temp_val) > 0:
+                            scaler.log_temps[attr_key].copy_(
+                                torch.tensor([math.log(float(temp_val))], dtype=torch.float32)
+                            )
+            except Exception:
+                return AttributeTemperatureScaler()
+        thresholds = calibration_params.get("thresholds")
+        if isinstance(thresholds, dict):
+            # Only accept per-attribute entries that are well-formed dicts carrying
+            # BOTH numeric "medium" and "high" keys. A present-but-malformed entry
+            # would otherwise defer a KeyError to predict time (map_to_ui_scale
+            # indexes th["medium"]/th["high"]); keep that attribute's default instead.
+            for attr_key, entry in thresholds.items():
+                if attr_key not in scaler.thresholds:
+                    continue
+                if not isinstance(entry, dict):
+                    continue
+                medium = entry.get("medium")
+                high = entry.get("high")
+                if isinstance(medium, bool) or isinstance(high, bool):
+                    continue
+                if not isinstance(medium, (int, float)) or not isinstance(high, (int, float)):
+                    continue
+                scaler.thresholds[attr_key] = {"medium": float(medium), "high": float(high)}
+        return scaler
 
     def predict(self, text: str) -> RiskReport:
         """Compute calibrated multi-attribute risk distributions without cue attribution."""

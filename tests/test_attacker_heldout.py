@@ -11,7 +11,7 @@ from unittest.mock import patch
 
 import pytest
 
-from src.evaluation.attacker import ATTRIBUTES, Phi4MiniAttacker
+from src.evaluation.attacker import ATTRIBUTES, HeldOutPhi4Adversary, Phi4MiniAttacker
 from src.evaluation.run import StagedEvaluator
 
 torch = pytest.importorskip("torch")
@@ -122,6 +122,117 @@ def test_strict_raises_on_generation_failure():
     attacker = _attacker_with(FakeModel(fail=True), strict=True)
     with pytest.raises(RuntimeError, match="generation failed"):
         attacker.predict_attribute("text", "age")
+
+
+def test_heldout_strict_raises_on_load_failure():
+    """A strict HeldOutPhi4Adversary must surface the real load error, not fall
+    back to mode='heuristic' (the defect behind the run.py strict gate firing)."""
+    with patch("transformers.AutoTokenizer.from_pretrained", side_effect=OSError("trust_remote_code required")):
+        with pytest.raises(RuntimeError, match="could not load"):
+            HeldOutPhi4Adversary(model_name="bogus/does-not-exist", load_model=True, strict=True)
+
+
+def test_heldout_non_strict_load_failure_falls_back_to_heuristic():
+    """Without strict, a load failure is tolerated and reported via mode."""
+    with patch("transformers.AutoTokenizer.from_pretrained", side_effect=OSError("trust_remote_code required")), \
+         patch("transformers.AutoModelForCausalLM.from_pretrained", side_effect=OSError("trust_remote_code required")):
+        adversary = HeldOutPhi4Adversary(model_name="bogus/does-not-exist", load_model=True, strict=False)
+    assert adversary.mode == "heuristic"
+
+
+def test_heldout_revision_arg_reaches_from_pretrained():
+    """An explicit ``revision`` must be threaded to both from_pretrained calls."""
+    captured = {}
+
+    def fake_tok(name, **kwargs):
+        captured["tokenizer_revision"] = kwargs.get("revision")
+        return FakeTokenizer()
+
+    def fake_model(name, **kwargs):
+        captured["model_revision"] = kwargs.get("revision")
+        return FakeModel()
+
+    with patch("transformers.AutoTokenizer.from_pretrained", side_effect=fake_tok), \
+         patch("transformers.AutoModelForCausalLM.from_pretrained", side_effect=fake_model):
+        adversary = HeldOutPhi4Adversary(
+            model_name="microsoft/Phi-4-mini-instruct",
+            load_model=True,
+            revision="deadbeef",
+        )
+    assert adversary.revision == "deadbeef"
+    assert captured["tokenizer_revision"] == "deadbeef"
+    assert captured["model_revision"] == "deadbeef"
+
+
+def test_heldout_revision_from_env(monkeypatch):
+    """ADVERSARY_REVISION is picked up when no explicit revision is passed."""
+    monkeypatch.setenv("ADVERSARY_REVISION", "env-rev")
+    captured = {}
+
+    def fake_tok(name, **kwargs):
+        captured["tokenizer_revision"] = kwargs.get("revision")
+        return FakeTokenizer()
+
+    def fake_model(name, **kwargs):
+        captured["model_revision"] = kwargs.get("revision")
+        return FakeModel()
+
+    with patch("transformers.AutoTokenizer.from_pretrained", side_effect=fake_tok), \
+         patch("transformers.AutoModelForCausalLM.from_pretrained", side_effect=fake_model):
+        adversary = HeldOutPhi4Adversary(model_name="microsoft/Phi-4-mini-instruct", load_model=True)
+    assert adversary.revision == "env-rev"
+    assert captured["tokenizer_revision"] == "env-rev"
+    assert captured["model_revision"] == "env-rev"
+
+
+def test_heldout_strict_hints_at_transformers_mismatch():
+    """A LossKwargs-style ImportError must surface the actionable remote-code hint."""
+    err = ImportError("cannot import name 'LossKwargs' from 'transformers.utils'")
+    with patch("transformers.AutoTokenizer.from_pretrained", side_effect=err):
+        with pytest.raises(RuntimeError, match="ADVERSARY_TRUST_REMOTE_CODE"):
+            HeldOutPhi4Adversary(model_name="microsoft/Phi-4-mini-instruct", load_model=True, strict=True)
+
+
+def test_heldout_defaults_to_trust_remote_code_false():
+    """By default the adversary must load with trust_remote_code=False so that
+    transformers' native phi3 support is used instead of the broken remote file."""
+    captured = {}
+
+    def fake_tok(name, **kwargs):
+        captured["tokenizer_trc"] = kwargs.get("trust_remote_code")
+        return FakeTokenizer()
+
+    def fake_model(name, **kwargs):
+        captured["model_trc"] = kwargs.get("trust_remote_code")
+        return FakeModel()
+
+    with patch("transformers.AutoTokenizer.from_pretrained", side_effect=fake_tok), \
+         patch("transformers.AutoModelForCausalLM.from_pretrained", side_effect=fake_model):
+        adversary = HeldOutPhi4Adversary(model_name="microsoft/Phi-4-mini-instruct", load_model=True)
+    assert adversary.trust_remote_code is False
+    assert captured["tokenizer_trc"] is False
+    assert captured["model_trc"] is False
+
+
+def test_heldout_trust_remote_code_env_opts_back_in(monkeypatch):
+    """ADVERSARY_TRUST_REMOTE_CODE=1 flips both from_pretrained calls to True."""
+    monkeypatch.setenv("ADVERSARY_TRUST_REMOTE_CODE", "1")
+    captured = {}
+
+    def fake_tok(name, **kwargs):
+        captured["tokenizer_trc"] = kwargs.get("trust_remote_code")
+        return FakeTokenizer()
+
+    def fake_model(name, **kwargs):
+        captured["model_trc"] = kwargs.get("trust_remote_code")
+        return FakeModel()
+
+    with patch("transformers.AutoTokenizer.from_pretrained", side_effect=fake_tok), \
+         patch("transformers.AutoModelForCausalLM.from_pretrained", side_effect=fake_model):
+        adversary = HeldOutPhi4Adversary(model_name="microsoft/Phi-4-mini-instruct", load_model=True)
+    assert adversary.trust_remote_code is True
+    assert captured["tokenizer_trc"] is True
+    assert captured["model_trc"] is True
 
 
 @pytest.mark.parametrize(

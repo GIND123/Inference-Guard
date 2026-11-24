@@ -29,12 +29,24 @@ python -m spacy download en_core_web_lg
 
 ## Run It
 
-InferenceGuard is now fully modularized into a robust Python architecture. You can run the entire pipeline—from dataset generation to fine-tuning and launching the live UI—directly from the **`InferenceGuard_finetune.ipynb`** Colab notebook.
+InferenceGuard is a **local-first** product: the whole pipeline runs on your own
+machine so raw text never leaves your control. The deployment target is on-device
+(see `docs/engineering/production-readiness.md` §1); the Colab + tunnel flow at the
+end is a **demo**, not the product. Run it locally first.
 
-### 0. Get the dataset
+### 0. Install locally
+From the repo root, install the package (and its dependencies) in editable mode:
+```bash
+pip install -e .
+```
+The profile-disjoint splits are committed under `data/splits/` and hashed in
+`data/manifests/split_manifest.json`, so nothing needs downloading first. If they
+are ever missing, `python -m src.data.splits` regenerates them from the pinned
+SynthPAI revision, and `python scripts/check_splits.py` checks them.
 
-SynthPAI is CC-BY-NC-SA-4.0 and is **not** committed to this repository, so a
-fresh clone has to fetch it before anything below will run:
+If you also need the raw SynthPAI comment text (it is CC-BY-NC-SA-4.0 and is
+**not** committed to this repository), fetch it before running anything that
+reads the raw corpus:
 
 ```bash
 python scripts/prepare_data.py
@@ -46,20 +58,21 @@ no-op once the file is there. The pin matters: the profile-disjoint split is a
 function of dataset iteration order as well as the seed, so an unpinned
 download can change the split without anything failing (issue #21).
 
-### 1. Fine-Tune ModernBERT
-To train the multi-task risk classifier on the SynthPAI dataset, use the module directly:
+### 1. Train the ModernBERT risk classifier
+Point the trainer at the committed splits under `data/splits/` (the trainer prefers
+these automatically when present):
 ```bash
 python -m src.risk_model.train \
-    --data_path data/raw/synthpai.jsonl \
-    --splits_path artifacts/profile_splits.json \
+    --train_data data/splits/train.jsonl \
+    --val_data data/splits/val.jsonl \
     --output_dir artifacts/risk_model \
     --epochs 3
 ```
 
-### 2. Build the rewriter SFT set
+### 2. Build the rewriter SFT set and fine-tune the adapter
 The profile-disjoint splits are committed under `data/splits/` and hashed in
 `data/manifests/split_manifest.json`, so the splits themselves need no
-download — but the comment text they index does, via step 0 above. If the
+download, but the comment text they index does, via step 0 above. If the
 splits are ever missing, `python -m src.data.splits` regenerates them from the
 pinned SynthPAI revision, and `python scripts/check_splits.py` checks them.
 
@@ -94,7 +107,7 @@ entailment; augmented rows additionally must remove *every injected surface
 form* (variants included), so "relocated instead of removed" is rejected. The
 held-out Phi-4 attacker is never used. See the docstrings of
 `src/rewriter/teacher_sft.py` and `src/rewriter/augment.py`.
-Train the adapter on it with
+Then QLoRA fine-tune the Qwen2.5-1.5B-Instruct adapter on it with
 `python -m src.rewriter.train_sft --dataset_path data/sft/teacher_v2/train.jsonl`.
 
 More training data: `docs/DATA_SOURCES.md` lists verified corpora (PersonaHub,
@@ -110,8 +123,26 @@ python scripts/evaluate_benchmark_50.py --fallback_baseline   # bank-driven floo
 The v2 evaluator scores PII-span removal, invariant (jurisdiction/standard)
 preservation and copy-through per category - no hardcoded keyword checklist.
 
-### 3. Launch the Web UI
-To spin up the live interactive web UI inside Colab and test your trained models:
+### 3. Launch the Web UI locally
+Serve the FastAPI app with the trained risk model + adapter and open it in your
+browser:
+```bash
+uvicorn web.api:app --host 127.0.0.1 --port 8000
+```
+Browse to `http://127.0.0.1:8000` to test the Privacy Risk Evaluation powered by
+your trained ModernBERT risk classifier and Qwen2.5-1.5B-Instruct rewriter.
+
+### Train on a GPU and host on the Hugging Face Hub
+If you do not have a local GPU, use the notebook
+**`InferenceGuard_modernbert_train_and_host.ipynb`** to train the multi-task
+ModernBERT risk classifier on a Colab GPU and push it to the Hugging Face Hub.
+Once the trained risk model and LoRA adapter are on the Hub, the local pipeline
+and the Web UI load them from there, so step 3 above works without retraining.
+(`InferenceGuard_finetune.ipynb` covers the broader fine-tuning flow.)
+
+### Demo: Colab + Localtunnel
+As a **demo only** (not the local-first product path), you can expose the Web UI
+running inside Colab through a public tunnel:
 ```python
 import subprocess
 import urllib.request
@@ -132,7 +163,10 @@ print(f"🚀 INFERENCEGUARD UI IS LIVE AT: {url}")
 print(f"🔒 Tunnel Password: {colab_ip}")
 ```
 
-Click the Localtunnel URL, enter your Colab IP as the password, and you can instantly test the Privacy Risk Evaluation powered by your fine-tuned ModernBERT model!
+Click the Localtunnel URL, enter your Colab IP as the password, and you can test
+the Privacy Risk Evaluation powered by your trained ModernBERT model. For real
+user text, prefer the local-first path above; the tunnel demo sends text off the
+machine and is not the product.
 
 ## Run Unit Tests
 To verify all pipelines and integrations (including the Phi-4-mini adversarial evaluation), run the master test suite:

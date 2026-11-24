@@ -1,4 +1,9 @@
 {
+  "reportable_as_held_out": false,
+  "attacker_mode": "heuristic",
+  "status": "NOT-RUN: placeholder fallback output; pending GPU execution of P0 #1",
+  "note": "These zero metrics are stale placeholder fallback output from a load_model=False run, NOT held-out adversary results. The real north-star number requires the GPU run documented in docs/experiment_protocol.md section 25.4 (RISK_MODEL_ID=AT707/inferenceguard-modernbert-risk REWRITER_MODEL_ID=AT707/inferenceguard-rewriter-v1 python -m src.evaluation.run --split test --use_heavy_models --multiturn --matrix_markdown). The zero values below were NOT replaced with invented numbers.",
+  "attacker_model_id": "microsoft/Phi-4-mini-instruct",
   "split": "val",
   "sample_count": 50,
   "methods": {

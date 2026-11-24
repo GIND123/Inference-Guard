@@ -17,7 +17,7 @@ import numpy as np
 import torch
 
 from src.product.risk_bands import ATTRIBUTES, Band, band_for, summarize
-from src.risk_model.calibration import (
+from src.risk_model.calibrate import (
     CalibrationMetrics,
     TemperatureScaler,
     compute_ece,

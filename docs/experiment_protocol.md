@@ -712,5 +712,238 @@ The system then demonstrates intervention or deliberate non-intervention.
 
 Both outcomes are valid experimental evidence.
 
+---
+
+# 25. Automated Evaluation Harness — Run Commands
+
+This section documents the single commands that produce the quantitative
+evaluation artifacts (backlog items #8 and #9). All commands run from the repo
+root with the project environment (CPU torch + `requirements-ci.txt`) installed.
+
+> **Numbers are pending P0 #1 (the north-star GPU run).** Until a trained
+> ModernBERT risk model, the LoRA rewriter adapter, and the held-out Phi-4-mini
+> adversary are available, every harness below runs in `load_model=False`
+> fallback mode and tags its output `reportable_as_held_out = false`. The
+> harness never fabricates leakage or attack-success numbers; non-model runs are
+> explicitly non-reportable.
+
+## 25.1 Full comparison matrix + multi-turn leakage curve
+
+One command produces all five design-matrix rows (Raw / Presidio / Prompt-only /
+Fine-tuned / Conversation-aware) and the 1/2/4/8-turn cumulative leakage curve:
+
+```bash
+python -m src.evaluation.run --split test --multiturn --matrix_markdown --use_heavy_models
+```
+
+Outputs (under `reports/`):
+
+- `comparative_benchmark_test.json` — per-method matrix plus the
+  `conversation_aware` section (driven by the multi-turn leakage tracker).
+- `comparison_matrix_test.md` — the matrix as a markdown table.
+- `multiturn_leakage_curve.json` — cumulative leakage + per-attribute risk at
+  turn counts 1/2/4/8 (clamped to the available staged turns).
+- `multiturn_leakage_curve.png` — rendered curve, written only when matplotlib
+  is installed; the JSON is always written.
+
+Omit `--use_heavy_models` to run the fallback locally without GPU models (the
+outputs are then non-reportable, as flagged in each file).
+
+## 25.2 Multi-turn curve only
+
+The multi-turn leakage curve drives the S-06 staged protocol (section 16) over
+cumulative 1/2/4/8-turn prefixes of a committed staged sample
+(`data/evaluation/staged_turns_sample.jsonl`). To regenerate it on its own:
+
+```bash
+python -c "from src.evaluation.multiturn import run_multiturn_leakage_curve as r; r(use_heavy_models=True)"
+```
+
+## 25.3 PromptPAI secondary evaluation set (#9)
+
+The synthetic PromptPAI set is a secondary, AI-assistant-prompt-style evaluation
+input deterministically derived from the committed synthetic SynthPAI profiles
+(no downloads, no real data). A small sample is committed under
+`data/promptpai/sample.jsonl` with `data/promptpai/manifest_sample.json`.
+
+Generate the full 300-500 row set (seeded, deterministic):
+
+```bash
+python src/data/promptpai.py --source_split test --num_rows 400 \
+    --out data/promptpai/promptpai.jsonl --manifest data/promptpai/manifest.json
+```
+
+Re-generate the committed small sample:
+
+```bash
+python src/data/promptpai.py --sample --source_split test
+```
+
+> Run the generator via the file path (`python src/data/promptpai.py ...`) rather
+> than `-m src.data.promptpai`; the latter imports `src/data/__init__.py`, which
+> pulls `numpy`. The generator itself is stdlib-only (json, hashlib, random,
+> pathlib) so it runs in restricted environments.
+
+Evaluate any method against the PromptPAI set (records already match the harness
+record shape `{profile_id, text, attributes}`):
+
+```bash
+python -m src.evaluation.run --dataset promptpai --multiturn --matrix_markdown
+```
+
+## 25.4 North-star held-out leakage benchmark (P0 #1)
+
+This is the thesis deliverable: the per-attribute attribute-leakage / attack-success
+number under the **held-out** Phi-4-mini adversary, with the hosted ModernBERT risk
+model and the hosted LoRA rewriter actually loaded. It is produced by a **single
+command on a GPU host** and is an extension of the Evidence Requirements
+(section 21): a benchmark result only counts when `attacker_mode == "model"` and
+`reportable_as_held_out == true`.
+
+> **The number itself is PENDING GPU EXECUTION.** It is not produced in the
+> CPU/CI environment and must never be fabricated. A run whose adversary falls
+> back to the heuristic (`attacker_mode == "heuristic"`) is NON-REPORTABLE; the
+> harness raises instead of writing such a report when `--use_heavy_models` is
+> set. For the number to count as held-out evidence, the written payload must
+> carry `attacker_mode: "model"` and `reportable_as_held_out: true`.
+
+### Required environment (GPU host)
+
+- `RISK_MODEL_ID=AT707/inferenceguard-modernbert-risk`: the hosted ModernBERT
+  risk model (configs/models.yaml `risk_estimator.chosen = answerdotai/ModernBERT-base`).
+  `load_risk_classifier` auto-detects ModernBERT vs RoBERTa, so this does not
+  disturb the RoBERTa serving default in `web/api.py` / `scripts/score_risk_model.py`.
+- `REWRITER_MODEL_ID=AT707/inferenceguard-rewriter-v1`: the hosted LoRA rewriter.
+- Held-out adversary: `microsoft/Phi-4-mini-instruct` (the `--adversary_model_id`
+  default; different vendor / tokenizer / pretraining from the rewriter, so it is
+  never used to select rewrites or tune thresholds).
+- `transformers`, `torch`, and `huggingface_hub` installed with GPU access.
+
+### The single command
+
+```bash
+RISK_MODEL_ID=AT707/inferenceguard-modernbert-risk \
+REWRITER_MODEL_ID=AT707/inferenceguard-rewriter-v1 \
+python -m src.evaluation.run --split test --use_heavy_models --multiturn --matrix_markdown
+```
+
+The model ids can also be passed explicitly via `--risk_model_id`,
+`--rewriter_model_id`, and `--adversary_model_id` instead of the environment
+variables.
+
+### Troubleshooting / required Colab dependencies
+
+A real GPU run (for example on Colab) needs the full heavy-model stack. A partial
+install is the most common cause of a non-reportable run.
+
+- **Required pip dependencies:** `transformers`, `torch`, `accelerate`,
+  `bitsandbytes>=0.46.1`, `huggingface_hub`, `sentence-transformers`,
+  `presidio-analyzer`, `spacy`. After installing `spacy`, also download the large
+  English model: `python -m spacy download en_core_web_lg`.
+- **`HF_TOKEN` must be set.** The hosted risk model, the LoRA rewriter, and the
+  Phi-4-mini adversary are all pulled from the Hub. Unauthenticated requests fail
+  or get rate-limited, which can leave a model unloaded and silently degrade the
+  run. Export `HF_TOKEN` (or run `huggingface_hub` login) before launching.
+- **Missing `bitsandbytes` cascades into a non-reportable run.** When
+  `bitsandbytes` is absent, the quantized rewriter AND the Phi-4-mini adversary
+  both silently drop to heuristic mode (`attacker_mode == "heuristic"`). The
+  harness then CORRECTLY raises a `RuntimeError` and refuses to emit a
+  non-reportable number rather than writing a misleading report. The fix is:
+  `pip install -U "bitsandbytes>=0.46.1" accelerate`, set `HF_TOKEN`, then restart
+  the runtime so the heavy models load under GPU.
+- **Phi-4-mini loads via native transformers support (no remote code by default).**
+  `microsoft/Phi-4-mini-instruct`'s bundled `modeling_phi3.py` imports the
+  `LossKwargs` symbol (around line 38, from `transformers.utils`) that was removed
+  in transformers>=5.0, so executing that remote file fails with
+  `ImportError: cannot import name 'LossKwargs' from 'transformers.utils'`. That
+  file was only ever committed once and is present on every revision, so **no
+  Phi-4-mini-instruct revision fixes it**; pinning `ADVERSARY_REVISION` cannot
+  resolve the incompatibility. Because Phi-4-mini uses the `phi3` architecture
+  that modern transformers supports natively, the harness now loads the adversary
+  with `trust_remote_code=False` by default: transformers uses its own built-in
+  `phi3` implementation (works on transformers 5.x) and never touches the broken
+  remote file. No env var is needed for this fix; just run:
+
+  ```bash
+  RISK_MODEL_ID=AT707/inferenceguard-modernbert-risk \
+  REWRITER_MODEL_ID=AT707/inferenceguard-rewriter-v1 \
+  python -m src.evaluation.run --split test --use_heavy_models --multiturn --matrix_markdown
+  ```
+
+  The `ADVERSARY_TRUST_REMOTE_CODE` env var exists to opt back into remote code
+  (`ADVERSARY_TRUST_REMOTE_CODE=1`) only if you ever need it, but doing so on
+  transformers>=5.0 reintroduces the `LossKwargs` `ImportError`, so leave it unset
+  (the default is `False`). `ADVERSARY_REVISION` remains available as a secondary
+  revision pin but, per the finding above, does not help with the `LossKwargs`
+  incompatibility.
+- **The strict guard is intended.** The harness raising a `RuntimeError` on any
+  heuristic fallback (under `--use_heavy_models`) is deliberate behavior and must
+  NOT be weakened or bypassed. Emitting a number from a heuristic adversary would
+  violate the held-out evidence requirement; the only correct response is to fix
+  the environment so the real models load.
+
+### Attacker scoring: ground truth is normalized to the taxonomy label space
+
+The test split stores ground truth as free text (`age: "41"`,
+`location: "Bangkok, Thailand"`, `education: "Masters in Business Administration"`,
+`occupation: "business consultant"`), while the held-out adversary predicts the
+coarse taxonomy labels (`35-44`, `asia_pacific`, `master`, `business_finance`).
+`compute_method_metrics` now collapses the free-text ground truth into the
+taxonomy label space via `normalize_to_taxonomy_label` before comparing, so a
+correct coarse inference is counted. A blank or missing ground-truth value maps
+to `UNKNOWN` and is excluded from the per-attribute denominator. Values already
+stored as taxonomy labels pass through unchanged, so the inline smoke records are
+unaffected.
+
+The adversary PREDICTION side is normalized the same way. `build_attack_prompt`
+asks for one JSON object with the four attribute keys, but a real model answers
+in free text (`"late 20s"`, `"Seattle, WA"`, `"software engineer"`). The parser
+now extracts the value robustly (JSON object, else a key:value scrape) and routes
+each value through the same `normalize_to_taxonomy_label`, so a correct
+free-text guess lands on the taxonomy label instead of collapsing to `UNKNOWN`.
+An explicit `"unknown"` answer stays an abstention.
+
+The comparative harness now attaches the QLoRA adapter (`REWRITER_ADAPTER_DIR`,
+default `artifacts/rewriter_qlora`) in the `--use_heavy_models` path, so
+`prompt_baseline` (adapter disabled) and `qlora_sft` (adapter engaged) diverge
+instead of running the same model. The rewriter's rewrite-time system prompt is
+read from `self.system_prompt` (`REWRITER_SYSTEM_PROMPT`); a prior undefined name
+made every real-model rewrite fail and fall back to unchanged text. The
+multi-turn curve reuses the already-loaded adversary and tags
+`reportable_as_held_out` to match that adversary's actual mode.
+
+### Output files (under `reports/`)
+
+- `comparative_benchmark_test.json`: the per-method matrix plus the top-level
+  held-out provenance block (`attacker_model_id`, `attacker_mode`,
+  `reportable_as_held_out`, `risk_model_id`, `rewriter_model_id`), the
+  `per_attribute_attack_success` matrix, and the `asr_reduction` block (each
+  method vs the Raw baseline, overall and per attribute).
+- `comparison_matrix_test.md`: the five-row matrix (Raw / Presidio / Prompt-only /
+  Fine-tuned / Conversation-aware) with the per-row reportable flag.
+- `multiturn_leakage_curve.json` (+ `.png` when matplotlib is present): the
+  1/2/4/8-turn cumulative leakage curve driving the Conversation-aware row.
+
+The result counts as the north-star held-out number only when
+`comparative_benchmark_test.json` reports `attacker_mode: "model"` and
+`reportable_as_held_out: true`. Until the GPU run is executed and these files are
+committed with those flags true, the north-star number remains **PENDING GPU
+EXECUTION** and no value may be reported.
+
+### Runtime progress and expected duration
+
+- The heavy run processes samples sequentially, and each sample runs several LLM
+  generations (rewriter plus the Phi-4-mini adversary), so it is not fast. Expect
+  minutes for `--limit 50` and roughly 1-4 hours for the full `test` split on an
+  A100. Run a small `--limit N` smoke check first to confirm the run is
+  reportable before launching the full split.
+- A `tqdm` progress bar (one bar per method, with throughput and ETA) and a
+  device banner now print at startup. Confirm the banner reports `cuda` and the
+  A100 name rather than CPU, and watch `nvidia-smi` in a second cell for
+  `GPU-Util > 0` to confirm the GPU is actually working.
+- Set `IG_REQUIRE_CUDA=1` to make the run fail fast with a clear error when CUDA
+  is unavailable, instead of silently falling back to a very slow CPU run. It is
+  unset by default, so CPU environments are unaffected.
+
 
 
