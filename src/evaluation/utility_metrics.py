@@ -403,9 +403,11 @@ def main() -> None:
     parser.add_argument("--compare_baseline", action="store_true", help="Compare fine-tuned student against static prompt baseline")
     parser.add_argument("--num_samples", type=int, default=50, help="Number of held-out test samples to evaluate")
     parser.add_argument("--output_report", type=str, default="reports/heldout_utility_metrics.json", help="Path to write evaluation report")
+    parser.add_argument("--load_models", action="store_true", default=True, help="Load real NLI and embedding models")
+    parser.add_argument("--no_load_models", action="store_false", dest="load_models", help="Disable loading heavy models")
     args = parser.parse_args()
 
-    evaluator = BidirectionalUtilityEvaluator()
+    evaluator = BidirectionalUtilityEvaluator(load_models=args.load_models)
 
     student_rewriter = None
     if args.adapter_dir or args.base_model:

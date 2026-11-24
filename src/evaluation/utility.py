@@ -136,9 +136,11 @@ class UtilityEvaluator:
         similarity_model_name: str = "sentence-transformers/all-MiniLM-L6-v2",
         nli_model_name: str = "cross-encoder/nli-deberta-v3-large",
         load_models: bool = False,
+        device: str = "cpu",
     ) -> None:
         self.similarity_model_name = similarity_model_name
         self.nli_model_name = nli_model_name
+        self.device = device
         self.similarity_model = None
         self.nli_pipeline = None
 
@@ -149,7 +151,7 @@ class UtilityEvaluator:
         """Attempt to load HuggingFace models for similarity and NLI."""
         try:
             from sentence_transformers import SentenceTransformer
-            self.similarity_model = SentenceTransformer(self.similarity_model_name)
+            self.similarity_model = SentenceTransformer(self.similarity_model_name, device=self.device)
         except Exception as e:
             logger.info(f"SentenceTransformer not loaded ({e}). Attempting transformers AutoModel fallback.")
             try:
@@ -157,17 +159,20 @@ class UtilityEvaluator:
                 import torch
 
                 class _HFSimilarityModel:
-                    def __init__(self, model_name: str):
+                    def __init__(self, model_name: str, target_device: str = "cpu"):
+                        self.device = target_device
                         try:
                             self.tokenizer = AutoTokenizer.from_pretrained(model_name, local_files_only=True)
                             self.model = AutoModel.from_pretrained(model_name, local_files_only=True)
                         except Exception:
                             self.tokenizer = AutoTokenizer.from_pretrained(model_name)
                             self.model = AutoModel.from_pretrained(model_name)
+                        self.model.to(self.device)
                         self.model.eval()
 
                     def encode(self, text: str, convert_to_tensor: bool = True):
                         inputs = self.tokenizer(text, padding=True, truncation=True, max_length=512, return_tensors="pt")
+                        inputs = {k: v.to(self.device) for k, v in inputs.items()}
                         with torch.no_grad():
                             out = self.model(**inputs)
                             mask = inputs["attention_mask"].unsqueeze(-1)
@@ -175,20 +180,30 @@ class UtilityEvaluator:
                             emb = torch.nn.functional.normalize(emb, p=2, dim=1)
                             return emb.squeeze(0) if convert_to_tensor else emb.squeeze(0).cpu().numpy()
 
-                self.similarity_model = _HFSimilarityModel(self.similarity_model_name)
-                logger.info(f"Loaded similarity model via transformers: {self.similarity_model_name}")
+                self.similarity_model = _HFSimilarityModel(self.similarity_model_name, target_device=self.device)
+                logger.info(f"Loaded similarity model via transformers on {self.device}: {self.similarity_model_name}")
             except Exception as exc:
                 logger.info(f"Similarity model not loaded ({exc}). Using deterministic token embedding.")
 
         try:
             import os
             from transformers import pipeline
-            # Check local files first to prevent unauthenticated multi-GB download hangs
+            pipe_device = -1 if str(self.device).lower() == "cpu" else self.device
+            # Check local files first to prevent unauthenticated multi-GB download hangs in CI
             try:
-                self.nli_pipeline = pipeline("text-classification", model=self.nli_model_name, model_kwargs={"local_files_only": True})
+                self.nli_pipeline = pipeline(
+                    "text-classification",
+                    model=self.nli_model_name,
+                    device=pipe_device,
+                    model_kwargs={"local_files_only": True},
+                )
             except Exception:
                 if os.environ.get("IG_DOWNLOAD_LARGE_MODELS", "0") == "1":
-                    self.nli_pipeline = pipeline("text-classification", model=self.nli_model_name)
+                    self.nli_pipeline = pipeline(
+                        "text-classification",
+                        model=self.nli_model_name,
+                        device=pipe_device,
+                    )
                 else:
                     logger.info("NLI cross-encoder not cached locally. Using deterministic NLI logic.")
         except Exception as e:

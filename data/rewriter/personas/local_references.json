@@ -3,8 +3,10 @@
   "generalizations": ["public transportation", "the local transit system", "my area"],
   "note": "Indirect location cues: transit lines, landmarks, local institutions and customs. These are what an attacker uses to infer location when no city name is present.",
   "entries": [
-    {"value": "the Green Line", "city": "Boston", "kind": "transit", "generalizations": ["public transportation"]},
-    {"value": "the Red Line", "city": "Chicago", "kind": "transit", "generalizations": ["public transportation"]},
+    {"value": "the Green Line", "variants": ["Green Line"], "city": "Boston", "kind": "transit", "generalizations": ["public transportation"]},
+    {"value": "the Red Line", "variants": ["Red Line"], "city": "Chicago", "kind": "transit", "generalizations": ["public transportation"]},
+    {"value": "Back Bay", "city": "Boston", "kind": "landmark", "generalizations": ["the area"]},
+    {"value": "Kendall Square", "city": "Cambridge", "kind": "landmark", "generalizations": ["a nearby district"]},
     {"value": "the T", "city": "Boston", "kind": "transit", "generalizations": ["public transportation"]},
     {"value": "the L", "city": "Chicago", "kind": "transit", "generalizations": ["public transportation"]},
     {"value": "the Muni", "city": "San Francisco", "kind": "transit", "generalizations": ["public transportation"]},

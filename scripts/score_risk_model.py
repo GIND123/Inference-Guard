@@ -115,12 +115,49 @@ def load_served_model(model_id: str, device: str):
 
 
 def detect_layout(model_id: str) -> str:
-    """'multitask' when the repo or dir holds multitask_heads.pt, else 'roberta'."""
+    """'modernbert_bce' when risk_model_config.json is present, 'multitask' for multitask_heads.pt, else 'roberta'."""
     from src.risk_model.model import _available_model_files
 
     path = Path(model_id)
     files = {p.name for p in path.iterdir()} if path.is_dir() else _available_model_files(model_id)
+    if "risk_model_config.json" in files:
+        return "modernbert_bce"
     return "multitask" if "multitask_heads.pt" in files else "roberta"
+
+
+def load_modernbert_bce_model(model_id: str, device: str):
+    """Load ModernBertRiskClassifier through the product loader."""
+    from src.risk_model.model import ModernBertRiskClassifier, load_risk_classifier
+
+    served = load_risk_classifier(model_id, device=device)
+    if not isinstance(served, ModernBertRiskClassifier):
+        raise RuntimeError(f"Expected ModernBertRiskClassifier for {model_id}, got {type(served).__name__}")
+
+    tokenizer_name = getattr(served, "model_name", "answerdotai/ModernBERT-base")
+    facts = {
+        "layout": "modernbert_bce",
+        "model_name": tokenizer_name,
+        "num_heads": served.num_heads,
+        "parameters": sum(p.numel() for p in served.parameters()),
+        "temperatures": served.get_temperatures(),
+    }
+    return served, facts
+
+
+def score_modernbert_bce(model, tokenizer, texts: Sequence[str], device: str, batch_size: int):
+    """Score texts using ModernBertRiskClassifier sigmoid probabilities with temperature."""
+    import torch
+
+    probs: Dict[str, List[float]] = {a: [] for a in ATTRIBUTES}
+    for i in range(0, len(texts), batch_size):
+        enc = tokenizer(list(texts[i:i + batch_size]), return_tensors="pt", truncation=True,
+                        max_length=512, padding=True).to(device)
+        with torch.no_grad():
+            logits = model(input_ids=enc["input_ids"], attention_mask=enc["attention_mask"], apply_temperature=True)
+        for k, a in enumerate(ATTRIBUTES):
+            p = torch.sigmoid(logits[k].view(-1)).cpu().tolist()
+            probs[a].extend(p)
+    return probs
 
 
 def load_multitask_model(model_id: str, device: str):
@@ -296,7 +333,14 @@ def main(argv: Optional[Sequence[str]] = None) -> Dict[str, Any]:
     t0 = time.perf_counter()
     served_bands: Optional[Dict[str, List[str]]] = None
     class_task: Optional[Dict[str, Any]] = None
-    if layout == "multitask":
+    if layout == "modernbert_bce":
+        model, model_facts = load_modernbert_bce_model(args.model_id, args.device)
+        tokenizer_id = model_facts.get("model_name", "answerdotai/ModernBERT-base")
+        tok_source = args.model_id if (Path(args.model_id).exists() and (Path(args.model_id) / "tokenizer.json").exists()) else tokenizer_id
+        tokenizer = AutoTokenizer.from_pretrained(tok_source)
+        probs = score_modernbert_bce(model, tokenizer, texts, args.device, args.batch_size)
+        temperatures = dict(zip(ATTRIBUTES, model.get_temperatures()))
+    elif layout == "multitask":
         model, model_facts = load_multitask_model(args.model_id, args.device)
         # The tokenizer CalibratedRiskPredictor.from_pretrained uses for this layout: the repo's own.
         tokenizer_id = args.model_id

@@ -101,9 +101,24 @@ class SyntaxAlignedCueAttributor:
         batch_mask = attention_mask.repeat(self.ig_steps, 1)
 
         try:
-            logits_batch = self.model.forward_from_embeds(interp_embeds, batch_mask)
+            if hasattr(self.model, "forward_from_embeds"):
+                logits_batch = self.model.forward_from_embeds(interp_embeds, batch_mask)
+            else:
+                out = self.model(inputs_embeds=interp_embeds, attention_mask=batch_mask)
+                logits_batch = out["logits"] if isinstance(out, dict) and "logits" in out else out
+                if isinstance(logits_batch, (list, tuple)):
+                    from src.risk_model.model import ATTRIBUTES
+                    logits_batch = {ATTRIBUTES[idx]: logits_batch[idx] for idx in range(min(len(ATTRIBUTES), len(logits_batch)))}
+
             with torch.no_grad():
-                base_logits = self.model(input_ids, attention_mask)["logits"]
+                base_out = self.model(input_ids, attention_mask)
+                if isinstance(base_out, dict) and "logits" in base_out:
+                    base_logits = base_out["logits"]
+                elif isinstance(base_out, (list, tuple)):
+                    from src.risk_model.model import ATTRIBUTES
+                    base_logits = {ATTRIBUTES[idx]: base_out[idx] for idx in range(min(len(ATTRIBUTES), len(base_out)))}
+                else:
+                    base_logits = base_out
                 base_distributions = self.scaler.score_logits(base_logits)
         except Exception:
             return self._heuristic_fallback_cues(text, target_attributes)
@@ -116,10 +131,15 @@ class SyntaxAlignedCueAttributor:
                 continue
 
             temp = float(self.scaler.get_temperature(attr).item())
-            probs_steps = F.softmax(logits_batch[key] / temp, dim=-1)
-            top_class_idx = int(torch.argmax(probs_steps[-1]).item())
+            attr_logits = logits_batch[key]
+            if attr_logits.shape[-1] == 1:
+                probs_steps = torch.sigmoid(attr_logits / temp)
+                target_score = probs_steps.sum()
+            else:
+                probs_steps = F.softmax(attr_logits / temp, dim=-1)
+                top_class_idx = int(torch.argmax(probs_steps[-1]).item())
+                target_score = probs_steps[:, top_class_idx].sum()
 
-            target_score = probs_steps[:, top_class_idx].sum()
             grads = torch.autograd.grad(
                 outputs=target_score,
                 inputs=interp_embeds,
@@ -227,7 +247,16 @@ class SyntaxAlignedCueAttributor:
         b_input_ids = batch_enc["input_ids"].to(self.device)
         b_attention_mask = batch_enc["attention_mask"].to(self.device)
 
-        logits_dict = self.model(b_input_ids, b_attention_mask)["logits"]
+        b_out = self.model(b_input_ids, b_attention_mask)
+        if isinstance(b_out, dict) and "logits" in b_out:
+            logits_dict = b_out["logits"]
+        elif isinstance(b_out, (list, tuple)):
+            from src.risk_model.model import ATTRIBUTES
+            logits_dict = {ATTRIBUTES[idx]: b_out[idx] for idx in range(min(len(ATTRIBUTES), len(b_out)))}
+        elif isinstance(b_out, dict):
+            logits_dict = b_out
+        else:
+            logits_dict = {}
         cues: List[AttributedCue] = []
 
         for idx, (s, e, ig_norm) in enumerate(candidate_spans):

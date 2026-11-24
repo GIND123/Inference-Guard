@@ -27,8 +27,8 @@ rewriter:
   checkpoint: artifacts/rewriter_qlora
 
 training_provenance:
-  teacher_manifest_file: data/sft/teacher_v1/manifest_train.json
-  training_dataset_file: data/sft/teacher_v1/train.jsonl
+  teacher_manifest_file: data/sft/teacher_v2/manifest_train.json
+  training_dataset_file: data/sft/teacher_v2/train.jsonl
   require_teacher_manifest_clean_git: true
   require_training_dataset_hash_match: true
   require_train_split_hash_match: true
@@ -44,7 +44,7 @@ student_provenance:
   targets:
     local_student:
       role: local_first
-      base_model: Qwen/Qwen2.5-0.5B-Instruct
+      base_model: Qwen/Qwen2.5-1.5B-Instruct
       adapter_dir: artifacts/rewriter_qlora
       adapter_manifest_file: artifacts/rewriter_qlora/training_manifest.json
 

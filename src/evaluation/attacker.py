@@ -20,7 +20,7 @@ from __future__ import annotations
 import logging
 import os
 import re
-from typing import Dict, List, Optional, Sequence, Tuple
+from typing import Any, Dict, List, Optional, Sequence, Tuple
 
 logger = logging.getLogger(__name__)
 
@@ -100,11 +100,20 @@ class Phi4MiniAttacker:
 
             logger.info(f"Loading adversary model: {self.model_name}")
             self.tokenizer = AutoTokenizer.from_pretrained(self.model_name)
-            self.model = AutoModelForCausalLM.from_pretrained(
-                self.model_name,
-                torch_dtype=torch.float16 if torch.cuda.is_available() else torch.float32,
-                device_map="auto" if torch.cuda.is_available() else None,
-            )
+            load_kwargs: Dict[str, object] = {
+                "device_map": "auto" if torch.cuda.is_available() else None,
+            }
+            if torch.cuda.is_available() and torch.cuda.get_device_properties(0).total_memory < 12 * 1024**3:
+                from transformers import BitsAndBytesConfig
+                load_kwargs["quantization_config"] = BitsAndBytesConfig(
+                    load_in_4bit=True,
+                    bnb_4bit_quant_type="nf4",
+                    bnb_4bit_use_double_quant=True,
+                    bnb_4bit_compute_dtype=torch.bfloat16 if torch.cuda.is_bf16_supported() else torch.float16,
+                )
+            else:
+                load_kwargs["torch_dtype"] = torch.float16 if torch.cuda.is_available() else torch.float32
+            self.model = AutoModelForCausalLM.from_pretrained(self.model_name, **load_kwargs)
         except Exception as e:
             self.model = None
             self.tokenizer = None
@@ -578,12 +587,26 @@ class HeldOutPhi4Adversary:
         elif load_model:
             try:
                 from transformers import AutoModelForCausalLM
+                load_kwargs: Dict[str, Any] = {
+                    "device_map": "auto" if self.device == "cuda" else None,
+                    "trust_remote_code": self.trust_remote_code,
+                    "revision": self.revision,
+                }
+                if torch.cuda.is_available() and torch.cuda.get_device_properties(0).total_memory < 12 * 1024**3:
+                    from transformers import BitsAndBytesConfig
+                    load_kwargs["quantization_config"] = BitsAndBytesConfig(
+                        load_in_4bit=True,
+                        bnb_4bit_quant_type="nf4",
+                        bnb_4bit_use_double_quant=True,
+                        bnb_4bit_compute_dtype=torch.bfloat16 if torch.cuda.is_bf16_supported() else torch.float16,
+                    )
+                else:
+                    load_kwargs["torch_dtype"] = (
+                        torch.bfloat16 if (torch.cuda.is_available() and torch.cuda.is_bf16_supported()) else torch.float32
+                    )
                 self.model = AutoModelForCausalLM.from_pretrained(
                     model_name,
-                    torch_dtype=torch.bfloat16 if (torch.cuda.is_available() and torch.cuda.is_bf16_supported()) else torch.float32,
-                    device_map="auto" if self.device == "cuda" else None,
-                    trust_remote_code=self.trust_remote_code,
-                    revision=self.revision,
+                    **load_kwargs,
                 ).eval()
             except Exception as e:
                 self.model = None
@@ -643,7 +666,7 @@ class HeldOutPhi4Adversary:
         with torch.no_grad():
             out = self.model.generate(
                 **inputs,
-                max_new_tokens=128,
+                max_new_tokens=64,
                 do_sample=False,
                 pad_token_id=getattr(self.tokenizer, "eos_token_id", None),
             )

@@ -54,13 +54,9 @@ def test_scenario_s01_tech_worker_relocation():
     candidates = generate_candidate_rewrites_heuristic(input_text)
     assert len(candidates) > 0
 
-    # The v1 heuristic's location regex swallowed everything after "from
-    # Denver", leaving "I am moving locally." -- 4 of 21 tokens, the job gone.
-    # That collapsed candidate is still produced and must still be rejected by
-    # the degeneracy rule.
-    degenerates = [c for c in candidates if check_degeneracy(input_text, c)["degenerate"]]
-    assert degenerates, "the collapsed 'I am moving locally.' candidate should still be flagged"
-    assert all(check_degeneracy(input_text, c)["degenerate"] for c in degenerates)
+    # Degeneracy rule must still flag a collapsed rewrite such as "I am moving locally."
+    assert check_degeneracy(input_text, "I am moving locally.")["degenerate"]
+    assert all(c.strip() != "I am moving locally." for c in candidates)
 
     # v2 fix: the heuristic also produces a non-degenerate candidate that
     # keeps the job-search utility (moving, starting a role) while replacing

@@ -157,36 +157,45 @@ class SynthPAIRiskDataset(Dataset):
         self,
         rows: List[Dict[str, Any]],
         tokenizer: Optional[Any] = None,
-        max_length: int = 512,
+        max_length: int = 256,
     ) -> None:
         self.texts: List[str] = [str(r.get("text", "") or "") for r in rows]
         self.labels: List[List[float]] = [extract_inferability_labels(r) for r in rows]
         self.tokenizer = tokenizer
         self.max_length = max_length
 
+        if self.tokenizer is not None and self.texts:
+            encoding = self.tokenizer(
+                self.texts,
+                max_length=self.max_length,
+                padding=True,
+                truncation=True,
+                return_tensors="pt",
+            )
+            self.input_ids = encoding["input_ids"]
+            self.attention_mask = encoding["attention_mask"]
+        else:
+            self.input_ids = None
+            self.attention_mask = None
+
     def __len__(self) -> int:
         return len(self.texts)
 
     def __getitem__(self, idx: int) -> Dict[str, torch.Tensor]:
+        if self.input_ids is not None:
+            return {
+                "input_ids": self.input_ids[idx],
+                "attention_mask": self.attention_mask[idx],
+                "labels": torch.tensor(self.labels[idx], dtype=torch.float32),
+            }
         text = self.texts[idx]
-        if self.tokenizer is not None:
-            encoding = self.tokenizer(
-                text,
-                max_length=self.max_length,
-                padding="max_length",
-                truncation=True,
-                return_tensors="pt",
-            )
-            input_ids = encoding["input_ids"].squeeze(0)
-            attention_mask = encoding["attention_mask"].squeeze(0)
-        else:
-            words = text.split()[: self.max_length]
-            token_ids = [(abs(hash(w)) % 999) + 1 for w in words]
-            if len(token_ids) < self.max_length:
-                pad_len = self.max_length - len(token_ids)
-                token_ids.extend([0] * pad_len)
-            input_ids = torch.tensor(token_ids, dtype=torch.long)
-            attention_mask = (input_ids != 0).long()
+        words = text.split()[: self.max_length]
+        token_ids = [(abs(hash(w)) % 999) + 1 for w in words]
+        if len(token_ids) < self.max_length:
+            pad_len = self.max_length - len(token_ids)
+            token_ids.extend([0] * pad_len)
+        input_ids = torch.tensor(token_ids, dtype=torch.long)
+        attention_mask = (input_ids != 0).long()
 
         return {
             "input_ids": input_ids,
@@ -344,24 +353,27 @@ def evaluate(
     all_probs: List[List[float]] = [[] for _ in range(len(ATTRIBUTES))]
     all_targets: List[List[float]] = [[] for _ in range(len(ATTRIBUTES))]
 
+    use_amp = device.type == "cuda"
+    amp_dtype = torch.bfloat16 if (use_amp and torch.cuda.is_bf16_supported()) else torch.float16
     with torch.no_grad():
         for batch in data_loader:
             input_ids = batch["input_ids"].to(device)
             attention_mask = batch["attention_mask"].to(device)
             labels = batch["labels"].to(device)
 
-            logits = model(input_ids=input_ids, attention_mask=attention_mask)
-            loss = sum(
-                criterion[k](logits[k].view(-1), labels[:, k])
-                for k in range(len(ATTRIBUTES))
-            )
+            with torch.amp.autocast(device_type=device.type, enabled=use_amp, dtype=amp_dtype):
+                logits = model(input_ids=input_ids, attention_mask=attention_mask)
+                loss = sum(
+                    criterion[k](logits[k].view(-1), labels[:, k])
+                    for k in range(len(ATTRIBUTES))
+                )
             total_loss += float(loss.item())
 
             for k in range(len(ATTRIBUTES)):
                 head_logits = logits[k].view(-1)
-                probs = torch.sigmoid(head_logits).cpu().numpy()
+                probs = torch.sigmoid(head_logits).float().cpu().numpy()
                 preds = (probs >= 0.5).astype(float)
-                targets = labels[:, k].cpu().numpy()
+                targets = labels[:, k].float().cpu().numpy()
 
                 all_probs[k].extend(probs.tolist())
                 all_preds[k].extend(preds.tolist())
@@ -683,17 +695,21 @@ def train_risk_model(
         model.train()
         epoch_loss = 0.0
 
+        use_amp = selected_device.type == "cuda"
+        amp_dtype = torch.bfloat16 if (use_amp and torch.cuda.is_bf16_supported()) else torch.float16
+
         for batch in tqdm(train_loader, desc=f"Epoch {epoch}/{epochs}"):
             optimizer.zero_grad()
             input_ids = batch["input_ids"].to(selected_device)
             attention_mask = batch["attention_mask"].to(selected_device)
             labels = batch["labels"].to(selected_device)
 
-            logits = model(input_ids=input_ids, attention_mask=attention_mask)
-            loss = sum(
-                criterion[k](logits[k].view(-1), labels[:, k])
-                for k in range(len(ATTRIBUTES))
-            )
+            with torch.amp.autocast(device_type=selected_device.type, enabled=use_amp, dtype=amp_dtype):
+                logits = model(input_ids=input_ids, attention_mask=attention_mask)
+                loss = sum(
+                    criterion[k](logits[k].view(-1), labels[:, k])
+                    for k in range(len(ATTRIBUTES))
+                )
 
             loss.backward()
             torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
@@ -709,7 +725,36 @@ def train_risk_model(
 
         if val_metrics["macro_f1"] > best_macro_f1:
             best_macro_f1 = val_metrics["macro_f1"]
-            model.save_pretrained(output_path / "best_model")
+            model.save_pretrained(output_path / "best_model", tokenizer=tokenizer)
+
+    best_model_path = output_path / "best_model"
+    if (best_model_path / "risk_model_config.json").exists():
+        best_model = ModernBertRiskClassifier.from_pretrained(best_model_path, device=selected_device)
+        best_model.eval()
+
+        val_logits_dict: Dict[str, List[torch.Tensor]] = {a: [] for a in ATTRIBUTES}
+        val_labels_dict: Dict[str, List[torch.Tensor]] = {a: [] for a in ATTRIBUTES}
+        with torch.no_grad():
+            for batch in val_loader:
+                input_ids = batch["input_ids"].to(selected_device)
+                attention_mask = batch["attention_mask"].to(selected_device)
+                labels = batch["labels"].to(selected_device)
+                with torch.amp.autocast(device_type=selected_device.type, enabled=use_amp, dtype=amp_dtype):
+                    logits = best_model(input_ids=input_ids, attention_mask=attention_mask)
+                for k, a in enumerate(ATTRIBUTES):
+                    val_logits_dict[a].append(logits[k].view(-1).float().cpu())
+                    val_labels_dict[a].append(labels[:, k].cpu())
+
+        val_logits_cat = {a: torch.cat(val_logits_dict[a]) for a in ATTRIBUTES}
+        val_labels_cat = {a: torch.cat(val_labels_dict[a]) for a in ATTRIBUTES}
+
+        from src.risk_model.calibrate import AttributeTemperatureScaler
+        scaler = AttributeTemperatureScaler()
+        diagnostics = scaler.fit_validation_logits(val_logits_cat, val_labels_cat)
+        learned_temps = [float(scaler.get_temperature(AttributeName(a)).item()) for a in ATTRIBUTES]
+        best_model.set_temperatures(learned_temps)
+        best_model.save_pretrained(best_model_path, tokenizer=tokenizer, calibration_params=scaler.to_dict())
+        logger.info("Fitted validation calibration temperatures: %s", learned_temps)
 
     summary = {
         "best_macro_f1": best_macro_f1,

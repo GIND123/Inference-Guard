@@ -35,7 +35,7 @@ ENV PYTHONUNBUFFERED=1 \
     PYTHONPATH=/app \
     PORT=8000 \
     HOST=0.0.0.0 \
-    RISK_MODEL_ID=AT707/InferenceGuard-Roberta-Risk \
+    RISK_MODEL_ID=AT707/inferenceguard-modernbert-risk \
     REWRITER_MODEL_ID=AT707/inferenceguard-rewriter-v1 \
     DEVICE=cpu
 

@@ -1,22 +1,22 @@
 {
   "rows": 2000,
   "position_distribution": {
-    "none": 71,
-    "postamble": 384,
-    "parenthetical": 486,
-    "split": 391,
-    "preamble": 386,
-    "mid_sentence": 282
+    "none": 67,
+    "postamble": 385,
+    "parenthetical": 482,
+    "split": 389,
+    "preamble": 391,
+    "mid_sentence": 286
   },
   "attribute_distribution": {
-    "age": 523,
-    "education": 535,
-    "income": 420,
-    "local_reference": 577,
-    "location": 758,
-    "occupation": 442
+    "age": 526,
+    "education": 474,
+    "income": 430,
+    "local_reference": 600,
+    "location": 755,
+    "occupation": 476
   },
-  "noop_rows": 71,
+  "noop_rows": 67,
   "target_leaks": 0,
   "leaked_ids": [],
   "note": "targets verified free of every injected surface form"

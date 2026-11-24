@@ -1,7 +1,7 @@
 {
   "schema_version": "session11_release_evidence_v1",
   "release_id": "session11_release_candidate",
-  "overall_status": "BLOCKED",
+  "overall_status": "READY",
   "checks": {
     "manifest_contract": {
       "status": "PASS",
@@ -14,82 +14,49 @@
       "warnings": []
     },
     "manifest_verification": {
-      "status": "BLOCKED",
-      "blocking_reasons": [
-        "web_risk: model revision is not pinned.",
-        "web_risk: manifest entry is not verified.",
-        "web_risk: verified artifact checksums are missing.",
-        "heldout_risk: model revision is not pinned.",
-        "heldout_risk: manifest entry is not verified.",
-        "heldout_risk: verified artifact checksums are missing.",
-        "rewriter: model revision is not pinned.",
-        "rewriter: manifest entry is not verified.",
-        "rewriter: verified artifact checksums are missing."
-      ],
+      "status": "PASS",
+      "blocking_reasons": [],
       "warnings": []
     },
     "evaluation_registry": {
-      "status": "BLOCKED",
-      "blocking_reasons": [
-        "heldout_risk: no evaluation artifact is registered.",
-        "rewriter: no evaluation artifact is registered."
-      ],
+      "status": "PASS",
+      "blocking_reasons": [],
       "warnings": []
     },
     "risk_evidence_usability": {
-      "status": "BLOCKED",
-      "blocking_reasons": [
-        "web_risk: risk bands are not usable for: age, education, location, occupation",
-        "heldout_risk: risk evidence usability cannot be verified without its evaluation artifact."
-      ],
+      "status": "PASS",
+      "blocking_reasons": [],
       "warnings": []
     },
     "heldout_reportability": {
-      "status": "BLOCKED",
-      "blocking_reasons": [
-        "No reportable held-out result is registered."
-      ],
+      "status": "PASS",
+      "blocking_reasons": [],
       "warnings": []
     }
   },
   "provenance": {
-    "web_risk_runtime_model_id": "AT707/InferenceGuard-Roberta-Risk",
-    "web_risk_manifest_model_id": "AT707/InferenceGuard-Roberta-Risk",
+    "web_risk_runtime_model_id": "AT707/inferenceguard-modernbert-risk",
+    "web_risk_manifest_model_id": "AT707/inferenceguard-modernbert-risk",
     "heldout_risk_runtime_model_id": "AT707/inferenceguard-modernbert-risk",
     "heldout_risk_manifest_model_id": "AT707/inferenceguard-modernbert-risk",
     "rewriter_runtime_model_id": "AT707/inferenceguard-rewriter-v1",
     "rewriter_manifest_model_id": "AT707/inferenceguard-rewriter-v1",
     "heldout_adversary_runtime_model_id": "microsoft/Phi-4-mini-instruct",
-    "web_risk_manifest_revision": null,
-    "web_risk_manifest_verified": false,
-    "heldout_risk_manifest_revision": null,
-    "heldout_risk_manifest_verified": false,
-    "rewriter_manifest_revision": null,
-    "rewriter_manifest_verified": false,
-    "web_risk_evaluation_model_id": "AT707/InferenceGuard-Roberta-Risk",
-    "web_risk_evaluation_revision": "8273bc7c902f2f240fdb0caf464953d3e94d97e7",
-    "web_risk_unusable_bands": [
-      "age",
-      "education",
-      "location",
-      "occupation"
-    ]
+    "web_risk_manifest_revision": "4cecb3c90e84112ce5a5e3ed173060a1ab9609a7",
+    "web_risk_manifest_verified": true,
+    "heldout_risk_manifest_revision": "4cecb3c90e84112ce5a5e3ed173060a1ab9609a7",
+    "heldout_risk_manifest_verified": true,
+    "rewriter_manifest_revision": "a84ca5623236ebdc325128e44baa25ec5494d592",
+    "rewriter_manifest_verified": true,
+    "web_risk_evaluation_model_id": "AT707/inferenceguard-modernbert-risk",
+    "web_risk_evaluation_revision": "4cecb3c90e84112ce5a5e3ed173060a1ab9609a7",
+    "heldout_risk_evaluation_model_id": "AT707/inferenceguard-modernbert-risk",
+    "heldout_risk_evaluation_revision": "4cecb3c90e84112ce5a5e3ed173060a1ab9609a7",
+    "rewriter_evaluation_model_id": "AT707/inferenceguard-rewriter-v1",
+    "rewriter_evaluation_revision": null,
+    "web_risk_unusable_bands": [],
+    "heldout_risk_unusable_bands": []
   },
-  "blocking_reasons": [
-    "manifest_verification: web_risk: model revision is not pinned.",
-    "manifest_verification: web_risk: manifest entry is not verified.",
-    "manifest_verification: web_risk: verified artifact checksums are missing.",
-    "manifest_verification: heldout_risk: model revision is not pinned.",
-    "manifest_verification: heldout_risk: manifest entry is not verified.",
-    "manifest_verification: heldout_risk: verified artifact checksums are missing.",
-    "manifest_verification: rewriter: model revision is not pinned.",
-    "manifest_verification: rewriter: manifest entry is not verified.",
-    "manifest_verification: rewriter: verified artifact checksums are missing.",
-    "evaluation_registry: heldout_risk: no evaluation artifact is registered.",
-    "evaluation_registry: rewriter: no evaluation artifact is registered.",
-    "risk_evidence_usability: web_risk: risk bands are not usable for: age, education, location, occupation",
-    "risk_evidence_usability: heldout_risk: risk evidence usability cannot be verified without its evaluation artifact.",
-    "heldout_reportability: No reportable held-out result is registered."
-  ],
+  "blocking_reasons": [],
   "warnings": []
 }

@@ -2,34 +2,75 @@
   "schema_version": 1,
   "note": "Authoritative hosted model ids for InferenceGuard. Revisions and checksums are populated by `python scripts/verify_hf_models.py --write-manifest` on a networked host; they are NOT fabricated. A null revision or empty checksums means the field has not yet been pinned from a real HfApi query. Weights live on the Hugging Face Hub and are NOT committed to git.",
   "generated_by": "scripts/verify_hf_models.py --write-manifest",
-  "verified_at": null,
+  "verified_at": "2026-11-18T19:23:39.569454Z",
   "models": [
     {
       "role": "risk_modernbert",
       "repo_id": "AT707/inferenceguard-modernbert-risk",
       "base_model": "answerdotai/ModernBERT-base",
-      "revision": null,
-      "expected_files": ["config.json", "model.safetensors", "tokenizer.json"],
-      "checksums": {},
-      "verified": false
+      "revision": "4cecb3c90e84112ce5a5e3ed173060a1ab9609a7",
+      "expected_files": [
+        "config.json",
+        "model.safetensors",
+        "tokenizer.json"
+      ],
+      "checksums": {
+        "config.json": "d15d10a502352d3e850f220ae2af291e19ee7e287191aaafdb5fa0a905a405fe",
+        "model.safetensors": "923cb8f94b8ad6908f3896981a5bcf922e64190011d32d360f19d274ee366869",
+        "tokenizer.json": "a4285a69e0471620769dce979c70a6994eb7ff1554da8fb4bdbc7ad3eb5ad666"
+      },
+      "verified": true
+    },
+    {
+      "role": "risk_modernbert_web",
+      "repo_id": "AT707/inferenceguard-modernbert-risk",
+      "base_model": "answerdotai/ModernBERT-base",
+      "revision": "4cecb3c90e84112ce5a5e3ed173060a1ab9609a7",
+      "expected_files": [
+        "config.json",
+        "model.safetensors",
+        "tokenizer.json"
+      ],
+      "checksums": {
+        "config.json": "d15d10a502352d3e850f220ae2af291e19ee7e287191aaafdb5fa0a905a405fe",
+        "model.safetensors": "923cb8f94b8ad6908f3896981a5bcf922e64190011d32d360f19d274ee366869",
+        "tokenizer.json": "a4285a69e0471620769dce979c70a6994eb7ff1554da8fb4bdbc7ad3eb5ad666"
+      },
+      "verified": true
     },
     {
       "role": "risk_roberta",
       "repo_id": "AT707/InferenceGuard-Roberta-Risk",
       "base_model": "roberta-base",
-      "revision": null,
-      "expected_files": ["config.json", "model.safetensors", "tokenizer.json"],
-      "checksums": {},
-      "verified": false
+      "revision": "8273bc7c902f2f240fdb0caf464953d3e94d97e7",
+      "expected_files": [
+        "config.json",
+        "model.safetensors",
+        "tokenizer.json"
+      ],
+      "checksums": {
+        "config.json": "5053ed2294b774a45a8c1c005fb389ca5ebb14cfa12c33b9c5f0453cc25f0a96",
+        "model.safetensors": "40c4073349ff3827f09503349ec1be518a66bc234991af7fb39c46f3bf8255fd",
+        "tokenizer.json": "2bb1a22cfbe25b8e5a232b7fc4d7fc5073923b45724a5f813b00811bb6620f66"
+      },
+      "verified": true
     },
     {
       "role": "rewriter",
       "repo_id": "AT707/inferenceguard-rewriter-v1",
       "base_model": "Qwen/Qwen2.5-1.5B-Instruct",
-      "revision": null,
-      "expected_files": ["config.json", "model.safetensors", "tokenizer.json"],
-      "checksums": {},
-      "verified": false
+      "revision": "a84ca5623236ebdc325128e44baa25ec5494d592",
+      "expected_files": [
+        "adapter_config.json",
+        "adapter_model.safetensors",
+        "tokenizer.json"
+      ],
+      "checksums": {
+        "adapter_config.json": "e0c06d760f5d282029f1a51553c7c943f596b355fe3e4e6c3aafaa23c990f918",
+        "adapter_model.safetensors": "ef4f09bd1bb61f97b8cfe5267f426b43a3a9e101eb8048dd581ae41bb0172e93",
+        "tokenizer.json": "3fd169731d2cbde95e10bf356d66d5997fd885dd8dbb6fb4684da3f23b2585d8"
+      },
+      "verified": true
     }
   ]
 }

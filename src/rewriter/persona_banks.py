@@ -203,17 +203,25 @@ def neutralize_text(text: str, matcher: Optional[PersonaMatcher] = None) -> str:
         if m.attribute == "education":
             if PROSPECTIVE_TARGET_HEAD.search(head) or TARGET_PROGRAM_INST.search(head):
                 continue
+        if m.attribute == "location" and re.match(
+            r"\s+(?:Children'?s\s+)?(?:Hospital|Medical\s+Center|University|College|Institute|Clinic)\b",
+            tail,
+            re.IGNORECASE,
+        ):
+            continue
         if m.generalizations:
             replacement = re.sub(r"^(?:a|an|the)\s+", "", m.generalizations[0], flags=re.IGNORECASE)
         else:
             replacement = ""
         out = out[: m.start] + replacement + out[m.end :]
     # Tidy grammar artifacts left by mechanical substitution.
+    out = re.sub(r"\b(ADDRESS_\d+)\s+in\s+(?:my area|the area|my city)\b", r"\1", out, flags=re.IGNORECASE)
+    out = re.sub(r"\b(my area|the area|my city),\s*[A-Z]{2}\b", r"\1", out)
     out = re.sub(r"\s{2,}", " ", out)
     out = re.sub(r"\s+([,.;:!?])", r"\1", out)
     out = re.sub(r"(?<!\w),\s*,", ",", out)
     out = re.sub(r"^\s*[,;:]\s*", "", out)
-    # "as a my role" / "a a service job" -> keep only the later determiner.
+    # "as a my role" / "a the area" / "a a service job" -> keep only the later determiner.
     out = re.sub(r"\b(?:a|an|the)\s+(?=(?:a|an|the|my)\b)", "", out, flags=re.IGNORECASE)
     # Fix a/an agreement on the word that now follows the determiner.
     out = re.sub(r"\ba\s+(?=[aeiouAEIOU]|(?:MBA|MD|MS|MA|HR|LLC)\b)", "an ", out)

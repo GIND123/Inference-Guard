@@ -1,0 +1,386 @@
+{
+  "attributes": {
+    "age": {
+      "ece": 0.06206475988700565,
+      "mce": 0.7756666666666666,
+      "brier_score": 0.07509376508107345,
+      "n_bins": 10,
+      "bin_edges": [
+        0.0,
+        0.1,
+        0.2,
+        0.30000000000000004,
+        0.4,
+        0.5,
+        0.6000000000000001,
+        0.7000000000000001,
+        0.8,
+        0.9,
+        1.0
+      ],
+      "bin_confidences": [
+        0.03362705338809035,
+        0.14130426395939089,
+        0.24355712328767123,
+        0.3463975,
+        0.45052352941176466,
+        0.5415032142857144,
+        0.6439755555555555,
+        0.75732,
+        0.859,
+        0.9407720000000002
+      ],
+      "bin_accuracies": [
+        0.02566735112936345,
+        0.1218274111675127,
+        0.1643835616438356,
+        0.057692307692307696,
+        0.11764705882352941,
+        0.14285714285714285,
+        0.2222222222222222,
+        0.13043478260869565,
+        0.08333333333333333,
+        0.6
+      ],
+      "bin_counts": [
+        974,
+        197,
+        73,
+        52,
+        34,
+        28,
+        18,
+        23,
+        12,
+        5
+      ],
+      "band_validations": {
+        "LOW": {
+          "band_name": "LOW",
+          "threshold_range": [
+            0.0,
+            0.3
+          ],
+          "sample_count": 1244,
+          "mean_confidence": 0.06299787781350483,
+          "empirical_accuracy": 0.04903536977491962,
+          "calibration_gap": 0.01396250803858521,
+          "is_well_calibrated": true
+        },
+        "MEDIUM": {
+          "band_name": "MEDIUM",
+          "threshold_range": [
+            0.3,
+            0.6
+          ],
+          "sample_count": 114,
+          "mean_confidence": 0.4253733333333333,
+          "empirical_accuracy": 0.09649122807017543,
+          "calibration_gap": 0.32888210526315786,
+          "is_well_calibrated": false
+        },
+        "HIGH": {
+          "band_name": "HIGH",
+          "threshold_range": [
+            0.6,
+            1.0
+          ],
+          "sample_count": 58,
+          "mean_confidence": 0.7589962068965519,
+          "empirical_accuracy": 0.1896551724137931,
+          "calibration_gap": 0.5693410344827587,
+          "is_well_calibrated": false
+        }
+      },
+      "is_calibrated": false,
+      "temperature": 1.536633
+    },
+    "location": {
+      "ece": 0.015358333333333333,
+      "mce": 0.40498500000000004,
+      "brier_score": 0.02700688459124294,
+      "n_bins": 10,
+      "bin_edges": [
+        0.0,
+        0.1,
+        0.2,
+        0.30000000000000004,
+        0.4,
+        0.5,
+        0.6000000000000001,
+        0.7000000000000001,
+        0.8,
+        0.9,
+        1.0
+      ],
+      "bin_confidences": [
+        0.01659909231962762,
+        0.13266444444444445,
+        0.2511407692307692,
+        0.3347428571428571,
+        0.4676333333333334,
+        0.5360624999999999,
+        0.654985,
+        0.71763,
+        0.8636966666666667,
+        0.97331
+      ],
+      "bin_accuracies": [
+        0.013964313421256789,
+        0.022222222222222223,
+        0.07692307692307693,
+        0.2857142857142857,
+        0.5,
+        0.5,
+        0.25,
+        0.4,
+        0.5,
+        0.7727272727272727
+      ],
+      "bin_counts": [
+        1289,
+        45,
+        13,
+        14,
+        6,
+        12,
+        4,
+        5,
+        6,
+        22
+      ],
+      "band_validations": {
+        "LOW": {
+          "band_name": "LOW",
+          "threshold_range": [
+            0.0,
+            0.3
+          ],
+          "sample_count": 1347,
+          "mean_confidence": 0.022740133630289535,
+          "empirical_accuracy": 0.014847809948032665,
+          "calibration_gap": 0.00789232368225687,
+          "is_well_calibrated": true
+        },
+        "MEDIUM": {
+          "band_name": "MEDIUM",
+          "threshold_range": [
+            0.3,
+            0.6
+          ],
+          "sample_count": 32,
+          "mean_confidence": 0.43515468749999997,
+          "empirical_accuracy": 0.40625,
+          "calibration_gap": 0.02890468749999997,
+          "is_well_calibrated": true
+        },
+        "HIGH": {
+          "band_name": "HIGH",
+          "threshold_range": [
+            0.6,
+            1.0
+          ],
+          "sample_count": 37,
+          "mean_confidence": 0.8865700000000001,
+          "empirical_accuracy": 0.6216216216216216,
+          "calibration_gap": 0.2649483783783785,
+          "is_well_calibrated": false
+        }
+      },
+      "is_calibrated": true,
+      "temperature": 1.369108
+    },
+    "occupation": {
+      "ece": 0.11180306497175142,
+      "mce": 0.25186038095238095,
+      "brier_score": 0.1251039013081921,
+      "n_bins": 10,
+      "bin_edges": [
+        0.0,
+        0.1,
+        0.2,
+        0.30000000000000004,
+        0.4,
+        0.5,
+        0.6000000000000001,
+        0.7000000000000001,
+        0.8,
+        0.9,
+        1.0
+      ],
+      "bin_confidences": [
+        0.05511394990366089,
+        0.13858281746031748,
+        0.24789456000000004,
+        0.34365370370370374,
+        0.4506017241379311,
+        0.5489945161290322,
+        0.6511049315068492,
+        0.751015625,
+        0.8518603809523809,
+        0.9318155844155843
+      ],
+      "bin_accuracies": [
+        0.030828516377649325,
+        0.06349206349206349,
+        0.12,
+        0.13580246913580246,
+        0.22413793103448276,
+        0.3548387096774194,
+        0.410958904109589,
+        0.5625,
+        0.6,
+        0.7662337662337663
+      ],
+      "bin_counts": [
+        519,
+        252,
+        125,
+        81,
+        58,
+        62,
+        73,
+        64,
+        105,
+        77
+      ],
+      "band_validations": {
+        "LOW": {
+          "band_name": "LOW",
+          "threshold_range": [
+            0.0,
+            0.3
+          ],
+          "sample_count": 896,
+          "mean_confidence": 0.10548418526785715,
+          "empirical_accuracy": 0.052455357142857144,
+          "calibration_gap": 0.053028828125000003,
+          "is_well_calibrated": true
+        },
+        "MEDIUM": {
+          "band_name": "MEDIUM",
+          "threshold_range": [
+            0.3,
+            0.6
+          ],
+          "sample_count": 201,
+          "mean_confidence": 0.4378532835820896,
+          "empirical_accuracy": 0.22885572139303484,
+          "calibration_gap": 0.20899756218905474,
+          "is_well_calibrated": false
+        },
+        "HIGH": {
+          "band_name": "HIGH",
+          "threshold_range": [
+            0.6,
+            1.0
+          ],
+          "sample_count": 319,
+          "mean_confidence": 0.8049868338557994,
+          "empirical_accuracy": 0.5893416927899686,
+          "calibration_gap": 0.21564514106583077,
+          "is_well_calibrated": false
+        }
+      },
+      "is_calibrated": false,
+      "temperature": 1.792065
+    },
+    "education": {
+      "ece": 0.05163856638418079,
+      "mce": 0.31207913043478264,
+      "brier_score": 0.07097827254950564,
+      "n_bins": 10,
+      "bin_edges": [
+        0.0,
+        0.1,
+        0.2,
+        0.30000000000000004,
+        0.4,
+        0.5,
+        0.6000000000000001,
+        0.7000000000000001,
+        0.8,
+        0.9,
+        1.0
+      ],
+      "bin_confidences": [
+        0.03843159292035398,
+        0.13877022900763358,
+        0.24638608695652173,
+        0.35378710526315793,
+        0.44251391304347826,
+        0.5506982142857143,
+        0.650458,
+        0.7496875000000001,
+        0.8556761764705882,
+        0.9469101851851852
+      ],
+      "bin_accuracies": [
+        0.029498525073746312,
+        0.11450381679389313,
+        0.10869565217391304,
+        0.05263157894736842,
+        0.13043478260869565,
+        0.35714285714285715,
+        0.36,
+        0.5,
+        0.6764705882352942,
+        0.7222222222222222
+      ],
+      "bin_counts": [
+        1017,
+        131,
+        46,
+        38,
+        23,
+        28,
+        25,
+        20,
+        34,
+        54
+      ],
+      "band_validations": {
+        "LOW": {
+          "band_name": "LOW",
+          "threshold_range": [
+            0.0,
+            0.3
+          ],
+          "sample_count": 1194,
+          "mean_confidence": 0.05745191792294807,
+          "empirical_accuracy": 0.04187604690117253,
+          "calibration_gap": 0.015575871021775538,
+          "is_well_calibrated": true
+        },
+        "MEDIUM": {
+          "band_name": "MEDIUM",
+          "threshold_range": [
+            0.3,
+            0.6
+          ],
+          "sample_count": 89,
+          "mean_confidence": 0.43866606741573033,
+          "empirical_accuracy": 0.16853932584269662,
+          "calibration_gap": 0.27012674157303374,
+          "is_well_calibrated": false
+        },
+        "HIGH": {
+          "band_name": "HIGH",
+          "threshold_range": [
+            0.6,
+            1.0
+          ],
+          "sample_count": 133,
+          "mean_confidence": 0.8382055639097743,
+          "empirical_accuracy": 0.6090225563909775,
+          "calibration_gap": 0.22918300751879683,
+          "is_well_calibrated": false
+        }
+      },
+      "is_calibrated": false,
+      "temperature": 1.745095
+    }
+  },
+  "macro_ece": 0.0602161811440678,
+  "all_heads_calibrated": false
+}

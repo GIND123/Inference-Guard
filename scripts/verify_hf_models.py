@@ -34,10 +34,12 @@ DEFAULT_MANIFEST_PATH = ROOT / "artifacts" / "model_manifest.json"
 # Authoritative hosted model ids. role -> (repo_id, base_model).
 HOSTED_MODELS = {
     "risk_modernbert": ("AT707/inferenceguard-modernbert-risk", "answerdotai/ModernBERT-base"),
+    "risk_modernbert_web": ("AT707/inferenceguard-modernbert-risk", "answerdotai/ModernBERT-base"),
     "risk_roberta": ("AT707/InferenceGuard-Roberta-Risk", "roberta-base"),
     "rewriter": ("AT707/inferenceguard-rewriter-v1", "Qwen/Qwen2.5-1.5B-Instruct"),
 }
 EXPECTED_FILES = ["config.json", "model.safetensors", "tokenizer.json"]
+EXPECTED_ADAPTER_FILES = ["adapter_config.json", "adapter_model.safetensors", "tokenizer.json"]
 
 
 def check_hf_rewriter_metadata(repo_id: str = "AT707/inferenceguard-rewriter-v1") -> bool:
@@ -125,32 +127,40 @@ def verify_pipeline_factory() -> bool:
 
 
 def _query_repo_manifest_entry(role: str, repo_id: str, base_model: str) -> dict:
-    """Query HfApi for a repo's real revision sha + per-file lfs sha256 checksums.
+    """Query HfApi for a repo's real revision sha + per-file sha256 checksums.
 
     Returns a manifest entry dict. Raises on any API failure so the caller can
     decide how to degrade; never fabricates a sha or checksum.
     """
-    from huggingface_hub import HfApi
+    import hashlib
+    from huggingface_hub import HfApi, hf_hub_download
 
     api = HfApi()
     info = api.model_info(repo_id, files_metadata=True)
+    expected = list(EXPECTED_ADAPTER_FILES if role == "rewriter" else EXPECTED_FILES)
     checksums: dict = {}
     for sibling in info.siblings:
         name = sibling.rfilename
+        if name not in expected:
+            continue
         lfs = getattr(sibling, "lfs", None)
         sha256 = None
         if lfs is not None:
-            # lfs may be a dict or an object depending on hub version.
             sha256 = lfs.get("sha256") if isinstance(lfs, dict) else getattr(lfs, "sha256", None)
-        size = getattr(sibling, "size", None)
-        if name in EXPECTED_FILES or sha256 is not None:
-            checksums[name] = {"size": size, "sha256": sha256}
+        if not sha256:
+            local_p = Path(hf_hub_download(repo_id=repo_id, filename=name, revision=info.sha))
+            h = hashlib.sha256()
+            with local_p.open("rb") as f:
+                for chunk in iter(lambda: f.read(1 << 20), b""):
+                    h.update(chunk)
+            sha256 = h.hexdigest()
+        checksums[name] = sha256
     return {
         "role": role,
         "repo_id": repo_id,
         "base_model": base_model,
         "revision": info.sha,
-        "expected_files": list(EXPECTED_FILES),
+        "expected_files": expected,
         "checksums": checksums,
         "verified": True,
     }

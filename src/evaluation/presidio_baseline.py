@@ -14,6 +14,94 @@ from typing import Any, Dict, List, Optional, Sequence
 logger = logging.getLogger(__name__)
 
 
+_DURATION_RE = re.compile(
+    r"^(?:about|around|nearly|over|under|almost|for|past|last|every|this|next|coming|following|previous|until)?\s*"
+    r"(?:\d+|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|several|many|a\s+few|a\s+couple(?:\s+of)?)?"
+    r"\s*[-\s]?(?:seconds?|minutes?|hours?|days?|weeks?|weekends?|months?|years?|decades?|mornings?|afternoons?|evenings?|nights?|semesters?|quarters?|terms?|finals?|years?[-\s]*old)$",
+    re.IGNORECASE,
+)
+
+_NON_IDENTIFYING_MONTH_OR_DAY_RE = re.compile(
+    r"^(?:in\s+|by\s+|until\s+|before\s+|after\s+|since\s+)?"
+    r"(?:jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|jun(?:e)?|jul(?:y)?|aug(?:ust)?|"
+    r"sep(?:t(?:ember)?)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?|"
+    r"mon(?:day)?|tue(?:sday)?|wed(?:nesday)?|thu(?:rsday)?|fri(?:day)?|sat(?:urday)?|sun(?:day)?|"
+    r"spring|summer|fall|autumn|winter|today|tomorrow|yesterday|now|early|late|Q[1-4])s?$",
+    re.IGNORECASE,
+)
+
+_QUARTER_RE = re.compile(r"^Q[1-4]$", re.IGNORECASE)
+_ORDINAL_PHRASE_RE = re.compile(
+    r"^\d+(?:st|nd|rd|th)[-\s]*(?:year|grade|floor|circuit|amendment|quarter|edition)s?$",
+    re.IGNORECASE,
+)
+_STATUTE_NUM_RE = re.compile(
+    r"^(?:\d+-\d+(?:-\d+)*|\d+\([a-z0-9]+\))$",
+    re.IGNORECASE,
+)
+_STATUTE_PREFIX_MARKERS = ("§", "sec.", "section", "u.s.c.", "c.f.r.", "o.c.g.a.")
+
+_SHARED_ANALYZER: Optional[Any] = None
+_SHARED_ANONYMIZER: Optional[Any] = None
+
+
+def get_shared_analyzer() -> Optional[Any]:
+    """Return a process-wide cached Presidio AnalyzerEngine (avoids duplicate ~560MB spaCy loads)."""
+    global _SHARED_ANALYZER
+    if _SHARED_ANALYZER is None:
+        try:
+            from presidio_analyzer import AnalyzerEngine
+
+            _SHARED_ANALYZER = AnalyzerEngine()
+        except Exception as exc:
+            logger.info("Presidio AnalyzerEngine unavailable (%s).", exc)
+    return _SHARED_ANALYZER
+
+
+def get_shared_anonymizer() -> Optional[Any]:
+    """Return a process-wide cached Presidio AnonymizerEngine."""
+    global _SHARED_ANONYMIZER
+    if _SHARED_ANONYMIZER is None:
+        try:
+            from presidio_anonymizer import AnonymizerEngine
+
+            _SHARED_ANONYMIZER = AnonymizerEngine()
+        except Exception:
+            pass
+    return _SHARED_ANONYMIZER
+
+
+def is_duration_phrase(span_text: str) -> bool:
+    """Return True if span_text is a non-identifying duration/relative time/standalone month phrase."""
+    s = span_text.strip()
+    if not s:
+        return False
+    return bool(_DURATION_RE.match(s) or _NON_IDENTIFYING_MONTH_OR_DAY_RE.match(s))
+
+
+def is_non_identifying_presidio_span(
+    entity_type: str,
+    span_text: str,
+    full_text: str = "",
+    start: int = 0,
+) -> bool:
+    """Return True when a Presidio span is a false positive (duration, ordinal, statute, or generic US)."""
+    s = span_text.strip()
+    if entity_type == "DATE_TIME":
+        if is_duration_phrase(s):
+            return True
+        if _ORDINAL_PHRASE_RE.match(s) or _STATUTE_NUM_RE.match(s):
+            return True
+        if full_text and start > 0:
+            prefix = full_text[max(0, start - 12) : start].lower()
+            if any(marker in prefix for marker in _STATUTE_PREFIX_MARKERS):
+                return True
+        return False
+    if entity_type == "LOCATION" and (_QUARTER_RE.match(s) or s in {"US", "U.S."}):
+        return True
+    return False
+
+
 @dataclass(frozen=True)
 class RedactionResult:
     """Result of baseline redaction."""
@@ -27,18 +115,14 @@ class RedactionResult:
 class PresidioBaseline:
     """Baseline explicit PII redactor with Presidio and fallback regex engine."""
 
-    def __init__(self, use_presidio_if_available: bool = True) -> None:
+    def __init__(self, use_presidio_if_available: bool = True, analyzer: Optional[Any] = None) -> None:
         self.analyzer = None
         self.anonymizer = None
 
         if use_presidio_if_available:
-            try:
-                from presidio_analyzer import AnalyzerEngine
-                from presidio_anonymizer import AnonymizerEngine
-
-                self.analyzer = AnalyzerEngine()
-                self.anonymizer = AnonymizerEngine()
-            except Exception:
+            self.analyzer = analyzer if analyzer is not None else get_shared_analyzer()
+            self.anonymizer = get_shared_anonymizer()
+            if self.analyzer is None or self.anonymizer is None:
                 logger.info("Presidio engines not available. Using built-in explicit PII engine.")
 
         # Explicit regex patterns for direct PII
@@ -69,6 +153,12 @@ class PresidioBaseline:
                     language="en",
                     entities=["PERSON", "LOCATION", "EMAIL_ADDRESS", "PHONE_NUMBER", "IP_ADDRESS", "DATE_TIME"],
                 )
+                results = [
+                    r for r in results
+                    if not is_non_identifying_presidio_span(
+                        r.entity_type, text[r.start:r.end], full_text=text, start=r.start
+                    )
+                ]
                 anonymized = self.anonymizer.anonymize(text=text, analyzer_results=results)
                 return anonymized.text
             except Exception as e:

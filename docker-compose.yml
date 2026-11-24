@@ -17,8 +17,10 @@ services:
     environment:
       - PORT=8000
       - HOST=0.0.0.0
-      - RISK_MODEL_ID=${RISK_MODEL_ID:-AT707/InferenceGuard-Roberta-Risk}
+      - RISK_MODEL_ID=${RISK_MODEL_ID:-AT707/inferenceguard-modernbert-risk}
+      - RISK_MODEL_REVISION=${RISK_MODEL_REVISION:-4cecb3c90e84112ce5a5e3ed173060a1ab9609a7}
       - REWRITER_MODEL_ID=${REWRITER_MODEL_ID:-AT707/inferenceguard-rewriter-v1}
+      - REWRITER_MODEL_REVISION=${REWRITER_MODEL_REVISION:-a84ca5623236ebdc325128e44baa25ec5494d592}
       - DEVICE=${DEVICE:-cpu}
       - LOG_LEVEL=${LOG_LEVEL:-INFO}
       - HF_TOKEN=${HF_TOKEN:-}

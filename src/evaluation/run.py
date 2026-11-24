@@ -317,42 +317,9 @@ def run_comparative_benchmark(
         ]
 
     pseudonym_mgr = DeterministicPseudonymManager()
-    utility_eval = BidirectionalUtilityEvaluator(load_models=use_heavy_models)
-    adversary = HeldOutPhi4Adversary(
-        model_name=adversary_model_id,
-        load_model=use_heavy_models,
-        strict=use_heavy_models,
-    )
-    # Wire the risk predictor only in the heavy-model path; the comparative
-    # harness does not consume it directly today, but loading it here asserts the
-    # chosen ModernBERT checkpoint is reachable and records it in the provenance
-    # block. load_risk_classifier auto-detects RoBERTa vs ModernBERT.
-    risk_predictor = None
-    if use_heavy_models:
-        from src.risk_model.predict import CalibratedRiskPredictor
-
-        risk_predictor = CalibratedRiskPredictor.from_pretrained(risk_model_id)
-        # Attach the QLoRA adapter so prompt_baseline and qlora_sft actually
-        # diverge: protect(mode=PROMPT_BASELINE) toggles self.model.disable_adapter()
-        # to get the base-model rewrite, while mode=BALANCED_SFT keeps the adapter
-        # engaged. Without an adapter_dir the service had has_adapter=False, so
-        # both modes ran the identical model and every method collapsed onto raw.
-        # Falls back to the plain model when the adapter dir is absent (the local
-        # weights are not committed; set REWRITER_ADAPTER_DIR to point at them).
-        adapter_dir = os.getenv("REWRITER_ADAPTER_DIR", "artifacts/rewriter_qlora")
-        rewriter = QwenPrivacyRewriterService(
-            base_model_name=rewriter_model_id,
-            adapter_dir=adapter_dir,
-            load_model=True,
-        )
-    else:
-        rewriter = QwenPrivacyRewriterService(base_model_name=rewriter_model_id)
 
     # Device safety gate (opt-in): under --use_heavy_models, refuse to run the
-    # long held-out benchmark on CPU when IG_REQUIRE_CUDA is set truthy. The
-    # default (unset) keeps the current behavior so environments that intend CPU
-    # are unaffected. Checked BEFORE the long loop so it fails fast instead of
-    # after dozens of minutes. Bool parsing mirrors ADVERSARY_TRUST_REMOTE_CODE.
+    # long held-out benchmark on CPU when IG_REQUIRE_CUDA is set truthy.
     if use_heavy_models and os.getenv("IG_REQUIRE_CUDA", "").strip().lower() in {
         "1",
         "true",
@@ -368,102 +335,37 @@ def run_comparative_benchmark(
                 "torch/CUDA install (or unset IG_REQUIRE_CUDA to allow CPU)."
             )
 
-    # One-time startup banner (heavy path only): surface where each heavy
-    # component actually resolved so a silent CPU fallback cannot be mistaken
-    # for a slow GPU run. Printed to stdout with flush=True because Colab does
-    # not always surface logger output. Fully guarded so it can never break the
-    # run.
-    if use_heavy_models:
-        try:
-            import torch
-
-            cuda_ok = torch.cuda.is_available()
-            print("=" * 78, flush=True)
-            print("[InferenceGuard] Heavy held-out benchmark starting", flush=True)
-            print(f"[InferenceGuard] torch.cuda.is_available() = {cuda_ok}", flush=True)
-            if cuda_ok:
-                try:
-                    print(
-                        f"[InferenceGuard] CUDA device = {torch.cuda.get_device_name(0)}",
-                        flush=True,
-                    )
-                except Exception:
-                    pass
-
-            def _resolve_component_device(obj: Any) -> str:
-                dev = getattr(obj, "device", None)
-                model = getattr(obj, "model", None)
-                param_dev = None
-                if model is not None:
-                    try:
-                        param_dev = str(next(model.parameters()).device)
-                    except Exception:
-                        param_dev = None
-                if param_dev is not None:
-                    return f"{dev} (params on {param_dev})"
-                return str(dev)
-
-            print(
-                f"[InferenceGuard] risk_predictor device = {_resolve_component_device(risk_predictor)}",
-                flush=True,
-            )
-            print(
-                f"[InferenceGuard] adversary device = {_resolve_component_device(adversary)}",
-                flush=True,
-            )
-            print(
-                f"[InferenceGuard] rewriter device = {_resolve_component_device(rewriter)}",
-                flush=True,
-            )
-            if not cuda_ok:
-                print(
-                    "[InferenceGuard] WARNING: CUDA is NOT available - heavy models "
-                    "are running on CPU and the benchmark will be very slow. Set "
-                    "IG_REQUIRE_CUDA=1 to fail fast instead of running on CPU.",
-                    flush=True,
-                )
-            print("=" * 78, flush=True)
-        except Exception:
-            pass
-
-    attacker_mode = getattr(adversary, "mode", "heuristic")
-    # Strict held-out gate: a real-model run that silently fell back to the
-    # heuristic must NOT emit a report that could be mistaken for held-out
-    # results. Fail loudly instead.
-    if use_heavy_models and attacker_mode != "model":
-        raise RuntimeError(
-            "use_heavy_models=True but the held-out adversary "
-            f"'{adversary_model_id}' resolved to mode='{attacker_mode}' "
-            "(the real model did not load). Refusing to write a "
-            "non-reportable report masquerading as a held-out run. Ensure the "
-            "GPU host has the adversary weights available and transformers/torch "
-            "installed."
-        )
-
-    # Lazy import so the module still imports in environments without tqdm;
-    # tqdm is already a project dependency (see src/risk_model/train.py).
     from tqdm.auto import tqdm
 
-    comparative_results: Dict[str, Any] = {}
+    risk_model_loaded = False
+    if use_heavy_models:
+        from src.risk_model.predict import CalibratedRiskPredictor
+        risk_predictor = CalibratedRiskPredictor.from_pretrained(risk_model_id)
+        risk_model_loaded = risk_predictor is not None
+        del risk_predictor
+        clean_gpu_memory()
 
-    for method in methods:
-        logger.info(f"Evaluating method: {method} across {len(records)} samples")
-        # Also print the method boundary to stdout (flushed) so Colab shows
-        # progress even when logger output is not surfaced.
-        print(
-            f"[InferenceGuard] Evaluating method: {method} across {len(records)} samples",
-            flush=True,
+    # Pass 1: Text transformation (load rewriter alone, then free VRAM)
+    if use_heavy_models:
+        adapter_dir = os.getenv("REWRITER_ADAPTER_DIR", "artifacts/rewriter_qlora")
+        rewriter = QwenPrivacyRewriterService(
+            base_model_name=rewriter_model_id,
+            adapter_dir=adapter_dir,
+            load_model=True,
         )
-        method_predictions: Dict[AttributeName, List[str]] = {attr: [] for attr in AttributeName}
-        ground_truth: Dict[AttributeName, List[str]] = {attr: [] for attr in AttributeName}
-        utility_scores: List[Dict[str, float]] = []
-        latencies: List[float] = []
+    else:
+        rewriter = QwenPrivacyRewriterService(base_model_name=rewriter_model_id)
 
-        for rec in tqdm(records, desc=f"{method} ({len(records)} samples)", unit="sample"):
+    transformed_by_method: Dict[str, List[str]] = {}
+    latencies_by_method: Dict[str, List[float]] = {}
+    for method in methods:
+        logger.info(f"Pass 1 (Transform) for method: {method} across {len(records)} samples")
+        print(f"[InferenceGuard] Pass 1 (Transform): {method} ({len(records)} samples)", flush=True)
+        texts_out: List[str] = []
+        lats_out: List[float] = []
+        for rec in tqdm(records, desc=f"Transform {method}", unit="sample"):
             orig_text = rec.get("text", "")
             state = ConversationState(conversation_id=f"eval_{method}")
-
-            # Step 1: Text transformation by method
             t0 = time.perf_counter()
             if method == "raw":
                 transformed = orig_text
@@ -477,19 +379,58 @@ def run_comparative_benchmark(
                 transformed, _ = rewriter.protect(pseudo, None, state, mode=RewriteMode.BALANCED_SFT)
             else:
                 transformed = orig_text
+            lats_out.append((time.perf_counter() - t0) * 1000.0)
+            texts_out.append(transformed)
+        transformed_by_method[method] = texts_out
+        latencies_by_method[method] = lats_out
 
-            elapsed_ms = (time.perf_counter() - t0) * 1000.0
-            latencies.append(elapsed_ms)
+    del rewriter
+    clean_gpu_memory()
 
-            # Step 2: Utility evaluation
-            util = utility_eval.evaluate_pair(orig_text, transformed)
-            utility_scores.append({
+    # Pass 2: Utility evaluation (load NLI + embedder alone, then free VRAM)
+    utility_eval = BidirectionalUtilityEvaluator(load_models=use_heavy_models)
+    utility_by_method: Dict[str, List[Dict[str, float]]] = {}
+    for method in methods:
+        print(f"[InferenceGuard] Pass 2 (Utility): {method} ({len(records)} samples)", flush=True)
+        u_scores: List[Dict[str, float]] = []
+        for rec, transformed in zip(records, transformed_by_method[method]):
+            util = utility_eval.evaluate_pair(rec.get("text", ""), transformed)
+            u_scores.append({
                 "bidirectional_entailment": util.bidirectional_entailment,
                 "semantic_similarity": util.semantic_similarity,
                 "contradiction_prob": util.contradiction_prob,
             })
+        utility_by_method[method] = u_scores
 
-            # Step 3: Adversarial inference
+    del utility_eval
+    clean_gpu_memory()
+
+    # Pass 3: Held-out adversarial inference (load Phi-4-mini alone)
+    adversary = HeldOutPhi4Adversary(
+        model_name=adversary_model_id,
+        load_model=use_heavy_models,
+        strict=use_heavy_models,
+    )
+    attacker_mode = getattr(adversary, "mode", "heuristic")
+    if use_heavy_models and attacker_mode != "model":
+        raise RuntimeError(
+            "use_heavy_models=True but the held-out adversary "
+            f"'{adversary_model_id}' resolved to mode='{attacker_mode}' "
+            "(the real model did not load). Refusing to write a "
+            "non-reportable report masquerading as a held-out run."
+        )
+
+    comparative_results: Dict[str, Any] = {}
+    for method in methods:
+        print(f"[InferenceGuard] Pass 3 (Adversary): {method} ({len(records)} samples)", flush=True)
+        method_predictions: Dict[AttributeName, List[str]] = {attr: [] for attr in AttributeName}
+        ground_truth: Dict[AttributeName, List[str]] = {attr: [] for attr in AttributeName}
+        for rec, transformed in tqdm(
+            zip(records, transformed_by_method[method]),
+            total=len(records),
+            desc=f"Adversary {method}",
+            unit="sample",
+        ):
             inferred = adversary.infer_attributes([transformed])
             attrs_gt = rec.get("attributes", {})
             for attr in AttributeName:
@@ -500,8 +441,8 @@ def run_comparative_benchmark(
             records=records,
             predictions_by_attr=method_predictions,
             ground_truth_by_attr=ground_truth,
-            utility_scores=utility_scores,
-            latencies_ms=latencies,
+            utility_scores=utility_by_method[method],
+            latencies_ms=latencies_by_method[method],
         )
         comparative_results[method] = metrics
 
@@ -545,7 +486,7 @@ def run_comparative_benchmark(
         "reportable_as_held_out": reportable_as_held_out,
         "risk_model_id": risk_model_id,
         "rewriter_model_id": rewriter_model_id,
-        "risk_model_loaded": risk_predictor is not None,
+        "risk_model_loaded": risk_model_loaded,
         "methods": comparative_results,
         "per_attribute_attack_success": per_attribute_asr,
         "asr_reduction": asr_reduction,
@@ -660,7 +601,8 @@ def main() -> None:
     # unless an explicit --input_file was already given.
     input_file = args.input_file
     if args.dataset == "promptpai" and not input_file:
-        input_file = "data/promptpai/sample.jsonl"
+        full_ppai = Path("data/promptpai/promptpai.jsonl")
+        input_file = str(full_ppai) if full_ppai.exists() else "data/promptpai/sample.jsonl"
 
     print(f"Executing comparative benchmark on split '{args.split}' (dataset={args.dataset}) for methods: {args.methods}")
     if args.use_heavy_models:
