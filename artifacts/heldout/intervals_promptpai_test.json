@@ -1,0 +1,208 @@
+{
+  "sample_count": 50,
+  "methods": {
+    "raw": {
+      "asr": 0.365,
+      "trials": 200,
+      "ci95": [
+        0.3014,
+        0.4337
+      ],
+      "per_attribute": {
+        "age": {
+          "asr": 0.32,
+          "ci95": [
+            0.2076,
+            0.4581
+          ]
+        },
+        "education": {
+          "asr": 0.28,
+          "ci95": [
+            0.1747,
+            0.4167
+          ]
+        },
+        "occupation": {
+          "asr": 0.42,
+          "ci95": [
+            0.2938,
+            0.5577
+          ]
+        },
+        "location": {
+          "asr": 0.44,
+          "ci95": [
+            0.3116,
+            0.5769
+          ]
+        }
+      }
+    },
+    "presidio": {
+      "asr": 0.36,
+      "trials": 200,
+      "ci95": [
+        0.2967,
+        0.4286
+      ],
+      "per_attribute": {
+        "age": {
+          "asr": 0.34,
+          "ci95": [
+            0.2244,
+            0.4785
+          ]
+        },
+        "education": {
+          "asr": 0.3,
+          "ci95": [
+            0.191,
+            0.4375
+          ]
+        },
+        "occupation": {
+          "asr": 0.48,
+          "ci95": [
+            0.348,
+            0.6149
+          ]
+        },
+        "location": {
+          "asr": 0.32,
+          "ci95": [
+            0.2076,
+            0.4581
+          ]
+        }
+      }
+    },
+    "prompt_baseline": {
+      "asr": 0.185,
+      "trials": 200,
+      "ci95": [
+        0.1373,
+        0.2446
+      ],
+      "per_attribute": {
+        "age": {
+          "asr": 0.1,
+          "ci95": [
+            0.0435,
+            0.2136
+          ]
+        },
+        "education": {
+          "asr": 0.22,
+          "ci95": [
+            0.1275,
+            0.3524
+          ]
+        },
+        "occupation": {
+          "asr": 0.24,
+          "ci95": [
+            0.143,
+            0.3741
+          ]
+        },
+        "location": {
+          "asr": 0.18,
+          "ci95": [
+            0.0977,
+            0.308
+          ]
+        }
+      }
+    },
+    "qlora_sft": {
+      "asr": 0.15,
+      "trials": 200,
+      "ci95": [
+        0.1071,
+        0.2061
+      ],
+      "per_attribute": {
+        "age": {
+          "asr": 0.12,
+          "ci95": [
+            0.0562,
+            0.238
+          ]
+        },
+        "education": {
+          "asr": 0.14,
+          "ci95": [
+            0.0695,
+            0.2619
+          ]
+        },
+        "occupation": {
+          "asr": 0.24,
+          "ci95": [
+            0.143,
+            0.3741
+          ]
+        },
+        "location": {
+          "asr": 0.1,
+          "ci95": [
+            0.0435,
+            0.2136
+          ]
+        }
+      }
+    }
+  },
+  "pairs": [
+    {
+      "a": "raw",
+      "b": "presidio",
+      "asr_a": 0.365,
+      "asr_b": 0.36,
+      "intervals_overlap": true
+    },
+    {
+      "a": "raw",
+      "b": "prompt_baseline",
+      "asr_a": 0.365,
+      "asr_b": 0.185,
+      "intervals_overlap": false
+    },
+    {
+      "a": "raw",
+      "b": "qlora_sft",
+      "asr_a": 0.365,
+      "asr_b": 0.15,
+      "intervals_overlap": false
+    },
+    {
+      "a": "presidio",
+      "b": "prompt_baseline",
+      "asr_a": 0.36,
+      "asr_b": 0.185,
+      "intervals_overlap": false
+    },
+    {
+      "a": "presidio",
+      "b": "qlora_sft",
+      "asr_a": 0.36,
+      "asr_b": 0.15,
+      "intervals_overlap": false
+    },
+    {
+      "a": "prompt_baseline",
+      "b": "qlora_sft",
+      "asr_a": 0.185,
+      "asr_b": 0.15,
+      "intervals_overlap": true
+    }
+  ],
+  "source": "reports/promptpai/comparative_benchmark_test.json",
+  "split": "test",
+  "attacker_model_id": "microsoft/Phi-4-mini-instruct",
+  "attacker_mode": "model",
+  "reportable_as_held_out": true,
+  "risk_model_id": "AT707/inferenceguard-modernbert-risk",
+  "rewriter_model_id": "AT707/inferenceguard-rewriter-v1"
+}
