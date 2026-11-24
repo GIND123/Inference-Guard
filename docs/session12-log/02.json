@@ -1,0 +1,237 @@
+{
+  "session_id": "02",
+  "user_id": "demo_user",
+  "input_text": "You are deciding whether to move before your next work placement or stay in your current apartment until graduation.\n- You are finishing an undergraduate degree and expect to graduate in two more terms, about eight months.\n- Your current lease ends in December. You can renew month to month at the same rent.\n- Your second co-op starts in January and requires four days on site each week.\n- From your current apartment, the Green Line trip to the new site would take about 55 minutes each way.\n- A closer apartment would cost the same monthly rent and cut the commute to about 25 minutes each way.\n- Moving would cost about $1,200 upfront. \nPlease decide whether the shorter commute is worth the upfront cost of moving or whether to renew your current lease and stay until graduation.",
+  "exported_at": "2026-11-24T03:39:42.328Z",
+  "client_latency_seconds": 17.088600000023842,
+  "response": {
+    "risk_summary": {
+      "overall": 0.75,
+      "overall_band": "HIGH",
+      "primary": "location",
+      "secondary": [
+        "education",
+        "occupation"
+      ],
+      "bands": {
+        "age": "LOW",
+        "location": "HIGH",
+        "occupation": "MEDIUM",
+        "education": "MEDIUM"
+      },
+      "scores": {
+        "age": 0.1208,
+        "location": 0.75,
+        "occupation": 0.5,
+        "education": 0.5
+      },
+      "cues": [
+        {
+          "span": "[location cue]",
+          "attribute": "location",
+          "importance": 0.75
+        },
+        {
+          "span": "[overall cue]",
+          "attribute": "overall",
+          "importance": 0.75
+        },
+        {
+          "span": "[education cue]",
+          "attribute": "education",
+          "importance": 0.5
+        },
+        {
+          "span": "[occupation cue]",
+          "attribute": "occupation",
+          "importance": 0.5
+        }
+      ],
+      "leakage_delta": 0.75
+    },
+    "rewritten_text": "You are deciding whether to move before your next work placement or stay in your current apartment until graduation.\n- You are finishing an undergraduate degree and expect to graduate in two more terms, <DATE_TIME>.\n- Your current lease ends in <DATE_TIME>. You can renew <DATE_TIME> to month at the same rent.\n- Your second co-op starts in <DATE_TIME> and requires <DATE_TIME> on site <DATE_TIME>.\n- From your current apartment, the Green Line trip to the new site would take <DATE_TIME> each way.\n- A closer apartment would cost the same <DATE_TIME> rent and cut the commute to <DATE_TIME> each way.\n- Moving would cost about $1,200 upfront. \nPlease decide whether the shorter commute is worth the upfront cost of moving or whether to renew your current lease and stay until graduation.",
+    "presidio_text": "You are deciding whether to move before your next work placement or stay in your current apartment until graduation.\n- You are finishing an undergraduate degree and expect to graduate in two more terms, <DATE_TIME>.\n- Your current lease ends in <DATE_TIME>. You can renew <DATE_TIME> to month at the same rent.\n- Your second co-op starts in <DATE_TIME> and requires <DATE_TIME> on site <DATE_TIME>.\n- From your current apartment, the Green Line trip to the new site would take <DATE_TIME> each way.\n- A closer apartment would cost the same <DATE_TIME> rent and cut the commute to <DATE_TIME> each way.\n- Moving would cost about $1,200 upfront. \nPlease decide whether the shorter commute is worth the upfront cost of moving or whether to renew your current lease and stay until graduation.",
+    "utility_metrics": {
+      "cosine_similarity": 0.9364,
+      "nli_forward": 0.9857,
+      "nli_backward": 0.8625,
+      "contradiction": 0,
+      "utility_score": 0.9327,
+      "degenerate": false,
+      "degenerate_reason": null,
+      "utility_backend": "fallback"
+    },
+    "turn_record": {
+      "turn_number": 1,
+      "session_id": "02",
+      "raw_text": "You are deciding whether to move before your next work placement or stay in your current apartment until graduation.\n- You are finishing an undergraduate degree and expect to graduate in two more terms, about eight months.\n- Your current lease ends in December. You can renew month to month at the same rent.\n- Your second co-op starts in January and requires four days on site each week.\n- From your current apartment, the Green Line trip to the new site would take about 55 minutes each way.\n- A closer apartment would cost the same monthly rent and cut the commute to about 25 minutes each way.\n- Moving would cost about $1,200 upfront. \nPlease decide whether the shorter commute is worth the upfront cost of moving or whether to renew your current lease and stay until graduation.",
+      "turn_scores": {
+        "age": 0.1208,
+        "location": 0.75,
+        "occupation": 0.5,
+        "education": 0.5,
+        "overall": 0.75
+      },
+      "cumulative_scores": {
+        "age": 0.1208,
+        "location": 0.75,
+        "occupation": 0.5,
+        "education": 0.5
+      },
+      "overall_turn_risk": 0.75,
+      "overall_cumulative_risk": 0.75,
+      "joint_entropy": 2.1292,
+      "leakage_delta": 0.75,
+      "is_breached": true,
+      "risk_band": "HIGH",
+      "residual_anonymity_capacity": 2.1292
+    },
+    "privacy_report": {
+      "explicit": {
+        "count": 9,
+        "hard_count": 0,
+        "by_type": {
+          "DATE_TIME": 9
+        },
+        "spans": [
+          {
+            "type": "DATE_TIME",
+            "start": 203,
+            "end": 221
+          },
+          {
+            "type": "DATE_TIME",
+            "start": 252,
+            "end": 260
+          },
+          {
+            "type": "DATE_TIME",
+            "start": 276,
+            "end": 281
+          },
+          {
+            "type": "DATE_TIME",
+            "start": 339,
+            "end": 346
+          },
+          {
+            "type": "DATE_TIME",
+            "start": 360,
+            "end": 369
+          },
+          {
+            "type": "DATE_TIME",
+            "start": 378,
+            "end": 387
+          },
+          {
+            "type": "DATE_TIME",
+            "start": 467,
+            "end": 483
+          },
+          {
+            "type": "DATE_TIME",
+            "start": 535,
+            "end": 542
+          },
+          {
+            "type": "DATE_TIME",
+            "start": 571,
+            "end": 587
+          }
+        ]
+      },
+      "inferential": {
+        "overall": 0.75,
+        "overall_band": "HIGH",
+        "primary": "location",
+        "secondary": [
+          "education",
+          "occupation"
+        ],
+        "bands": {
+          "age": "LOW",
+          "location": "HIGH",
+          "occupation": "MEDIUM",
+          "education": "MEDIUM"
+        },
+        "scores": {
+          "age": 0.1208,
+          "location": 0.75,
+          "occupation": 0.5,
+          "education": 0.5
+        },
+        "cues": [
+          {
+            "span": "[location cue]",
+            "attribute": "location",
+            "importance": 0.75
+          },
+          {
+            "span": "[overall cue]",
+            "attribute": "overall",
+            "importance": 0.75
+          },
+          {
+            "span": "[education cue]",
+            "attribute": "education",
+            "importance": 0.5
+          },
+          {
+            "span": "[occupation cue]",
+            "attribute": "occupation",
+            "importance": 0.5
+          }
+        ],
+        "leakage_delta": 0.75
+      }
+    },
+    "comparison": {
+      "verdict": "no_change",
+      "inferential_before": 0.75,
+      "inferential_after": 0.75,
+      "inferential_delta": 0,
+      "per_attribute_delta": {
+        "age": -0.0292,
+        "education": 0,
+        "location": 0,
+        "occupation": 0
+      },
+      "explicit_before": 9,
+      "explicit_after": 0,
+      "hard_pii_remaining": 0,
+      "utility": 0.9327,
+      "utility_floor": 0.7,
+      "notes": [],
+      "is_win": false
+    },
+    "verdict": "no_change",
+    "is_win": false,
+    "rewrite_engine": "presidio_fallback",
+    "rewrite_changed": true,
+    "served_text_sha256": "79423dfdf41283a5584d04188ad09090d040060b01eea63fb8165675c845fdfc",
+    "timings_ms": {
+      "presidio": 1824.526,
+      "risk_model": 120.941,
+      "rewrite": 13878.501,
+      "rescore": 59.245,
+      "utility": 16.075,
+      "total": 15899.433
+    },
+    "debug_info": {
+      "timestamp": 1795491568.5572221,
+      "input_text": "You are deciding whether to move before your next work placement or stay in your current apartment until graduation.\n- You are finishing an undergraduate degree and expect to graduate in two more terms, about eight months.\n- Your current lease ends in December. You can renew month to month at the same rent.\n- Your second co-op starts in January and requires four days on site each week.\n- From your current apartment, the Green Line trip to the new site would take about 55 minutes each way.\n- A closer apartment would cost the same monthly rent and cut the commute to about 25 minutes each way.\n- Moving would cost about $1,200 upfront. \nPlease decide whether the shorter commute is worth the upfront cost of moving or whether to renew your current lease and stay until graduation.",
+      "qwen_adapter_loaded": true,
+      "qwen_output_raw": "You are finishing my studies and expect to graduate in two more terms, about eight months. - My current lease ends in December. I can renew month to month at the same rent. - My second co-op starts in January and requires four days on site each week. - From my current apartment, the Green Line trip to the new site would take about 55 minutes each way. - A closer apartment would cost the same monthly rent and cut the commute to about 25 minutes each way. - Moving would cost about $1,200 upfront. Please decide whether the shorter commute is worth the upfront cost of moving or",
+      "qwen_clean_output": "You are finishing my studies and expect to graduate in two more terms, about eight months. - My current lease ends in December. I can renew month to month at the same rent. - My second co-op starts in January and requires four days on site each week. - From my current apartment, the Green Line trip to the new site would take about 55 minutes each way. - A closer apartment would cost the same monthly rent and cut the commute to about 25 minutes each way. - Moving would cost about $1,200 upfront. Please decide whether the shorter commute is worth the upfront cost of moving or",
+      "qwen_error": null,
+      "qwen_is_fallback": false,
+      "qwen_changed": true,
+      "qwen_had_pii": false,
+      "candidates_evaluated": [],
+      "decision_reason": "No candidate satisfied Pareto risk threshold; served Presidio baseline.",
+      "selected_engine": "presidio_fallback",
+      "selected_text": "You are deciding whether to move before your next work placement or stay in your current apartment until graduation.\n- You are finishing an undergraduate degree and expect to graduate in two more terms, <DATE_TIME>.\n- Your current lease ends in <DATE_TIME>. You can renew <DATE_TIME> to month at the same rent.\n- Your second co-op starts in <DATE_TIME> and requires <DATE_TIME> on site <DATE_TIME>.\n- From your current apartment, the Green Line trip to the new site would take <DATE_TIME> each way.\n- A closer apartment would cost the same <DATE_TIME> rent and cut the commute to <DATE_TIME> each way.\n- Moving would cost about $1,200 upfront. \nPlease decide whether the shorter commute is worth the upfront cost of moving or whether to renew your current lease and stay until graduation."
+    }
+  }
+}

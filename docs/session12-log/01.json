@@ -1,1 +1,200 @@
-
+{
+  "session_id": "01",
+  "user_id": "demo_user",
+  "input_text": "I will finish an undergraduate degree and expect to graduate in two more terms, about eight months. My current lease ends in December. I wonder whether I change another apartment which is closer to the place I work because it requires me 4 days on site each week and the new apartment cost about $1200. Give me some suggestions.",
+  "exported_at": "2026-11-24T02:26:21.475Z",
+  "client_latency_seconds": 10.45169999998808,
+  "response": {
+    "risk_summary": {
+      "overall": 0.5,
+      "overall_band": "MEDIUM",
+      "primary": "education",
+      "secondary": [
+        "occupation"
+      ],
+      "bands": {
+        "age": "LOW",
+        "location": "LOW",
+        "occupation": "MEDIUM",
+        "education": "MEDIUM"
+      },
+      "scores": {
+        "age": 0.1074,
+        "location": 0.0912,
+        "occupation": 0.5,
+        "education": 0.5
+      },
+      "cues": [
+        {
+          "span": "[education cue]",
+          "attribute": "education",
+          "importance": 0.5
+        },
+        {
+          "span": "[occupation cue]",
+          "attribute": "occupation",
+          "importance": 0.5
+        },
+        {
+          "span": "[overall cue]",
+          "attribute": "overall",
+          "importance": 0.5
+        }
+      ],
+      "leakage_delta": 0.5
+    },
+    "rewritten_text": "I will finish an undergraduate degree and expect to graduate in two more terms, <DATE_TIME>. My current lease ends in <DATE_TIME>. I wonder whether I change another apartment which is closer to the place I work because it requires me <DATE_TIME> on site <DATE_TIME> and the new apartment cost about $1200. Give me some suggestions.",
+    "presidio_text": "I will finish an undergraduate degree and expect to graduate in two more terms, <DATE_TIME>. My current lease ends in <DATE_TIME>. I wonder whether I change another apartment which is closer to the place I work because it requires me <DATE_TIME> on site <DATE_TIME> and the new apartment cost about $1200. Give me some suggestions.",
+    "utility_metrics": {
+      "cosine_similarity": 0.9104,
+      "nli_forward": 0.9767,
+      "nli_backward": 0.8571,
+      "contradiction": 0,
+      "utility_score": 0.917,
+      "degenerate": false,
+      "degenerate_reason": null,
+      "utility_backend": "fallback"
+    },
+    "turn_record": {
+      "turn_number": 1,
+      "session_id": "01",
+      "raw_text": "I will finish an undergraduate degree and expect to graduate in two more terms, about eight months. My current lease ends in December. I wonder whether I change another apartment which is closer to the place I work because it requires me 4 days on site each week and the new apartment cost about $1200. Give me some suggestions.",
+      "turn_scores": {
+        "age": 0.1074,
+        "location": 0.0912,
+        "occupation": 0.5,
+        "education": 0.5,
+        "overall": 0.5
+      },
+      "cumulative_scores": {
+        "age": 0.1074,
+        "location": 0.0912,
+        "occupation": 0.5,
+        "education": 0.5
+      },
+      "overall_turn_risk": 0.5,
+      "overall_cumulative_risk": 0.5,
+      "joint_entropy": 2.8014,
+      "leakage_delta": 0.5,
+      "is_breached": false,
+      "risk_band": "MEDIUM",
+      "residual_anonymity_capacity": 2.8014
+    },
+    "privacy_report": {
+      "explicit": {
+        "count": 4,
+        "hard_count": 0,
+        "by_type": {
+          "DATE_TIME": 4
+        },
+        "spans": [
+          {
+            "type": "DATE_TIME",
+            "start": 80,
+            "end": 98
+          },
+          {
+            "type": "DATE_TIME",
+            "start": 125,
+            "end": 133
+          },
+          {
+            "type": "DATE_TIME",
+            "start": 238,
+            "end": 244
+          },
+          {
+            "type": "DATE_TIME",
+            "start": 253,
+            "end": 262
+          }
+        ]
+      },
+      "inferential": {
+        "overall": 0.5,
+        "overall_band": "MEDIUM",
+        "primary": "education",
+        "secondary": [
+          "occupation"
+        ],
+        "bands": {
+          "age": "LOW",
+          "location": "LOW",
+          "occupation": "MEDIUM",
+          "education": "MEDIUM"
+        },
+        "scores": {
+          "age": 0.1074,
+          "location": 0.0912,
+          "occupation": 0.5,
+          "education": 0.5
+        },
+        "cues": [
+          {
+            "span": "[education cue]",
+            "attribute": "education",
+            "importance": 0.5
+          },
+          {
+            "span": "[occupation cue]",
+            "attribute": "occupation",
+            "importance": 0.5
+          },
+          {
+            "span": "[overall cue]",
+            "attribute": "overall",
+            "importance": 0.5
+          }
+        ],
+        "leakage_delta": 0.5
+      }
+    },
+    "comparison": {
+      "verdict": "no_change",
+      "inferential_before": 0.5,
+      "inferential_after": 0.5,
+      "inferential_delta": 0,
+      "per_attribute_delta": {
+        "age": -0.0426,
+        "education": 0,
+        "location": 0.0269,
+        "occupation": 0
+      },
+      "explicit_before": 4,
+      "explicit_after": 0,
+      "hard_pii_remaining": 0,
+      "utility": 0.917,
+      "utility_floor": 0.7,
+      "notes": [],
+      "is_win": false
+    },
+    "verdict": "no_change",
+    "is_win": false,
+    "rewrite_engine": "presidio_fallback",
+    "rewrite_changed": true,
+    "served_text_sha256": "90d1d35a6bd07ceb001bb290b5e47a4a3818929ded3cf5303682ba4004de70d7",
+    "timings_ms": {
+      "presidio": 1793.743,
+      "risk_model": 120.002,
+      "rewrite": 8159.547,
+      "rescore": 56.266,
+      "utility": 16.531,
+      "total": 10146.175
+    },
+    "debug_info": {
+      "timestamp": 1795487173.3819633,
+      "input_text": "I will finish an undergraduate degree and expect to graduate in two more terms, about eight months. My current lease ends in December. I wonder whether I change another apartment which is closer to the place I work because it requires me 4 days on site each week and the new apartment cost about $1200. Give me some suggestions.",
+      "qwen_adapter_loaded": true,
+      "qwen_output_raw": "I will finish my studies and expect to graduate in two more terms, about eight months. My current lease ends in December. I wonder whether I change another apartment which is closer to my job because it requires me 4 days on site each week and the new apartment costs about $1200. Give me some suggestions.",
+      "qwen_clean_output": "I will finish my studies and expect to graduate in two more terms, about eight months. My current lease ends in December. I wonder whether I change another apartment which is closer to my job because it requires me 4 days on site each week and the new apartment costs about $1200. Give me some suggestions.",
+      "qwen_error": null,
+      "qwen_is_fallback": false,
+      "qwen_changed": true,
+      "qwen_had_pii": false,
+      "candidates_evaluated": [],
+      "decision_reason": "No candidate satisfied Pareto risk threshold; served Presidio baseline.",
+      "selected_engine": "presidio_fallback",
+      "selected_text": "I will finish an undergraduate degree and expect to graduate in two more terms, <DATE_TIME>. My current lease ends in <DATE_TIME>. I wonder whether I change another apartment which is closer to the place I work because it requires me <DATE_TIME> on site <DATE_TIME> and the new apartment cost about $1200. Give me some suggestions."
+    }
+  }
+}
