@@ -1,0 +1,118 @@
+[
+  {
+  "participant_id": "anonymous-01",
+  "scenario_id": "S-01",
+  "scenario_mode": "generative",
+  "date": "2026-11-23",
+  "facilitator": "Yiwei Jin",
+  "artifact": "Google Drive: (https://drive.google.com/file/d/1CdffrSnVoz-1y0AtSMCZUha33mdKoFf8/view?usp=drive_link)session12-video/anonymous-01.mp4",
+
+  "anchors_available": ["Green Line","Undergraduate degree and second co-op","December lease end and January placement start","Month-to-month renewal, equal rent, and $1,200 moving cost","55-minute versus 25-minute commute, four on-site days per week"
+  ],
+
+  "initial_query": "I will finish an undergraduate degree and expect to graduate in two more terms, about eight months. My current lease ends in December. I wonder whether I change another apartment which is closer to the place I work because it requires me 4 days on site each week and the new apartment cost about $1200. Give me some suggestions.",
+  "query_formulation_seconds": 120,
+
+  "anchors_used": ["Undergraduate degree","December lease end "," An approximately $1,200 apartment-related cost","four on-site days per week"
+  ],
+
+  "evaluator_intervention_pre_submit": false,
+
+  "detected_risk": true,
+  "risk_score": 0.5,
+  "system_state": "presidio_fallback",
+
+  "warning_in_their_words":
+    "It says the question exposed my education and occupation information",
+  "warning_comprehension": "correct",
+
+  "requested_rewrite": false,
+  "rewrite_changed_text": true,
+  "rewrite_decision": "original",
+  "edit_made": false,
+
+  "usefulness": 6,
+  "would_use_before_sending": "unsure",
+  "adoption_reason":
+    "If I have some tasks that contain private information, I might use it.",
+
+  "time_to_decision_seconds": 5,
+  "comments": "I didn't think education information is considered private",
+
+  "pre_result": {
+    "send_decision": "send_as_written",
+    "decision_reason": "There isn't anything in the question that I think it's private.",
+    "privacy_response_verbatim": "N/A",
+    "perceived_private_details": "N/A",
+    "wants_privacy_rewrite": "yes",
+    "rewrite_reason": "I want to protect my privacy"},
+  
+  "post_result": {
+    "final_choice": "original",
+    "choice_reason": "With month information, AI can help me come up with a better calculation.",
+    "remaining_privacy_concerns": "",
+    "task_details_removed_or_changed": ["eight-month graduation timeline", "December lease end", "four days on site each week"],
+    "edited_from": null,
+    "edited_query": null }
+  
+  },
+
+  {
+  "participant_id": "anonymous-02",
+  "scenario_id": "S-01",
+  "scenario_mode": "generative",
+  "date": "2026-11-24",
+  "facilitator": "Yiwei Jin",
+  "artifact": "Google Drive: (https://drive.google.com/file/d/1gBb8BBiAQBxve9K_InNFZPrIpPdX_sI4/view?usp=drive_link)session12-video/anonymous-02.mp4",
+
+  "anchors_available": ["Green Line","Undergraduate degree and second co-op","December lease end and January placement start","Month-to-month renewal, equal rent, and $1,200 moving cost","55-minute versus 25-minute commute, four on-site days per week"
+  ],
+
+  "initial_query": "You are deciding whether to move before your next work placement or stay in your current apartment until graduation.\n- You are finishing an undergraduate degree and expect to graduate in two more terms, about eight months.\n- Your current lease ends in December. You can renew month to month at the same rent.\n- Your second co-op starts in January and requires four days on site each week.\n- From your current apartment, the Green Line trip to the new site would take about 55 minutes each way.\n- A closer apartment would cost the same monthly rent and cut the commute to about 25 minutes each way.\n- Moving would cost about $1,200 upfront. \nPlease decide whether the shorter commute is worth the upfront cost of moving or whether to renew your current lease and stay until graduation.",
+  "query_formulation_seconds": 60,
+
+  "anchors_used": ["Green Line","Undergraduate degree and second co-op","December lease end and January placement start","Month-to-month renewal, equal rent, and $1,200 moving cost","55-minute versus 25-minute commute, four on-site days per week"
+  ],
+
+  "evaluator_intervention_pre_submit": false,
+
+  "detected_risk": true,
+  "risk_score": 0.75,
+  "system_state": "presidio_fallback",
+
+  "warning_in_their_words":
+    "If I send this message, it may release my location information",
+  "warning_comprehension": "correct",
+
+  "requested_rewrite": false,
+  "rewrite_changed_text": true,
+  "rewrite_decision": "original",
+  "edit_made": null,
+
+  "usefulness": 2,
+  "would_use_before_sending": false,
+  "adoption_reason":
+    "It's not helping with my results",
+
+  "time_to_decision_seconds": 3,
+  "comments": "Surprised that it detected location risk (green line) but didn't rewrite it",
+
+  "pre_result": {
+    "send_decision": "send_as_written",
+    "decision_reason": "Helps clarify my question",
+    "privacy_response_verbatim": ["lease ends in December","Green line and 55 minutes"],
+    "perceived_private_details": ["lease ends in December", "Green Line", "55-minute commute"],
+    "wants_privacy_rewrite": "unsure",
+    "rewrite_reason": "If it doesn't effect the idea of the question than I'll use it"},
+  
+  "post_result": {
+    "final_choice": "original",
+    "choice_reason": "I was asking question about commute time, but deleting 55 minutes and 25 minutes didn't give AI enough information for my question",
+    "remaining_privacy_concerns": "Green line",
+    "task_details_removed_or_changed": "55 minutes and 25 minutes",
+    "edited_from": null,
+    "edited_query": null}
+  
+  }
+
+    ]
