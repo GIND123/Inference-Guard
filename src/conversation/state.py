@@ -11,6 +11,7 @@ from __future__ import annotations
 import json
 import logging
 import os
+import re
 import time
 import uuid
 from dataclasses import asdict, dataclass, field
@@ -73,39 +74,62 @@ class ConversationTracker:
         # session_timestamps pattern in src/pipeline/orchestrator.py.
         self.session_last_seen: Dict[str, float] = {}
 
+    @staticmethod
+    def _compute_novelty_factor(
+        current_text: str,
+        history: Sequence[TurnRiskRecord],
+    ) -> float:
+        """Discount repeated/redundant turns so identical messages do not inflate risk."""
+        if not current_text or not history:
+            return 1.0
+        curr_tokens = set(re.findall(r"\b\w+\b", current_text.lower()))
+        if not curr_tokens:
+            return 1.0
+        max_sim = 0.0
+        for prev in history:
+            prev_tokens = set(re.findall(r"\b\w+\b", prev.raw_text.lower()))
+            if not prev_tokens:
+                continue
+            union = len(curr_tokens | prev_tokens)
+            if union > 0:
+                sim = len(curr_tokens & prev_tokens) / union
+                if sim > max_sim:
+                    max_sim = sim
+        if max_sim >= 0.90:
+            return 0.0
+        if max_sim >= 0.50:
+            return round(max(0.0, 1.0 - 0.8 * max_sim), 4)
+        return 1.0
+
     def _compute_cumulative_scores(
         self,
         history: Sequence[TurnRiskRecord],
         current_scores: Dict[str, float],
+        current_text: str = "",
     ) -> Dict[str, float]:
-        """Compute cumulative probabilities with Bayesian evidence gating.
+        """Compute cumulative probabilities with Bayesian evidence & novelty gating.
 
-        Bayesian Evidence Gating:
-        Background noise at or below NOISE_FLOOR (P_t <= 0.05) represents model baseline
-        uncertainty rather than genuine disclosure evidence. Gating this baseline out
-        prevents 20 innocent conversational turns from compounding into an unearned breach
-        alarm (1 - (1 - 0.05)^20 = 0.642).
+        1. Noise floor (P_t <= 0.05) prevents benign turns from compounding.
+        2. Novel-evidence discounting prevents repeating the same cue/sentence from
+           artificially inflating risk under conditional-independence multiplication.
         """
         NOISE_FLOOR = 0.05
+        novelty = self._compute_novelty_factor(current_text, history)
         cumulative: Dict[str, float] = {}
 
         for attr in ATTRIBUTES:
             curr_score = current_scores.get(attr, 0.0)
-            eff_curr = curr_score if curr_score > NOISE_FLOOR else 0.0
-            prod_complement = 1.0 - eff_curr
+            novel_curr = curr_score * novelty
+            eff_curr = novel_curr if novel_curr > NOISE_FLOOR else 0.0
 
-            for prev_turn in history:
-                prev_score = prev_turn.turn_scores.get(attr, 0.0)
-                eff_prev = prev_score if prev_score > NOISE_FLOOR else 0.0
-                prod_complement *= (1.0 - eff_prev)
+            if history:
+                prev_cum = history[-1].cumulative_scores.get(attr, 0.0)
+                prev_eff = prev_cum if prev_cum > NOISE_FLOOR else 0.0
+                cum_val = 1.0 - (1.0 - prev_eff) * (1.0 - eff_curr)
+                cum_val = max(cum_val, curr_score, prev_cum)
+            else:
+                cum_val = curr_score
 
-            cum_val = 1.0 - prod_complement
-            # If no active evidence above noise floor was ever disclosed, retain max baseline noise level
-            if cum_val == 0.0:
-                cum_val = max(
-                    curr_score,
-                    max((prev.turn_scores.get(attr, 0.0) for prev in history), default=0.0),
-                )
             cumulative[attr] = round(max(0.0, min(1.0, cum_val)), 4)
 
         return cumulative
@@ -158,8 +182,8 @@ class ConversationTracker:
         turn_scores = self.risk_estimator_fn(raw_text)
         overall_turn_risk = max(turn_scores.values()) if turn_scores else 0.0
 
-        # Cumulative scores with Bayesian evidence gating
-        cumulative_scores = self._compute_cumulative_scores(history, turn_scores)
+        # Cumulative scores with Bayesian evidence & novelty gating
+        cumulative_scores = self._compute_cumulative_scores(history, turn_scores, current_text=raw_text)
         overall_cumulative_risk = max(cumulative_scores.values()) if cumulative_scores else 0.0
 
         # Residual Anonymity Capacity (formerly joint entropy)
