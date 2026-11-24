@@ -297,13 +297,19 @@ def _fix_article_agreement(text: str) -> str:
 
 
 def _strip_or_generalize_age(text: str) -> str:
-    """Remove author age adjectives before roles cleanly; generalize standalone ages."""
+    """Remove author age adjectives before roles cleanly; generalize standalone ages and birthdates."""
+    res = re.sub(
+        r"\bborn\s+(?:on\s+)?(?:[A-Z][a-z]+\s+\d{1,2},?\s+\d{4}|\d{1,2}[/-]\d{1,2}[/-]\d{2,4}|\d{4})\b",
+        "born years ago",
+        text,
+        flags=re.IGNORECASE,
+    )
     _tp_followers = r"(?!\s+(?:patient|client|infant|child|toddler|boy|girl|man|woman|male|female|son|daughter|student|applicant)\b)"
     # Pre-nominal age before a role/adjective ("a 62-year-old retired teacher" -> "a retired teacher")
     res = re.sub(
         rf"\b(a|an)\s+\d{{1,2}}[-\s]*(?:years?[-\s]*old|yo|y/o)\s+(?=[a-zA-Z]){_tp_followers}",
         r"\1 ",
-        text,
+        res,
         flags=re.IGNORECASE,
     )
     # Standalone age ("I am 34 years old", "in my 30s") -> "an adult"
@@ -586,6 +592,12 @@ def generate_candidate_rewrites_heuristic(text: str) -> List[str]:
     try:
         from src.rewriter.persona_banks import neutralize_text
         bank_unpruned = neutralize_text(text)
+        bank_unpruned = re.sub(
+            r"\bborn\s+(?:on\s+)?(?:[A-Z][a-z]+\s+\d{1,2},?\s+\d{4}|\d{1,2}[/-]\d{1,2}[/-]\d{2,4}|\d{4})\b",
+            "born years ago",
+            bank_unpruned,
+            flags=re.IGNORECASE,
+        )
         bank_unpruned, _ = scrub_hard_pii(bank_unpruned)
         bank_unpruned = neutralize_education_cues(neutralize_occupation_cues(bank_unpruned))
         bank_unpruned = re.sub(r"\b(my area|the area|locally),\s*[A-Z]{2}\b", r"\1", bank_unpruned)

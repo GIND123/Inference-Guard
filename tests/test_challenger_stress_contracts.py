@@ -22,6 +22,13 @@ from web import api
 from web.api import app
 
 
+@pytest.fixture(autouse=True)
+def _isolate_challenger_from_qwen(monkeypatch):
+    """Isolate contract tests from live Qwen GPU adapter so pareto_rejection_sample mocks take effect."""
+    monkeypatch.setattr(api, "qwen_rewriter", None)
+    monkeypatch.setattr(api, "get_qwen_rewriter", lambda: api.qwen_rewriter)
+
+
 @pytest.fixture
 def client():
     return TestClient(app)
