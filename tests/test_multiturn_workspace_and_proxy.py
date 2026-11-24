@@ -121,3 +121,11 @@ def test_openai_compatible_chat_completions_proxy_multiturn(client):
     serialized = str(api.pseudonym_states[sid].model_dump())
     assert "Sarah" not in serialized
     assert "Chen" not in serialized
+
+
+def test_split_brain_ui_elements_present_without_breaking_inspector(client):
+    resp = client.get("/")
+    assert resp.status_code == 200
+    html = resp.text
+    for elem_id in ("tab-inspector", "tab-livechat", "private-chat-log", "cloud-wire-log", "text-input", "analyze-btn"):
+        assert f'id="{elem_id}"' in html

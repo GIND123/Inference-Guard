@@ -67,8 +67,31 @@ document.addEventListener("DOMContentLoaded", () => {
     worse: ["Estimated risk increased after rewriting.", "Do not assume this suggestion offers better protection. Review or edit it before use.", "bad"],
     explicit_pii_remains: ["Identifying information remains in the suggestion.", "Review detected identifying details before sharing this text.", "bad"]
   };
-  let latest = null, busy = false, edited = false;
+  const newSecret = () => {
+    const bytes = new Uint8Array(32);
+    if (globalThis.crypto?.getRandomValues) {
+      globalThis.crypto.getRandomValues(bytes);
+    } else {
+      for (let i = 0; i < bytes.length; i++) bytes[i] = Math.floor(Math.random() * 256);
+    }
+    return Array.from(bytes, b => b.toString(16).padStart(2, "0")).join("");
+  };
+  let latest = null, busy = false, edited = false, multiTurnIdx = 0;
+  let sessionSecret = newSecret();
+  const aliasVault = new Map();
+  const multiTurnDemo = [
+    "I take the Green Line every morning to get to lectures.",
+    "My second undergraduate co-op starts next semester.",
+    "I live close enough to walk through Back Bay on weekends.",
+    "My professor moved our capstone deadline on Canvas."
+  ];
   $("session-id").value = newId();
+  function updateTurnControls(nextTurnNum) {
+    $("turn-badge").textContent = "Conversation Turn #" + nextTurnNum;
+    const demoLabelTurn = (multiTurnIdx % multiTurnDemo.length) + 1;
+    $("multiturn-btn").textContent = "Try multi-turn example (Turn " + demoLabelTurn + "/" + multiTurnDemo.length + ")";
+  }
+  updateTurnControls(1);
   function isStale() { return !!latest && (latest.input_text !== $("text-input").value.trim() || latest.session_id !== $("session-id").value.trim()); }
   function updateStale() {
     const stale = isStale(); $("stale").hidden = !stale;
@@ -88,7 +111,10 @@ document.addEventListener("DOMContentLoaded", () => {
   }
   function setBusy(value) {
     busy = value;
-    for (const id of ["analyze-btn", "sample-btn", "new-session", "session-id", "text-input", "suggested-text"]) $(id).disabled = value;
+    for (const id of ["analyze-btn", "sample-btn", "multiturn-btn", "new-session", "session-id", "text-input", "suggested-text", "privacy-mode"]) {
+      const el = $(id);
+      if (el) el.disabled = value;
+    }
     $("analyze-btn").textContent = value ? "Checking your message…" : "Check my message";
     $("results").setAttribute("aria-busy", String(value)); updateStale();
   }
@@ -171,11 +197,94 @@ document.addEventListener("DOMContentLoaded", () => {
     edited = false; $("edit-note").hidden = true; $("check-edit-btn").hidden = true;
     $("action-status").textContent = "";
     setEditing(false);
-    $("pseudonym-display").textContent = data.pseudonymized_text || "Separate pseudonymization output is unavailable. The baseline is not a substitute for a persistent-alias result.";
+    const pseudonyms = data.pseudonyms && typeof data.pseudonyms === "object" ? data.pseudonyms : {};
+    for (const [orig, tok] of Object.entries(pseudonyms)) {
+      aliasVault.set(orig, tok);
+    }
+    const aliasEntries = Array.from(aliasVault.entries());
+    $("pseudonym-badges").replaceChildren();
+    if (aliasEntries.length > 0) {
+      for (const [orig, tok] of aliasEntries) {
+        const badge = document.createElement("span");
+        badge.className = "alias-badge";
+        badge.textContent = orig + " → " + tok;
+        $("pseudonym-badges").append(badge);
+      }
+      $("alias-bar").hidden = false;
+      $("restore-aliases-btn").hidden = false;
+      $("pseudonym-display").textContent = typeof data.pseudonymized_text === "string" ? data.pseudonymized_text : "";
+    } else {
+      $("alias-bar").hidden = true;
+      $("restore-aliases-btn").hidden = true;
+      $("pseudonym-display").textContent = "No explicit names, emails, or phone numbers required aliasing in this turn.";
+    }
     $("presidio-display").textContent = typeof data.presidio_text === "string" ? data.presidio_text : "Baseline output is unavailable.";
     const capacity = turn.residual_anonymity_capacity ?? turn.joint_entropy;
     $("capacity").textContent = typeof capacity === "number" ? number(capacity)+" / 4" : "Not available";
     $("leakage").textContent = typeof turn.leakage_delta === "number" ? (turn.leakage_delta >= 0 ? "+" : "")+number(turn.leakage_delta) : "Not available";
+
+    const history = Array.isArray(data.conversation_history) ? data.conversation_history : [];
+    const lastEntry = history.length ? history[history.length - 1] : null;
+    const protTurn = data.protected_turn_record || {};
+    const cumBefore = lastEntry ? lastEntry.cumulative_risk_before : turn.overall_cumulative_risk;
+    const cumAfter = lastEntry ? lastEntry.cumulative_risk_after : (protTurn.overall_cumulative_risk ?? comparison.inferential_after);
+    const dBefore = lastEntry ? lastEntry.leakage_delta_before : turn.leakage_delta;
+    const dAfter = lastEntry ? lastEntry.leakage_delta_after : protTurn.leakage_delta;
+    $("mt-cum-before").textContent = number(cumBefore);
+    $("mt-cum-after").textContent = number(cumAfter);
+    $("mt-delta-before").textContent = typeof dBefore === "number" ? "Latest turn added " + (dBefore >= 0 ? "+" : "") + number(dBefore) : "";
+    $("mt-delta-after").textContent = typeof dAfter === "number" ? "Latest turn added " + (dAfter >= 0 ? "+" : "") + number(dAfter) : "";
+
+    $("mt-attribute-bars").replaceChildren();
+    const cumScoresBefore = (lastEntry && lastEntry.cumulative_scores_before) || turn.cumulative_scores || {};
+    const cumScoresAfter = (lastEntry && lastEntry.cumulative_scores_after) || protTurn.cumulative_scores || {};
+    for (const attr of attributes) {
+      const bVal = cumScoresBefore[attr], aVal = cumScoresAfter[attr];
+      const validA = typeof aVal === "number" && Number.isFinite(aVal);
+      const validB = typeof bVal === "number" && Number.isFinite(bVal);
+      const row = document.createElement("div"); row.className = "attr-row";
+      const name = document.createElement("span"); name.textContent = label(attr);
+      const track = document.createElement("div"); track.className = "bar-track"; track.setAttribute("aria-hidden", "true");
+      const fill = document.createElement("div"); fill.className = "bar-fill";
+      const displayScore = validA ? aVal : (validB ? bVal : 0);
+      fill.style.width = Math.max(0, Math.min(100, displayScore * 100)) + "%";
+      fill.style.backgroundColor = displayScore >= 0.6 ? "var(--red)" : displayScore >= 0.3 ? "var(--amber)" : "var(--green)";
+      track.append(fill);
+      const bandEl = document.createElement("span"); bandEl.className = "attr-band";
+      bandEl.textContent = validB && validA ? number(bVal) + " → " + number(aVal) : "—";
+      const valEl = document.createElement("span"); valEl.className = "attr-number";
+      valEl.textContent = validA ? number(aVal) : "—";
+      row.append(name, track, bandEl, valEl);
+      $("mt-attribute-bars").append(row);
+    }
+
+    $("mt-history-list").replaceChildren();
+    for (const item of history) {
+      const row = document.createElement("div"); row.className = "mt-turn-row";
+      const head = document.createElement("div"); head.className = "mt-turn-head";
+      const tTitle = document.createElement("strong"); tTitle.textContent = "Turn " + item.turn_number + " (" + (item.risk_band_before || "—") + " → " + (item.risk_band_after || "—") + ")";
+      const preview = document.createElement("span"); preview.className = "mt-turn-preview"; preview.textContent = item.preview || "";
+      head.append(tTitle, preview);
+      row.append(head);
+
+      for (const [lbl, val, color] of [
+        ["Unprotected", item.cumulative_risk_before, "var(--red)"],
+        ["Protected", item.cumulative_risk_after, "var(--green)"]
+      ]) {
+        const pair = document.createElement("div"); pair.className = "mt-bar-pair";
+        const spanLbl = document.createElement("span"); spanLbl.textContent = lbl;
+        const track = document.createElement("div"); track.className = "bar-track";
+        const fill = document.createElement("div"); fill.className = "bar-fill";
+        const pct = typeof val === "number" ? Math.max(0, Math.min(100, val * 100)) : 0;
+        fill.style.width = pct + "%"; fill.style.backgroundColor = color;
+        track.append(fill);
+        const num = document.createElement("span"); num.textContent = number(val);
+        pair.append(spanLbl, track, num);
+        row.append(pair);
+      }
+      $("mt-history-list").append(row);
+    }
+    updateTurnControls((history.length || turn.turn_number || 0) + 1);
     for (const [id, key] of [["util-cosine","cosine_similarity"],["util-forward","nli_forward"],["util-backward","nli_backward"],["util-composite","utility_score"]]) $(id).textContent = number(utility[key],4);
     $("utility-method").textContent = utility.utility_backend === "model" ? "These scores come from models that compare the two versions. Check the wording for important changes." : utility.utility_backend === "fallback" ? "Some scores use simple text checks that can miss changes in meaning. Compare both versions before using the suggestion." : "The scoring method is unavailable. Compare both versions to check for changes in meaning.";
     const engines = {qwen_adapter:"Qwen adapter",heuristic:"rule-based rewriting",presidio_fallback:"baseline masking fallback",passthrough_low_risk:"original text retained"};
@@ -190,7 +299,20 @@ document.addEventListener("DOMContentLoaded", () => {
     message(""); setBusy(true);
     try {
       const start = performance.now();
-      const response = await fetch("/analyze", {method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({text, session_id:session, user_id:"demo_user"}),signal:AbortSignal.timeout(180000)});
+      const response = await fetch("/analyze", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "X-Session-Secret": sessionSecret
+        },
+        body: JSON.stringify({
+          text,
+          session_id: session,
+          user_id: "demo_user",
+          privacy_mode: $("privacy-mode")?.value || "personal_balanced"
+        }),
+        signal: AbortSignal.timeout(180000)
+      });
       if (!response.ok) throw new Error("The server returned status " + response.status + ".");
       const data = await response.json();
       if (typeof data.rewritten_text !== "string" || !data.risk_summary || typeof data.risk_summary !== "object") throw new Error("The server returned an incomplete analysis.");
@@ -204,8 +326,48 @@ document.addEventListener("DOMContentLoaded", () => {
   $("analyze-btn").addEventListener("click", analyze);
   for (const id of ["text-input","session-id"]) $(id).addEventListener("input", updateStale);
   $("sample-btn").addEventListener("click", () => { $("text-input").value = "My manager keeps giving client-facing assignments to colleagues with master's degrees. I have been on the team for seven years and train new staff, but I do not have a postgraduate degree. How can I raise this fairly?"; updateStale(); $("text-input").focus(); });
-  $("new-session").addEventListener("click", () => { $("session-id").value = newId(); message(""); updateStale(); });
+  $("multiturn-btn").addEventListener("click", () => {
+    const idx = multiTurnIdx % multiTurnDemo.length;
+    $("text-input").value = multiTurnDemo[idx];
+    multiTurnIdx = (idx + 1) % multiTurnDemo.length;
+    updateTurnControls(latest?.response?.conversation_history ? latest.response.conversation_history.length + 1 : 1);
+    updateStale();
+    $("text-input").focus();
+  });
+  $("new-session").addEventListener("click", () => {
+    const oldId = $("session-id").value.trim();
+    if (oldId) {
+      fetch("/session/" + encodeURIComponent(oldId), {
+        method: "DELETE",
+        headers: {"X-Session-Secret": sessionSecret}
+      }).catch(() => {});
+    }
+    $("session-id").value = newId();
+    sessionSecret = newSecret();
+    aliasVault.clear();
+    multiTurnIdx = 0;
+    latest = null;
+    $("results").hidden = true;
+    $("empty").hidden = false;
+    updateTurnControls(1);
+    message("");
+    updateStale();
+  });
   $("edit-btn").addEventListener("click", () => setEditing($("suggested-text").hidden));
+  $("restore-aliases-btn").addEventListener("click", () => {
+    if (aliasVault.size === 0) return;
+    let restored = $("suggested-text").value;
+    const entries = Array.from(aliasVault.entries()).sort((a, b) => b[1].length - a[1].length);
+    for (const [orig, tok] of entries) {
+      restored = restored.split(tok).join(orig);
+    }
+    $("suggested-text").value = restored;
+    edited = restored !== latest.response.rewritten_text;
+    $("edit-note").hidden = !edited;
+    $("check-edit-btn").hidden = !edited;
+    renderComparison();
+    $("action-status").textContent = "Restored real names locally in the preview (not sent to the server).";
+  });
   $("suggested-text").addEventListener("input", () => {
     edited = $("suggested-text").value !== latest.response.rewritten_text;
     $("edit-note").hidden = !edited;
@@ -228,5 +390,183 @@ document.addEventListener("DOMContentLoaded", () => {
     const url = URL.createObjectURL(new Blob([JSON.stringify(latest,null,2)],{type:"application/json"}));
     const link = document.createElement("a"); link.href = url; link.download = latest.session_id.replace(/[^a-zA-Z0-9_-]/g,"_")+".json"; document.body.append(link); link.click(); link.remove(); setTimeout(() => URL.revokeObjectURL(url),1000);
   });
+
+  // Split-Brain Live Chat Workspace
+  const tabInspector = $("tab-inspector"), tabLivechat = $("tab-livechat");
+  const inspectorView = $("inspector-view"), livechatView = $("livechat-view");
+  if (tabInspector && tabLivechat && inspectorView && livechatView) {
+    const switchTab = mode => {
+      const isLive = mode === "livechat";
+      inspectorView.hidden = isLive;
+      livechatView.hidden = !isLive;
+      tabInspector.classList.toggle("active", !isLive);
+      tabLivechat.classList.toggle("active", isLive);
+      tabInspector.setAttribute("aria-selected", String(!isLive));
+      tabLivechat.setAttribute("aria-selected", String(isLive));
+    };
+    tabInspector.addEventListener("click", () => switchTab("inspector"));
+    tabLivechat.addEventListener("click", () => switchTab("livechat"));
+
+    let chatSessionId = "chat-" + newId();
+    let chatSecret = newSecret();
+    const chatAliasVault = new Map(); // token -> original surface
+    let chatWireMessages = [];
+    let chatDemoIdx = 0;
+    const chatScenarios = {
+      business_support: {
+        privacy_mode: "business_support",
+        turns: [
+          "Hi, I'm Sarah Chen at 42 Boylston St, Apt 4B (sarah.chen@gmail.com). I'm a 62-year-old retired teacher in Boston on a fixed income—can you waive the $45 late fee on Order #88412?",
+          "Also, I recently moved from 100 Beacon St to 42 Boylston St, Apt 4B (555-867-5309). Can you confirm which shipping address and phone number are on Order #88412 and email Ms. Chen the receipt?",
+          "Under Massachusetts state consumer law, if the replacement arrives damaged, is Sarah entitled to a full refund on Order #88412 after 14 days?"
+        ]
+      },
+      personal_workplace: {
+        privacy_mode: "personal_balanced",
+        turns: [
+          "My manager Sarah Chen asked me to prep slides for our Q4 board review in Boston.",
+          "Sarah wants the slides to highlight our post-doc lab's NIH grant.",
+          "Can you draft a polite follow-up email to Ms. Chen asking for feedback before my thesis defense next month?"
+        ]
+      }
+    };
+    const getActiveScenario = () => {
+      const key = $("chat-scenario")?.value || "business_support";
+      return chatScenarios[key] || chatScenarios.business_support;
+    };
+
+    function appendRestoredReply(container, rawReply) {
+      const div = document.createElement("div");
+      div.className = "sb-msg assistant";
+      const entries = Array.from(chatAliasVault.entries()).sort((a, b) => b[0].length - a[0].length);
+      if (entries.length === 0) {
+        div.textContent = rawReply;
+        container.append(div);
+        return;
+      }
+      const escaped = entries.map(([tok]) => tok.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"));
+      const re = new RegExp("(" + escaped.join("|") + ")", "g");
+      const parts = rawReply.split(re);
+      for (const part of parts) {
+        if (chatAliasVault.has(part)) {
+          const mark = document.createElement("mark");
+          mark.className = "restored-alias";
+          mark.title = "Cloud saw " + part;
+          mark.textContent = "🔒 " + chatAliasVault.get(part);
+          div.append(mark);
+        } else {
+          div.append(part);
+        }
+      }
+      container.append(div);
+    }
+
+    async function sendLiveChat(rawText) {
+      const text = rawText.trim();
+      if (!text) return;
+      const sendBtn = $("chat-send-btn"), demoBtn = $("chat-demo-btn");
+      sendBtn.disabled = true; demoBtn.disabled = true;
+      const privLog = $("private-chat-log"), wireLog = $("cloud-wire-log");
+      if (chatWireMessages.length === 0) { privLog.replaceChildren(); wireLog.replaceChildren(); }
+
+      const userDiv = document.createElement("div");
+      userDiv.className = "sb-msg user";
+      userDiv.textContent = text;
+      privLog.append(userDiv);
+      privLog.scrollTop = privLog.scrollHeight;
+
+      try {
+        const activeScenario = getActiveScenario();
+        const payload = {
+          model: ($("chat-model")?.value || "gpt-4o-mini").trim(),
+          session_id: chatSessionId,
+          privacy_mode: activeScenario.privacy_mode,
+          messages: [...chatWireMessages, {role: "user", content: text}],
+          upstream_base_url: ($("chat-base-url")?.value || "").trim() || undefined,
+          upstream_api_key: ($("chat-api-key")?.value || "").trim() || undefined
+        };
+        const resp = await fetch("/v1/chat/completions", {
+          method: "POST",
+          headers: {"Content-Type": "application/json", "X-Session-Secret": chatSecret},
+          body: JSON.stringify(payload),
+          signal: AbortSignal.timeout(180000)
+        });
+        if (!resp.ok) throw new Error("HTTP " + resp.status);
+        const data = await resp.json();
+        const ig = data.inferenceguard || {};
+        const sanitizedUser = ig.sanitized_user_message || text;
+        const reply = data.choices?.[0]?.message?.content || "";
+
+        if (ig.pseudonyms && typeof ig.pseudonyms === "object") {
+          for (const [orig, tok] of Object.entries(ig.pseudonyms)) {
+            if (!chatAliasVault.has(tok)) chatAliasVault.set(tok, orig);
+          }
+        }
+        $("chat-alias-count").textContent = chatAliasVault.size + " local alias" + (chatAliasVault.size === 1 ? "" : "es");
+
+        chatWireMessages.push({role: "user", content: sanitizedUser});
+        chatWireMessages.push({role: "assistant", content: reply});
+
+        const wireUser = document.createElement("div");
+        wireUser.className = "sb-msg user";
+        wireUser.textContent = "[USER SENT TO CLOUD]\n" + sanitizedUser;
+        wireLog.append(wireUser);
+
+        const wireAsst = document.createElement("div");
+        wireAsst.className = "sb-msg assistant";
+        wireAsst.textContent = "[CLOUD REPLY (" + (ig.upstream_mode || "demo") + ")]\n" + reply;
+        wireLog.append(wireAsst);
+        wireLog.scrollTop = wireLog.scrollHeight;
+
+        appendRestoredReply(privLog, reply);
+        privLog.scrollTop = privLog.scrollHeight;
+
+        const cb = typeof ig.cumulative_risk_before === "number" ? ig.cumulative_risk_before.toFixed(2) : "—";
+        const ca = typeof ig.cumulative_risk_after === "number" ? ig.cumulative_risk_after.toFixed(2) : "—";
+        $("wire-risk-pill").textContent = "Mosaic Risk: " + cb + " → " + ca;
+      } catch (err) {
+        const errDiv = document.createElement("div");
+        errDiv.className = "sb-msg assistant";
+        errDiv.textContent = "Could not complete turn: " + err.message;
+        privLog.append(errDiv);
+      } finally {
+        sendBtn.disabled = false; demoBtn.disabled = false;
+      }
+    }
+
+    const resetLiveChat = () => {
+      const turns = getActiveScenario().turns;
+      fetch("/session/" + encodeURIComponent(chatSessionId), {
+        method: "DELETE",
+        headers: {"X-Session-Secret": chatSecret}
+      }).catch(() => {});
+      chatSessionId = "chat-" + newId();
+      chatSecret = newSecret();
+      chatAliasVault.clear();
+      chatWireMessages = [];
+      chatDemoIdx = 0;
+      $("chat-demo-btn").textContent = "Run Next Demo Turn (1/" + turns.length + ")";
+      $("chat-alias-count").textContent = "0 local aliases";
+      $("wire-risk-pill").textContent = "Mosaic Risk: 0.00 → 0.00";
+      $("private-chat-log").innerHTML = '<p class="small">Send a message or click “Run Next Demo Turn” to start a private multi-turn conversation.</p>';
+      $("cloud-wire-log").innerHTML = '<p class="small">Exact sanitized messages sent over the wire and stored in CRM logs will appear here.</p>';
+    };
+
+    $("chat-send-btn").addEventListener("click", () => {
+      const inp = $("chat-input");
+      const val = inp.value;
+      inp.value = "";
+      sendLiveChat(val);
+    });
+    $("chat-demo-btn").addEventListener("click", () => {
+      const turns = getActiveScenario().turns;
+      const msg = turns[chatDemoIdx % turns.length];
+      chatDemoIdx = (chatDemoIdx + 1) % turns.length;
+      $("chat-demo-btn").textContent = "Run Next Demo Turn (" + (chatDemoIdx + 1) + "/" + turns.length + ")";
+      sendLiveChat(msg);
+    });
+    $("chat-new-btn").addEventListener("click", resetLiveChat);
+    $("chat-scenario")?.addEventListener("change", resetLiveChat);
+  }
   checkConnection();
 });

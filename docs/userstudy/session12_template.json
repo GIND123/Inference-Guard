@@ -1,0 +1,17 @@
+[
+  {
+    "participant_id": "anonymous-01",
+    "scenario_id": "S-01",
+    "scenario_mode": "generative",
+    "date": "2026-11-27",
+    "facilitator": "",
+    "system_state": "modernbert_qwen_adapter",
+    "detected_risk": true,
+    "risk_score": 0.0,
+    "warning_comprehension": "correct",
+    "rewrite_decision": "yes | yes_with_edits | no",
+    "usefulness": 5,
+    "would_use_before_sending": true,
+    "comments": ""
+  }
+]
