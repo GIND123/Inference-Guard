@@ -100,6 +100,47 @@ document.addEventListener("DOMContentLoaded", () => {
     $("check-edit-btn").disabled = busy || stale;
   }
   function message(text) { $("error").textContent = text; $("error").hidden = !text; }
+
+  // --- live input length -------------------------------------------------
+  // The risk model reads at most 512 tokens (~384 English words). Past that it
+  // truncates, and the band, the cues and the rewrite would all describe a
+  // prefix while the panel presents them as describing the whole message.
+  // 300 is the shown limit, left below the real cap so punctuation and rare
+  // words cannot push a message that looked fine over the true boundary.
+  const WORD_LIMIT = 300;
+  const MODEL_WORD_CAP = 384;
+
+  function countWords(text) {
+    const trimmed = text.trim();
+    return trimmed ? trimmed.split(/\s+/).length : 0;
+  }
+
+  function updateWordCount() {
+    const el = $("word-count");
+    if (!el) return;
+    const words = countWords($("text-input").value);
+    $("word-count-value").textContent = words + " / " + WORD_LIMIT + " words";
+
+    let state = "ok", note = "";
+    if (words > MODEL_WORD_CAP) {
+      state = "truncated";
+      note = "Past this length the checker only reads the first " + MODEL_WORD_CAP +
+             " words or so, so the result would not cover the rest of your message.";
+    } else if (words > WORD_LIMIT) {
+      state = "over";
+      note = "Over the limit. Shorten it, or check it in parts \u2014 results get less " +
+             "reliable as you approach the checker's reading limit.";
+    } else if (words > WORD_LIMIT * 0.8) {
+      state = "near";
+      note = "Approaching the limit.";
+    }
+    el.dataset.state = state;
+    $("word-count-note").textContent = note;
+  }
+
+  $("text-input").addEventListener("input", updateWordCount);
+  updateWordCount();
+
   async function checkConnection() {
     $("connection").textContent = "Checking connection…"; $("connection").dataset.state = "";
     try {

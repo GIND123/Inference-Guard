@@ -579,6 +579,40 @@ REWRITE_ENGINES = (ENGINE_QWEN, ENGINE_HEURISTIC, ENGINE_PRESIDIO, ENGINE_PASSTH
 TIMING_STAGES = ("presidio", "risk_model", "rewrite", "rescore", "utility", "total")
 
 
+# The risk model tokenizes with truncation=True, max_length=512. Anything past
+# that is scored as if it were not there: the band, the cues and the rewrite
+# all describe a prefix, while the UI presents them as describing the message.
+# That is the over-trust failure the lean canvas calls highest-cost, and it
+# never showed up in user testing because the longest input any participant
+# submitted was 140 words.
+#
+# 512 tokens is roughly 384 English words. 300 is the user-facing limit, left
+# deliberately below the model cap so ordinary punctuation and rare words
+# cannot push a message that looked fine over the real boundary.
+ANALYSIS_MODEL_TOKEN_LIMIT = 512
+ANALYSIS_WORD_LIMIT = 300
+
+
+def measure_input_length(text: str) -> Dict[str, Any]:
+    """Word count against the limit, and whether the model will truncate.
+
+    Reported on every analyze response so the caller can tell a score for the
+    whole message from a score for its first few hundred words.
+    """
+    words = len(text.split())
+    # ~0.75 words per token for English prose; deliberately conservative, so
+    # we warn slightly early rather than slightly late.
+    estimated_tokens = int(words / 0.75) if words else 0
+    return {
+        "words": words,
+        "word_limit": ANALYSIS_WORD_LIMIT,
+        "estimated_tokens": estimated_tokens,
+        "model_token_limit": ANALYSIS_MODEL_TOKEN_LIMIT,
+        "over_limit": words > ANALYSIS_WORD_LIMIT,
+        "truncated_for_analysis": estimated_tokens > ANALYSIS_MODEL_TOKEN_LIMIT,
+    }
+
+
 class AnalyzeResponse(BaseModel):
     risk_summary: Dict[str, Any]
     rewritten_text: str
@@ -595,6 +629,9 @@ class AnalyzeResponse(BaseModel):
     is_win: Optional[bool] = None
     rewrite_engine: str
     rewrite_changed: bool
+    # Word count against the user-facing limit, and whether the risk model
+    # truncated the input. See measure_input_length.
+    input_length: Dict[str, Any]
     # SHA-256 of exactly the rewritten_text string returned, so a study log
     # can be checked against what the UI displayed without logging the text.
     served_text_sha256: str
@@ -1448,6 +1485,15 @@ def analyze_text(
     comparison_dict["is_win"] = comparison.is_win
     timings["total"] = _ms_since(t_total)
 
+    input_length = measure_input_length(request.text)
+    if input_length["truncated_for_analysis"]:
+        logger.warning(
+            "Input is ~%d tokens, past the %d-token model limit: the risk score "
+            "describes a prefix of this message, not all of it.",
+            input_length["estimated_tokens"],
+            ANALYSIS_MODEL_TOKEN_LIMIT,
+        )
+
     return AnalyzeResponse(
         risk_summary=before_report.inferential.to_dict(),
         rewritten_text=rewritten_text,
@@ -1463,6 +1509,7 @@ def analyze_text(
         verdict=comparison.verdict,
         is_win=comparison.is_win,
         rewrite_engine=engine,
+        input_length=input_length,
         rewrite_changed=rewrite_changed(text, rewritten_text),
         served_text_sha256=served_text_sha256(rewritten_text),
         timings_ms=timings,
