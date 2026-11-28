@@ -1272,7 +1272,23 @@ def server_status() -> Dict[str, Any]:
 
 @app.get("/debug/last_rewrite")
 def get_last_rewrite_debug() -> Dict[str, Any]:
-    """Inspect trace and decisions of the most recent rewrite."""
+    """Inspect trace and decisions of the most recent rewrite.
+
+    The trace is global, not session-scoped, so without this gate any caller
+    could read the previous caller's pseudonymized text, contextual details
+    and candidate rewrites. Off unless IG_DEMO_MODE is set.
+    """
+    if not _demo_mode_enabled():
+        raise HTTPException(
+            status_code=404,
+            detail={
+                "error": "debug_disabled",
+                "message": (
+                    "The rewrite trace is global rather than session-scoped, so it is "
+                    "disabled unless IG_DEMO_MODE=true."
+                ),
+            },
+        )
     return last_debug_trace or {"status": "no rewrites processed yet"}
 
 
@@ -1557,6 +1573,19 @@ _DEMO_ORDER_DB: Dict[str, Dict[str, str]] = {
 }
 
 
+def _demo_mode_enabled() -> bool:
+    """Whether canned assistant replies and global debug traces are allowed.
+
+    Off unless explicitly enabled. The proxy is OpenAI-compatible, so a caller
+    cannot tell a simulated reply from a real one by its shape -- and the
+    canned replies assert completed actions ("applied a one-time courtesy
+    waiver", "your replacement shipment is scheduled for dispatch"). Served to
+    a real user after an upstream outage, that is a false statement about
+    their account, not a degraded answer.
+    """
+    return os.getenv("IG_DEMO_MODE", "false").strip().lower() in ("1", "true", "yes", "on")
+
+
 def _generate_local_demo_reply(
     sanitized_user_msg: str,
     all_messages: List[Dict[str, str]],
@@ -1718,21 +1747,32 @@ def chat_completions_proxy(
 
     sanitized_messages: List[Dict[str, str]] = []
     extra_pseudonyms: Dict[str, str] = {}
+    unprotected_roles: set = set()
     p_state_ctx = pseudonym_states.get(session_id)
     active_sec_ctx = x_session_secret or session_internal_secrets.get(session_id)
     for idx, msg in enumerate(request.messages):
         if idx == last_user_idx:
             content = analyze_res.rewritten_text
-        elif msg.role in ("user", "tool") and p_state_ctx is not None and active_sec_ctx:
-            # Ensure prior user turns and enterprise RAG/tool payloads are also blind-indexed
+        elif p_state_ctx is not None and active_sec_ctx:
+            # Every other outbound message -- prior user turns, tool/RAG payloads,
+            # and assistant and system content -- is pseudonymized too. Assistant
+            # turns quote the user's details back ("your order ships to <address>")
+            # and system prompts carry account context, so passing those through
+            # unchanged sent to the upstream model exactly what the last turn was
+            # rewritten to withhold.
             pseudo_ctx, ctx_spans, _ = pseudonym_manager.pseudonymize_turn(
                 msg.content, p_state_ctx, session_secret=active_sec_ctx, blind_index=True
             )
             content = pseudo_ctx
             for sp in ctx_spans:
                 extra_pseudonyms.setdefault(sp.original_surface, sp.pseudonym_token)
+            unprotected_roles.discard(msg.role)
         else:
+            # No pseudonym state or session secret: we cannot protect this
+            # message. Record it rather than quietly forwarding the raw text --
+            # the caller is told which roles went out unprotected.
             content = msg.content
+            unprotected_roles.add(msg.role)
         sanitized_messages.append({"role": msg.role, "content": content})
 
     # Resolve optional upstream API key & base URL
@@ -1767,6 +1807,23 @@ def chat_completions_proxy(
                 upstream_mode = "live_upstream"
         except Exception as exc:
             logger.warning("Upstream LLM dispatch failed (%s); using local demo assistant.", exc)
+
+    if not assistant_reply and not _demo_mode_enabled():
+        # Production: say the upstream call failed. Do not substitute a canned
+        # reply -- see _demo_mode_enabled.
+        raise HTTPException(
+            status_code=502,
+            detail={
+                "error": "upstream_unavailable",
+                "message": (
+                    "The upstream model could not be reached, and demo replies are "
+                    "disabled. No assistant response was generated. Set IG_DEMO_MODE=true "
+                    "only for presentations, never for a caller acting on the reply."
+                ),
+                "upstream_configured": bool(api_key),
+                "session_id": session_id,
+            },
+        )
 
     if not assistant_reply:
         # Zero-trust blind-indexed order lookup for B2B support address/phone verification
@@ -1834,6 +1891,8 @@ def chat_completions_proxy(
             "cumulative_risk_after": last_hist.get("cumulative_risk_after"),
             "rewrite_engine": analyze_res.rewrite_engine,
             "upstream_mode": upstream_mode,
+            "simulated_reply": upstream_mode != "live_upstream",
+            "unprotected_roles": sorted(unprotected_roles),
         },
     }
 
