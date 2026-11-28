@@ -384,3 +384,15 @@ textarea.text-pane { width: 100%; resize: vertical; }
   .footer-inner { flex-direction: column; padding: 16px; }
 }
 @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+
+/* Live input length against the model's readable window. */
+.word-count {
+  margin: .35rem 0 0;
+  font-size: .8125rem;
+  font-variant-numeric: tabular-nums;
+  color: var(--muted);
+}
+.word-count[data-state="near"] { color: var(--amber); }
+.word-count[data-state="over"],
+.word-count[data-state="truncated"] { color: var(--red); font-weight: 600; }
+#word-count-note { display: block; font-weight: 400; }

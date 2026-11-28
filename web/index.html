@@ -59,7 +59,13 @@
       </div>
 
       <label for="text-input" class="sr-only">Message to check</label>
-      <textarea id="text-input" class="composer-input" rows="6" aria-describedby="input-help" placeholder="Paste or type the message you are about to send…"></textarea>
+      <textarea id="text-input" class="composer-input" rows="6" aria-describedby="input-help word-count" placeholder="Paste or type the message you are about to send…"></textarea>
+      <!-- Live count against the limit the risk model can actually read. Past
+           it the model truncates, so the score would describe only the start
+           of the message while the panel presents it as describing all of it. -->
+      <p id="word-count" class="word-count" data-state="ok" aria-live="polite">
+        <span id="word-count-value">0 / 300 words</span><span id="word-count-note"></span>
+      </p>
 
       <div class="composer-footer">
         <p class="hint">Checks age, location, occupation and education.<span class="kbd-hint"> Press <kbd>⌘</kbd><kbd>Enter</kbd> to run.</span></p>
