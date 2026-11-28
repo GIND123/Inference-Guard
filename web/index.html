@@ -4,116 +4,138 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>InferenceGuard — Review before you share</title>
-  <link rel="stylesheet" href="style.css?v=dual-edition-v2">
-  <script src="app.js?v=dual-edition-v2" defer></script>
+  <meta name="description" content="InferenceGuard shows what a message could reveal about you, and suggests a safer version before you send it.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@400;500&display=swap">
+  <link rel="stylesheet" href="style.css?v=ui-2">
+  <script src="app.js?v=ui-2" defer></script>
 </head>
 <body>
-<div class="app-layout">
-  <header class="navbar">
-    <div><a class="brand" href="./">InferenceGuard</a><p>Dual-edition AI privacy shield for personal prompts &amp; business support gateways.</p></div>
-    <span id="connection" role="status" class="connection">Checking connection…</span>
-  </header>
-  <main>
-    <div class="mode-tabs" role="tablist" aria-label="Workspace mode">
-      <button id="tab-inspector" type="button" role="tab" aria-selected="true" class="mode-tab active">👤 Personal Privacy Shield</button>
-      <button id="tab-livechat" type="button" role="tab" aria-selected="false" class="mode-tab">🏢 Business Support Gateway &amp; Live Chat</button>
+<header class="topbar">
+  <div class="topbar-inner">
+    <a class="brand" href="./" aria-label="InferenceGuard home">
+      <svg class="brand-mark" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2.5 4 5.6v6.1c0 4.8 3.3 8.6 8 9.8 4.7-1.2 8-5 8-9.8V5.6L12 2.5Z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M8.2 12.2h7.6M10 15.4h4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><circle cx="12" cy="8.8" r="1.25" fill="currentColor"/></svg>
+      <span>InferenceGuard</span>
+    </a>
+    <nav class="mode-tabs" role="tablist" aria-label="Workspace mode">
+      <button id="tab-inspector" type="button" role="tab" aria-selected="true" aria-controls="inspector-view" class="mode-tab active">
+        <svg viewBox="0 0 20 20" aria-hidden="true"><circle cx="10" cy="7" r="3.2" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M3.8 16.5c.9-3 3.3-4.6 6.2-4.6s5.3 1.6 6.2 4.6" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
+        Personal
+      </button>
+      <button id="tab-livechat" type="button" role="tab" aria-selected="false" aria-controls="livechat-view" class="mode-tab">
+        <svg viewBox="0 0 20 20" aria-hidden="true"><rect x="3" y="4" width="14" height="12.5" rx="2" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M3 8.2h14M7.5 4v4.2" stroke="currentColor" stroke-width="1.6"/></svg>
+        Business gateway
+      </button>
+    </nav>
+    <span id="connection" role="status" class="connection" hidden>Checking connection…</span>
+  </div>
+</header>
+
+<main class="page">
+
+  <!-- Personal: review a single message ------------------------------------------------ -->
+  <div id="inspector-view" role="tabpanel" aria-labelledby="tab-inspector">
+    <div class="page-head">
+      <p class="kicker">Personal privacy review</p>
+      <h1 id="input-title">What would you like to share?</h1>
+      <p id="input-help" class="lede">See what your message could reveal about you, then review a safer version. You decide what to keep.</p>
     </div>
 
-    <div id="livechat-view" hidden>
-      <section class="card">
-        <div class="conversation-bar">
-          <span class="eyebrow">DUAL-EDITION LIVE AI GATEWAY &amp; SPLIT-BRAIN CHAT</span>
-          <div class="conversation-controls">
-            <label for="chat-scenario" class="sr-only">Demo Scenario</label>
-            <select id="chat-scenario" class="mode-select" aria-label="Demo scenario">
-              <option value="business_support" selected>🏢 Business: Customer Support AI Agent</option>
-              <option value="personal_workplace">👤 Personal: Multi-Turn Workplace Assistant</option>
-            </select>
-            <button id="chat-demo-btn" type="button" class="secondary-sm">Run Next Demo Turn (1/3)</button>
-            <button id="chat-new-btn" type="button" class="secondary-sm">New Private Chat</button>
-          </div>
-        </div>
-        <h2>Chat naturally on the left. Inspect the zero-PII Cloud Wiretap &amp; CRM Safe-Log on the right.</h2>
-        <p class="small">Names, emails, phone numbers, and street addresses stay locally encrypted as blind aliases (<code>PERSON_1</code>, <code>ADDRESS_1</code>, <code>EMAIL_1</code>) while Order IDs and amounts pass through intact—zero PII stored in cloud or CRM logs.</p>
-        <details class="research-settings"><summary>Connect Live LLM (Optional OpenAI / OpenRouter / Ollama)</summary>
-          <div class="detail-grid">
-            <div><label for="chat-base-url">Upstream Base URL</label><input id="chat-base-url" value="https://api.openai.com/v1" autocomplete="off"></div>
-            <div><label for="chat-model">Model</label><input id="chat-model" value="gpt-4o-mini" autocomplete="off"></div>
-            <div><label for="chat-api-key">API Key (leave blank for Offline Demo Assistant)</label><input id="chat-api-key" type="password" placeholder="sk-... or blank" autocomplete="off"></div>
-          </div>
-        </details>
-        <div class="split-brain-grid">
-          <div class="sb-pane">
-            <div class="sb-pane-head"><h3>Your Private View (Local Device)</h3><span id="chat-alias-count" class="turn-badge">0 local aliases</span></div>
-            <div id="private-chat-log" class="sb-log"><p class="small">Send a message or click “Run Next Demo Turn” to start a private multi-turn conversation.</p></div>
-            <div class="sb-composer">
-              <textarea id="chat-input" rows="2" placeholder="Type naturally with real names, addresses, and context…"></textarea>
-              <button id="chat-send-btn" type="button" class="primary">Send Privately</button>
-            </div>
-          </div>
-          <div class="sb-pane sb-wire">
-            <div class="sb-pane-head"><h3>Cloud LLM Wiretap + CRM Safe-Log</h3><span id="wire-risk-pill" class="turn-badge">Mosaic Risk: 0.00 → 0.00</span></div>
-            <div id="cloud-wire-log" class="sb-log"><p class="small">Exact sanitized messages sent over the wire and stored in CRM logs will appear here.</p></div>
-          </div>
-        </div>
-      </section>
-    </div>
-
-    <div id="inspector-view">
-    <section class="card" aria-labelledby="input-title">
-      <div class="conversation-bar">
-        <span class="eyebrow">1 · YOUR MESSAGE</span>
-        <div class="conversation-controls">
-          <label for="privacy-mode" class="sr-only">Privacy Mode</label>
-          <select id="privacy-mode" class="mode-select" aria-label="Privacy mode">
-            <option value="personal_balanced" selected>Balanced (Keep Role Context)</option>
-            <option value="personal_strict">Strict Anonymity</option>
+    <section class="panel composer" aria-labelledby="input-title">
+      <div class="composer-toolbar">
+        <div class="toolbar-group">
+          <label for="privacy-mode" class="toolbar-label">Protection</label>
+          <select id="privacy-mode" class="select" aria-label="Privacy mode">
+            <option value="personal_balanced" selected>Balanced — keep role context</option>
+            <option value="personal_strict">Strict anonymity</option>
           </select>
-          <span id="turn-badge" class="turn-badge">Conversation Turn #1</span>
-          <button id="multiturn-btn" type="button" class="secondary-sm">Try multi-turn example (Turn 1/4)</button>
-          <button id="new-session" type="button" class="secondary-sm">Start new conversation</button>
+          <span id="turn-badge" class="chip chip-mono">Conversation Turn #1</span>
+        </div>
+        <div class="toolbar-group">
+          <button id="multiturn-btn" type="button" class="btn btn-ghost btn-sm">Try multi-turn example (Turn 1/4)</button>
+          <button id="new-session" type="button" class="btn btn-ghost btn-sm">Start new conversation</button>
         </div>
       </div>
-      <h1 id="input-title">What would you like to share?</h1>
-      <p id="input-help">Check what your message could reveal, then review a suggested version. You decide what to keep.</p>
+
       <label for="text-input" class="sr-only">Message to check</label>
-      <textarea id="text-input" rows="5" aria-describedby="input-help" placeholder="Paste or type your message here…"></textarea>
-      <div class="actions"><button id="analyze-btn" class="primary">Check my message</button><button id="sample-btn">Try an example</button></div>
-      <div id="error" class="notice error" role="alert" hidden></div>
-      <details class="research-settings"><summary>Conversation ID &amp; research settings</summary>
-        <p>Messages using the same conversation ID contribute to cumulative risk. Rechecking a message also adds a turn.</p>
-        <label for="session-id">Conversation ID</label>
-        <input id="session-id" autocomplete="off">
+      <textarea id="text-input" class="composer-input" rows="6" aria-describedby="input-help" placeholder="Paste or type the message you are about to send…"></textarea>
+
+      <div class="composer-footer">
+        <p class="hint">Checks age, location, occupation and education.<span class="kbd-hint"> Press <kbd>⌘</kbd><kbd>Enter</kbd> to run.</span></p>
+        <div class="actions">
+          <button id="sample-btn" type="button" class="btn">Try an example</button>
+          <button id="analyze-btn" type="button" class="btn btn-primary">Check my message</button>
+        </div>
+      </div>
+
+      <div id="error" class="notice notice-error" role="alert" hidden></div>
+
+      <details class="disclosure">
+        <summary>Conversation ID &amp; research settings</summary>
+        <p class="muted">Messages that share a conversation ID add up to a cumulative risk. Rechecking a message also adds a turn.</p>
+        <label for="session-id" class="field-label">Conversation ID</label>
+        <input id="session-id" class="input input-mono" autocomplete="off">
       </details>
     </section>
 
-    <div id="empty" class="empty"><h2>Your results will appear here</h2><p>Check a message to see potential exposure and compare the suggested text.</p></div>
+    <div id="empty" class="empty">
+      <div class="empty-steps">
+        <div class="empty-step"><span class="step-num">01</span><h2>Detect</h2><p>Scores how easily a reader could infer who you are from ordinary details.</p></div>
+        <div class="empty-step"><span class="step-num">02</span><h2>Explain</h2><p>Shows which attributes are exposed and which words give them away.</p></div>
+        <div class="empty-step"><span class="step-num">03</span><h2>Rewrite</h2><p>Suggests a version that keeps your meaning. You review every change.</p></div>
+      </div>
+      <ul class="attr-chips" aria-label="Attributes checked">
+        <li>Age</li><li>Location</li><li>Occupation</li><li>Education</li>
+      </ul>
+    </div>
+
     <div id="results" hidden>
-      <div id="stale" class="notice" role="status" hidden>Your message or conversation has changed. These results belong to the previous analysis. Check again before using the suggested text.</div>
+      <div id="stale" class="notice" role="status" hidden>Your message or conversation has changed. These results belong to the previous check — check again before using the suggested text.</div>
 
+      <div class="overview">
+        <section class="panel result-summary" aria-labelledby="outcome-title" aria-live="polite">
+          <p class="section-label">Outcome</p>
+          <h2 id="outcome-title"></h2>
+          <p id="outcome-description" class="muted"></p>
+          <div class="score-comparison">
+            <div class="score"><span>Risk before</span><strong id="before-score">Not available</strong></div>
+            <svg class="score-arrow" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h13m-5-5 5 5-5 5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            <div class="score score-after"><span>Risk after</span><strong id="after-score">Not available</strong></div>
+          </div>
+          <p class="fineprint">Estimates on a 0–1 scale, not probabilities of identifying someone. Lower means less exposure.</p>
+        </section>
 
-      <section class="card" aria-labelledby="exposure-title">
-        <span class="eyebrow">2 · UNDERSTAND YOUR EXPOSURE</span>
-        <h2 id="exposure-title">What could your original message reveal?</h2>
-        <p id="exposure-summary"></p>
-        <div id="attribute-bars" class="attribute-bars"></div>
-        <p class="small">These are scores for the original message, not protection settings.</p>
-      </section>
+        <section class="panel" aria-labelledby="exposure-title">
+          <p class="section-label">Exposure</p>
+          <h2 id="exposure-title">What your original message could reveal</h2>
+          <p id="exposure-summary" class="muted"></p>
+          <div id="attribute-bars" class="attribute-bars"></div>
+          <p class="fineprint">Scores for the original message, not protection settings.</p>
+        </section>
+      </div>
 
-      <section class="card" aria-labelledby="comparison-title">
-        <span class="eyebrow">3 · REVIEW YOUR WORDS</span>
-        <h2 id="comparison-title">Compare before you use</h2>
-        <p id="change-description" role="status"></p>
-        <ul id="change-legend" class="change-legend" aria-label="Text change legend" hidden>
-          <li><del class="rewrite-removed">Removed or replaced</del> in the original</li>
-          <li><ins class="rewrite-added">Added or replacement text</ins> in the suggestion</li>
-        </ul>
-        <div class="comparison-grid">
-          <div><h3>Your original message</h3><div id="original-display" class="text-pane"></div></div>
+      <section class="panel" aria-labelledby="comparison-title">
+        <div class="panel-head">
           <div>
-            <h3>Suggested version</h3>
+            <p class="section-label">Review</p>
+            <h2 id="comparison-title">Compare before you use it</h2>
+            <p id="change-description" class="muted" role="status"></p>
+          </div>
+          <ul id="change-legend" class="change-legend" aria-label="Text change legend" hidden>
+            <li><del class="rewrite-removed">Removed</del></li>
+            <li><ins class="rewrite-added">Added</ins></li>
+          </ul>
+        </div>
+        <div class="comparison-grid">
+          <div class="pane">
+            <h3 class="pane-title">Original</h3>
+            <div id="original-display" class="text-pane"></div>
+          </div>
+          <div class="pane pane-suggested">
+            <h3 class="pane-title">Suggested</h3>
             <div id="alias-bar" class="alias-bar" hidden>
-              <span class="small">Active conversation aliases:</span>
+              <span class="fineprint">Aliases in this conversation</span>
               <div id="pseudonym-badges" class="alias-badges"></div>
             </div>
             <div id="suggested-display" class="text-pane"></div>
@@ -121,63 +143,144 @@
             <textarea id="suggested-text" class="text-pane" rows="7" hidden></textarea>
           </div>
         </div>
-        <p id="edit-note" class="notice" hidden>Edited locally: the scores above do not evaluate your edits. Use “Check edited version” to evaluate them; this adds a conversation turn.</p>
-        <div class="actions"><button id="copy-btn" class="primary">Copy suggested text</button><button id="edit-btn">Edit suggested text</button><button id="restore-aliases-btn" type="button" hidden>Restore real names locally</button><button id="check-edit-btn" hidden>Check edited version</button></div>
-        <p id="action-status" role="status" class="small"></p>
-        <details><summary>Compare against basic PII masking (Presidio baseline)</summary>
-          <div class="comparison-grid methods">
-            <div><h3>Basic personal-information masking</h3><p class="small">Explicit-only baseline masks detected details (and can miss indirect cues or merge distinct people into &lt;PERSON&gt;).</p><div id="presidio-display" class="text-pane"></div></div>
-            <div><h3>Step 1 intermediate: Identity aliases only</h3><p class="small">Persistent aliases applied before inferential cue generalization.</p><div id="pseudonym-display" class="text-pane"></div></div>
+        <p id="edit-note" class="notice" hidden>Edited locally: the scores above do not cover your edits. Use “Check edited version” to score them; this adds a conversation turn.</p>
+        <div class="actions actions-split">
+          <div class="actions">
+            <button id="edit-btn" type="button" class="btn">Edit suggested text</button>
+            <button id="restore-aliases-btn" type="button" class="btn" hidden>Restore real names locally</button>
+            <button id="check-edit-btn" type="button" class="btn" hidden>Check edited version</button>
           </div>
-        </details>
-      </section>
-
-<section class="card result-summary" aria-labelledby="outcome-title" aria-live="polite">
-        <span class="eyebrow">4 · WHAT CHANGED</span>
-        <h2 id="outcome-title"></h2><p id="outcome-description"></p>
-        <div class="score-comparison"><div><span>Estimated risk before</span><strong id="before-score">Not available</strong></div><span aria-hidden="true">→</span><div><span>Estimated risk after</span><strong id="after-score">Not available</strong></div></div>
-        <p class="small">Scores are estimates on a 0–1 scale, not verified probabilities of identifying someone. Lower means less estimated exposure.</p>
-      </section>
-
-      <section id="multiturn-card" class="card" aria-labelledby="multiturn-title">
-        <span class="eyebrow">5 · CONVERSATION LEAKAGE ACROSS TURNS</span>
-        <h2 id="multiturn-title">How messages combine over a conversation</h2>
-        <p class="small">Even harmless-looking messages can accumulate inferential risk across turns. Compare unprotected cumulative exposure against InferenceGuard’s protected curve.</p>
-        <div class="multiturn-summary">
-          <div class="mt-stat"><span>Unprotected cumulative risk</span><strong id="mt-cum-before">0.00</strong><span id="mt-delta-before" class="small"></span></div>
-          <div class="mt-stat"><span>Protected cumulative risk (InferenceGuard)</span><strong id="mt-cum-after">0.00</strong><span id="mt-delta-after" class="small"></span></div>
+          <button id="copy-btn" type="button" class="btn btn-primary">Copy suggested text</button>
         </div>
-        <h3>Cumulative exposure by attribute</h3>
-        <div id="mt-attribute-bars" class="attribute-bars"></div>
-        <h3>Turn-by-turn progression</h3>
-        <div id="mt-history-list" class="mt-history-list"></div>
+        <p id="action-status" role="status" class="fineprint"></p>
+
+        <details class="disclosure">
+          <summary>Compare with basic PII masking (Presidio baseline)</summary>
+          <div class="comparison-grid">
+            <div class="pane">
+              <h3 class="pane-title">Basic personal-information masking</h3>
+              <p class="fineprint">Masks explicit details only; can miss indirect cues or merge different people into &lt;PERSON&gt;.</p>
+              <div id="presidio-display" class="text-pane text-pane-sm"></div>
+            </div>
+            <div class="pane">
+              <h3 class="pane-title">Step 1: identity aliases only</h3>
+              <p class="fineprint">Persistent aliases, applied before indirect cues are generalised.</p>
+              <div id="pseudonym-display" class="text-pane text-pane-sm"></div>
+            </div>
+          </div>
+        </details>
       </section>
 
-      <section class="card">
-        <details id="detailed-evaluation"><summary>Detailed evaluation · numbers &amp; methods</summary>
-          <p>Some scores describe this message. The first two scores also take earlier messages in this conversation into account.</p>
-          <h3>Across this conversation</h3>
-          <div class="detail-grid">
-            <div><h4>Privacy across this conversation</h4><strong id="capacity"></strong><p>A higher score means the tool estimates that the conversation has revealed less about your age, location, job, and education.</p></div>
-            <div><h4>How much risk did this message add?</h4><strong id="leakage"></strong><p>This shows how much the highest risk score changed after this message. Zero means that score stayed the same. The first message starts from zero.</p></div>
+      <section id="multiturn-card" class="panel" aria-labelledby="multiturn-title">
+        <p class="section-label">Conversation</p>
+        <h2 id="multiturn-title">How messages add up over a conversation</h2>
+        <p class="muted">Harmless-looking messages can reveal more together. Compare cumulative exposure with and without InferenceGuard.</p>
+        <div class="stat-grid">
+          <div class="stat"><span class="stat-label">Unprotected cumulative risk</span><strong id="mt-cum-before">0.00</strong><span id="mt-delta-before" class="fineprint"></span></div>
+          <div class="stat stat-protected"><span class="stat-label">Protected cumulative risk</span><strong id="mt-cum-after">0.00</strong><span id="mt-delta-after" class="fineprint"></span></div>
+        </div>
+        <div class="two-col">
+          <div>
+            <h3 class="subhead">By attribute</h3>
+            <div id="mt-attribute-bars" class="attribute-bars"></div>
           </div>
-          <h3>Check the suggested wording</h3>
+          <div>
+            <h3 class="subhead">Turn by turn</h3>
+            <div id="mt-history-list" class="mt-history-list"></div>
+          </div>
+        </div>
+      </section>
+
+      <section class="panel panel-quiet">
+        <details id="detailed-evaluation" class="disclosure disclosure-flush">
+          <summary>Detailed evaluation — numbers and methods</summary>
+          <p class="muted">Some scores describe this message. The first two also take earlier messages in this conversation into account.</p>
+          <h3 class="subhead">Across this conversation</h3>
+          <div class="metric-grid">
+            <div class="metric"><h4>Privacy across this conversation</h4><strong id="capacity"></strong><p>Higher means the conversation has revealed less about your age, location, job and education.</p></div>
+            <div class="metric"><h4>Risk added by this message</h4><strong id="leakage"></strong><p>How much the highest risk score changed after this message. The first message starts from zero.</p></div>
+          </div>
+          <h3 class="subhead">Check the suggested wording</h3>
           <p id="utility-method" class="notice"></p>
-          <div class="detail-grid">
-            <div><h4>How similar are the two versions?</h4><strong id="util-cosine"></strong><p>A higher score means the texts are more alike overall. Check important details separately.</p></div>
-            <div><h4>Does the rewrite stick to what you said?</h4><strong id="util-forward"></strong><p>A higher score suggests the rewrite sticks more closely to what the original text says. Check for any new claims.</p></div>
-            <div><h4>Retention of original details</h4><strong id="util-backward"></strong><p>A higher score suggests more of the original details were kept. Check whether the details you need are still there.</p></div>
-            <div><h4>How well did it keep your meaning?</h4><strong id="util-composite"></strong><p>This combines the three checks above. A higher score suggests the rewrite kept more of your meaning. See the risk comparison for privacy changes.</p></div>
+          <div class="metric-grid metric-grid-4">
+            <div class="metric"><h4>Similarity</h4><strong id="util-cosine"></strong><p>Higher means the texts are more alike overall.</p></div>
+            <div class="metric"><h4>Sticks to what you said</h4><strong id="util-forward"></strong><p>Higher means fewer new claims were added.</p></div>
+            <div class="metric"><h4>Keeps your details</h4><strong id="util-backward"></strong><p>Higher means more original details were kept.</p></div>
+            <div class="metric"><h4>Meaning kept</h4><strong id="util-composite"></strong><p>Combines the three checks above.</p></div>
           </div>
-          <p id="rewrite-method"></p>
-          <p class="small">The analysis response does not identify the risk-scoring backend. No model availability is inferred from a score.</p>
+          <p id="rewrite-method" class="fineprint"></p>
+          <p class="fineprint">The analysis response does not identify the risk-scoring backend. No model availability is inferred from a score.</p>
         </details>
-        <div class="actions export"><button id="download-btn">Download analysis record</button><span class="small">Includes the original message and analyzed output. Local edits are not included.</span></div>
+        <div class="export">
+          <button id="download-btn" type="button" class="btn btn-sm">Download analysis record</button>
+          <span class="fineprint">Includes the original message and analysed output. Local edits are not included.</span>
+        </div>
       </section>
     </div>
+  </div>
+
+  <!-- Business: support gateway & live chat ------------------------------------------------ -->
+  <div id="livechat-view" role="tabpanel" aria-labelledby="tab-livechat" hidden>
+    <div class="page-head">
+      <p class="kicker">Business support gateway</p>
+      <h1>Chat naturally. The cloud only sees aliases.</h1>
+      <p class="lede">Names, emails, phone numbers and street addresses stay on this device as aliases such as <code>PERSON_1</code> and <code>ADDRESS_1</code>. Order IDs and amounts pass through, so support still works.</p>
     </div>
-  </main>
-  <footer>Review the suggested text yourself. Estimated risk reduction does not guarantee anonymity.</footer>
-</div>
+
+    <section class="panel">
+      <div class="composer-toolbar">
+        <div class="toolbar-group">
+          <label for="chat-scenario" class="toolbar-label">Scenario</label>
+          <select id="chat-scenario" class="select" aria-label="Demo scenario">
+            <option value="business_support" selected>Business — customer support agent</option>
+            <option value="personal_workplace">Personal — multi-turn workplace assistant</option>
+          </select>
+        </div>
+        <div class="toolbar-group">
+          <button id="chat-demo-btn" type="button" class="btn btn-sm">Run Next Demo Turn (1/3)</button>
+          <button id="chat-new-btn" type="button" class="btn btn-ghost btn-sm">New private chat</button>
+        </div>
+      </div>
+
+      <div class="split-brain-grid">
+        <div class="sb-pane">
+          <div class="sb-pane-head">
+            <div><h3>Your private view</h3><p class="fineprint">On this device</p></div>
+            <span id="chat-alias-count" class="chip chip-mono">0 local aliases</span>
+          </div>
+          <div id="private-chat-log" class="sb-log"><p class="small">Send a message or click “Run Next Demo Turn” to start a private multi-turn conversation.</p></div>
+          <div class="sb-composer">
+            <label for="chat-input" class="sr-only">Message</label>
+            <textarea id="chat-input" rows="2" placeholder="Type naturally, with real names and addresses…"></textarea>
+            <button id="chat-send-btn" type="button" class="btn btn-primary">Send privately</button>
+          </div>
+        </div>
+        <div class="sb-pane sb-wire">
+          <div class="sb-pane-head">
+            <div><h3>What leaves the device</h3><p class="fineprint">Cloud LLM traffic &amp; CRM log</p></div>
+            <span id="wire-risk-pill" class="chip chip-mono chip-dark">Mosaic Risk: 0.00 → 0.00</span>
+          </div>
+          <div id="cloud-wire-log" class="sb-log"><p class="small">Exact sanitized messages sent over the wire and stored in CRM logs will appear here.</p></div>
+        </div>
+      </div>
+
+      <details class="disclosure">
+        <summary>Connect a live LLM (optional — OpenAI, OpenRouter or Ollama)</summary>
+        <div class="field-grid">
+          <div><label for="chat-base-url" class="field-label">Upstream base URL</label><input id="chat-base-url" class="input input-mono" value="https://api.openai.com/v1" autocomplete="off"></div>
+          <div><label for="chat-model" class="field-label">Model</label><input id="chat-model" class="input input-mono" value="gpt-4o-mini" autocomplete="off"></div>
+          <div><label for="chat-api-key" class="field-label">API key <span class="muted">— blank uses the offline demo assistant</span></label><input id="chat-api-key" class="input input-mono" type="password" placeholder="sk-…" autocomplete="off"></div>
+        </div>
+      </details>
+    </section>
+  </div>
+</main>
+
+<footer class="footer">
+  <div class="footer-inner">
+    <span>InferenceGuard reduces what a message reveals. It does not make you anonymous — review suggested text before sharing.</span>
+    <span class="footer-local">Runs locally</span>
+  </div>
+</footer>
 </body>
 </html>

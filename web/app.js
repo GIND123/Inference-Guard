@@ -101,13 +101,13 @@ document.addEventListener("DOMContentLoaded", () => {
   }
   function message(text) { $("error").textContent = text; $("error").hidden = !text; }
   async function checkConnection() {
-    $("connection").textContent = "Checking connection…";
+    $("connection").textContent = "Checking connection…"; $("connection").dataset.state = "";
     try {
       const response = await fetch("/health", {signal: AbortSignal.timeout(8000)});
       const health = await response.json();
       if (!response.ok || health.status !== "ok") throw new Error();
-      $("connection").textContent = "Backend connected";
-    } catch (_) { $("connection").textContent = "Backend unavailable"; }
+      $("connection").textContent = "Backend connected"; $("connection").dataset.state = "ok";
+    } catch (_) { $("connection").textContent = "Backend unavailable"; $("connection").dataset.state = "down"; }
   }
   function setBusy(value) {
     busy = value;
@@ -317,13 +317,16 @@ document.addEventListener("DOMContentLoaded", () => {
       const data = await response.json();
       if (typeof data.rewritten_text !== "string" || !data.risk_summary || typeof data.risk_summary !== "object") throw new Error("The server returned an incomplete analysis.");
       latest = {session_id:session,user_id:"demo_user",input_text:text,exported_at:new Date().toISOString(),client_latency_seconds:(performance.now()-start)/1000,response:data};
-      render(data); $("connection").textContent = "Backend connected";
+      render(data); $("connection").textContent = "Backend connected"; $("connection").dataset.state = "ok";
     } catch (error) {
       message("We could not complete this check. " + (error.name === "TimeoutError" ? "The request timed out; the server may still be processing this turn." : error.message) + " Your text is still here. Try Check my message again. Any previous results remain from the last successful analysis.");
       checkConnection();
     } finally { setBusy(false); }
   }
   $("analyze-btn").addEventListener("click", analyze);
+  $("text-input").addEventListener("keydown", event => {
+    if (event.key === "Enter" && (event.metaKey || event.ctrlKey)) { event.preventDefault(); analyze(); }
+  });
   for (const id of ["text-input","session-id"]) $(id).addEventListener("input", updateStale);
   $("sample-btn").addEventListener("click", () => { $("text-input").value = "My manager keeps giving client-facing assignments to colleagues with master's degrees. I have been on the team for seven years and train new staff, but I do not have a postgraduate degree. How can I raise this fairly?"; updateStale(); $("text-input").focus(); });
   $("multiturn-btn").addEventListener("click", () => {
@@ -452,7 +455,7 @@ document.addEventListener("DOMContentLoaded", () => {
           const mark = document.createElement("mark");
           mark.className = "restored-alias";
           mark.title = "Cloud saw " + part;
-          mark.textContent = "🔒 " + chatAliasVault.get(part);
+          mark.textContent = chatAliasVault.get(part);
           div.append(mark);
         } else {
           div.append(part);
