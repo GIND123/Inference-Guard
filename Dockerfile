@@ -44,4 +44,9 @@ EXPOSE 8000
 HEALTHCHECK --interval=30s --timeout=5s --start-period=60s --retries=3 \
     CMD curl -f http://localhost:8000/health || exit 1
 
-CMD ["uvicorn", "src.api.app:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "2"]
+# One worker, deliberately. Conversation state (pseudonym aliases, cumulative
+# leakage) lives in a process-local dict in src/pipeline/orchestrator.py, so a
+# second worker would split one conversation across two states: aliases would
+# stop being stable mid-session and cumulative risk would reset. Raising this
+# needs a shared state store first -- see docs/engineering/known-limitations.md.
+CMD ["uvicorn", "src.api.app:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "1"]
