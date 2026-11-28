@@ -63,6 +63,7 @@ document.addEventListener("DOMContentLoaded", () => {
   const outcomes = {
     improved: ["Estimated privacy risk decreased.", "Review the suggested text to make sure it still says what you need.", "good"],
     improved_with_cost: ["Risk decreased, but meaning may have changed.", "Check for missing or altered details before using this version.", "caution"],
+    low_risk: ["Low estimated risk. Nothing needs changing.", "We did not find much this message reveals about you. Review it as usual before sending.", "good"],
     no_change: ["No meaningful reduction in estimated risk.", "The suggestion did not meaningfully reduce estimated inference risk, even if some wording changed.", "caution"],
     worse: ["Estimated risk increased after rewriting.", "Do not assume this suggestion offers better protection. Review or edit it before use.", "bad"],
     explicit_pii_remains: ["Identifying information remains in the suggestion.", "Review detected identifying details before sharing this text.", "bad"]
@@ -95,6 +96,9 @@ document.addEventListener("DOMContentLoaded", () => {
   function isStale() { return !!latest && (latest.input_text !== $("text-input").value.trim() || latest.session_id !== $("session-id").value.trim()); }
   function updateStale() {
     const stale = isStale(); $("stale").hidden = !stale;
+    const priorTurns = latest?.response?.conversation_history?.length || 0;
+    $("conversation-note").hidden = !(stale && priorTurns > 0 && $("text-input").value.trim());
+    $("conversation-note-new").disabled = busy;
     $("copy-btn").disabled = busy || stale;
     $("edit-btn").disabled = busy || stale;
     $("check-edit-btn").disabled = busy || stale;
@@ -215,7 +219,9 @@ document.addEventListener("DOMContentLoaded", () => {
 
   function render(data) {
     const comparison = data.comparison || {}, risk = data.risk_summary || {}, turn = data.turn_record || {}, utility = data.utility_metrics || {};
-    const outcome = outcomes[data.verdict || comparison.verdict] || ["Protection outcome is unavailable.", "Review the text; a changed message alone does not establish improved protection.", "caution"];
+    let verdict = data.verdict || comparison.verdict;
+    if (verdict === "no_change" && risk.overall_band === "LOW") verdict = "low_risk";
+    const outcome = outcomes[verdict] || ["Protection outcome is unavailable.", "Review the text; a changed message alone does not establish improved protection.", "caution"];
     $("outcome-title").textContent = outcome[0]; $("outcome-description").textContent = outcome[1];
     $("outcome-title").closest("section").dataset.tone = outcome[2];
     $("before-score").textContent = number(comparison.inferential_before ?? risk.overall);
@@ -369,8 +375,10 @@ document.addEventListener("DOMContentLoaded", () => {
     if (event.key === "Enter" && (event.metaKey || event.ctrlKey)) { event.preventDefault(); analyze(); }
   });
   for (const id of ["text-input","session-id"]) $(id).addEventListener("input", updateStale);
-  $("sample-btn").addEventListener("click", () => { $("text-input").value = "My manager keeps giving client-facing assignments to colleagues with master's degrees. I have been on the team for seven years and train new staff, but I do not have a postgraduate degree. How can I raise this fairly?"; updateStale(); $("text-input").focus(); });
+  $("sample-btn").addEventListener("click", () => { if (latest) startNewConversation(); $("text-input").value = "My manager keeps giving client-facing assignments to colleagues with master's degrees. I have been on the team for seven years and train new staff, but I do not have a postgraduate degree. How can I raise this fairly?"; updateStale(); $("text-input").focus(); });
   $("multiturn-btn").addEventListener("click", () => {
+    // The example is a fresh four-turn story; don't stack it on unrelated turns.
+    if (multiTurnIdx === 0 && latest) startNewConversation();
     const idx = multiTurnIdx % multiTurnDemo.length;
     $("text-input").value = multiTurnDemo[idx];
     multiTurnIdx = (idx + 1) % multiTurnDemo.length;
@@ -378,7 +386,7 @@ document.addEventListener("DOMContentLoaded", () => {
     updateStale();
     $("text-input").focus();
   });
-  $("new-session").addEventListener("click", () => {
+  function startNewConversation() {
     const oldId = $("session-id").value.trim();
     if (oldId) {
       fetch("/session/" + encodeURIComponent(oldId), {
@@ -396,7 +404,9 @@ document.addEventListener("DOMContentLoaded", () => {
     updateTurnControls(1);
     message("");
     updateStale();
-  });
+  }
+  $("new-session").addEventListener("click", startNewConversation);
+  $("conversation-note-new").addEventListener("click", () => { startNewConversation(); analyze(); });
   $("edit-btn").addEventListener("click", () => setEditing($("suggested-text").hidden));
   $("restore-aliases-btn").addEventListener("click", () => {
     if (aliasVault.size === 0) return;
@@ -535,7 +545,13 @@ document.addEventListener("DOMContentLoaded", () => {
           body: JSON.stringify(payload),
           signal: AbortSignal.timeout(180000)
         });
-        if (!resp.ok) throw new Error("HTTP " + resp.status);
+        if (!resp.ok) {
+          const body = await resp.json().catch(() => ({}));
+          if (body?.detail?.error === "upstream_unavailable") {
+            throw new Error("no AI model is connected. Add one under “Connect a live LLM” below, or start the server with IG_DEMO_MODE=true for demo replies.");
+          }
+          throw new Error("the server returned status " + resp.status + ".");
+        }
         const data = await resp.json();
         const ig = data.inferenceguard || {};
         const sanitizedUser = ig.sanitized_user_message || text;
@@ -601,6 +617,12 @@ document.addEventListener("DOMContentLoaded", () => {
       const val = inp.value;
       inp.value = "";
       sendLiveChat(val);
+    });
+    $("chat-input").addEventListener("keydown", event => {
+      if (event.key === "Enter" && !event.shiftKey && !event.isComposing) {
+        event.preventDefault();
+        if (!$("chat-send-btn").disabled) $("chat-send-btn").click();
+      }
     });
     $("chat-demo-btn").addEventListener("click", () => {
       const turns = getActiveScenario().turns;
