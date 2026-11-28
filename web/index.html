@@ -8,8 +8,9 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@400;500&display=swap">
-  <link rel="stylesheet" href="style.css?v=ui-2">
-  <script src="app.js?v=ui-2" defer></script>
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M12 2.5 4 5.6v6.1c0 4.8 3.3 8.6 8 9.8 4.7-1.2 8-5 8-9.8V5.6L12 2.5Z' fill='%230b5f58'/%3E%3C/svg%3E">
+  <link rel="stylesheet" href="style.css?v=ui-3">
+  <script src="app.js?v=ui-3" defer></script>
 </head>
 <body>
 <header class="topbar">
@@ -65,6 +66,10 @@
            of the message while the panel presents it as describing all of it. -->
       <p id="word-count" class="word-count" data-state="ok" aria-live="polite">
         <span id="word-count-value">0 / 300 words</span><span id="word-count-note"></span>
+      </p>
+      <p id="conversation-note" class="conversation-note" hidden>
+        This message will be scored together with your earlier messages in this conversation.
+        <button id="conversation-note-new" type="button" class="link-btn">Check it on its own instead</button>
       </p>
 
       <div class="composer-footer">
@@ -260,6 +265,7 @@
             <textarea id="chat-input" rows="2" placeholder="Type naturally, with real names and addresses…"></textarea>
             <button id="chat-send-btn" type="button" class="btn btn-primary">Send privately</button>
           </div>
+          <p class="chat-hint">Enter to send, Shift+Enter for a new line.</p>
         </div>
         <div class="sb-pane sb-wire">
           <div class="sb-pane-head">

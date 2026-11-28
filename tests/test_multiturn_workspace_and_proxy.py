@@ -72,7 +72,9 @@ def test_stream_alias_restorer_handles_split_token_boundaries():
     assert out == "Hello Sarah Chen, please CC sarah@example.com."
 
 
-def test_openai_compatible_chat_completions_proxy_multiturn(client):
+def test_openai_compatible_chat_completions_proxy_multiturn(client, monkeypatch):
+    # No upstream is configured here, so the reply comes from the demo assistant (opt-in since #113).
+    monkeypatch.setenv("IG_DEMO_MODE", "true")
     sid = "proxy_mt_test"
     secret = "p" * 64
     client.delete(f"/session/{sid}", headers={"X-Session-Secret": secret})

@@ -37,8 +37,10 @@ def test_ready_and_status_report_hf_hub_model_ids():
     assert rd["rewriter_model_id"] == st["rewriter_model_id"]
 
 
-def test_openai_sdk_header_gateway_restore_mode():
+def test_openai_sdk_header_gateway_restore_mode(monkeypatch):
     """Verify 1-line OpenAI SDK header integration restores customer reply while keeping CRM log zero-PII."""
+    # No upstream is configured here, so the reply comes from the demo assistant (opt-in since #113).
+    monkeypatch.setenv("IG_DEMO_MODE", "true")
     sdk = InferenceGuardSupportClient(privacy_mode="business_support", restore_mode="gateway")
     sid = f"sdk-{secrets.token_hex(4)}"
     kwargs = sdk.openai_client_kwargs(api_key="", session_id=sid)
@@ -85,8 +87,9 @@ def test_openai_sdk_header_gateway_restore_mode():
     assert "Order #88412" in crm_dump
 
 
-def test_zendesk_support_webhook_with_crm_context_and_jurisdiction():
+def test_zendesk_support_webhook_with_crm_context_and_jurisdiction(monkeypatch):
     """Verify POST /v1/support/webhook blind-indexes CRM records and returns dual outputs."""
+    monkeypatch.setenv("IG_DEMO_MODE", "true")
     ticket_id = f"ZD-{secrets.token_hex(3)}"
     sec = secrets.token_hex(16)
     resp = client.post(

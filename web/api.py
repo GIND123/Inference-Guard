@@ -453,7 +453,7 @@ def get_qwen_rewriter():
 
 
 _ALIAS_TOKEN_PATTERN = re.compile(
-    r"^(?:PERSON|EMAIL|PHONE|ADDRESS|HOSPITAL|UNIVERSITY|ORG|LOCATION)_\d+$"
+    r"^(?:PERSON|EMAIL|PHONE|SSN|ADDRESS|HOSPITAL|UNIVERSITY|ORG|LOCATION)_\d+$"
 )
 
 
@@ -836,7 +836,7 @@ def _retains_critical_numbers(original: str, candidate: str) -> bool:
     ratios ('1:8'), and statutory citations ('19-9-3', '3553').
     """
     orig_clean, _ = scrub_hard_pii(original)
-    orig_clean = re.sub(r"\b(?:PERSON|EMAIL|PHONE|ADDRESS|HOSPITAL|UNIVERSITY|ORG|LOCATION)_\d+\b", "", orig_clean)
+    orig_clean = re.sub(r"\b(?:PERSON|EMAIL|PHONE|SSN|ADDRESS|HOSPITAL|UNIVERSITY|ORG|LOCATION)_\d+\b", "", orig_clean)
     orig_clean = orig_clean.lower()
     _tp_followers = r"(?!\s+(?:patient|client|infant|child|toddler|boy|girl|man|woman|male|female|son|daughter|student|applicant)\b)"
     orig_clean = re.sub(rf"\b\d{{1,2}}[-\s]*(?:years?[-\s]*old|yrs?[-\s]*old|yo|y/o|year-old)\b{_tp_followers}", "", orig_clean)
@@ -845,7 +845,7 @@ def _retains_critical_numbers(original: str, candidate: str) -> bool:
     orig_clean = re.sub(r"\b(?:spent|with|for|after)?\s*\d+(?:\.\d+)?\s*(?:\+\s*)?(?:years?|yrs?|months?)\s+(?:of\s+)?(?:tenure|experience|service|practice|as\b)", "", orig_clean)
     orig_clean = re.sub(r"\b(?:working|work)\s+\d+[-\s]*hour\s+weeks?\b", "", orig_clean)
 
-    cand_clean = re.sub(r"\b(?:PERSON|EMAIL|PHONE|ADDRESS|HOSPITAL|UNIVERSITY|ORG|LOCATION)_\d+\b", "", candidate).lower()
+    cand_clean = re.sub(r"\b(?:PERSON|EMAIL|PHONE|SSN|ADDRESS|HOSPITAL|UNIVERSITY|ORG|LOCATION)_\d+\b", "", candidate).lower()
 
     # Check structured support/legal/quantitative identifiers explicitly
     _structured_pat = r"(?:#\d{3,}|\b(?:tkt|inv|ord|case)-\d+\b|\b\d+(?:\.\d+)?%|\b\d+:\d+\b|\b\d+-\d+(?:-\d+)+\b)"

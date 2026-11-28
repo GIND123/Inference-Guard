@@ -26,6 +26,7 @@ class DeterministicPseudonymManager:
         "PERSON",
         "EMAIL_ADDRESS",
         "PHONE_NUMBER",
+        "US_SSN",
         "STREET_ADDRESS",
         "ORGANIZATION",
         "HOSPITAL",
@@ -37,6 +38,7 @@ class DeterministicPseudonymManager:
         "PERSON": "PERSON",
         "EMAIL_ADDRESS": "EMAIL",
         "PHONE_NUMBER": "PHONE",
+        "US_SSN": "SSN",
         "STREET_ADDRESS": "ADDRESS",
         "HOSPITAL": "HOSPITAL",
         "UNIVERSITY": "UNIVERSITY",
@@ -53,6 +55,8 @@ class DeterministicPseudonymManager:
     _PHONE_RE = re.compile(
         r"(?<!\d)(?:\+?\d{1,3}[-.\s]?)?(?:\(\d{3}\)|\d{3})[-.\s]?\d{3}[-.\s]?\d{4}(?!\d)"
     )
+    # Dashed form only: undashed nine-digit runs collide with order and account numbers.
+    _SSN_RE = re.compile(r"(?<![\d-])\d{3}-\d{2}-\d{4}(?![\d-])")
     _AMBIGUOUS_SINGLE_NAMES = {
         "will", "may", "bill", "mark", "grace", "chase", "april", "june", "august",
         "art", "pat", "rob", "grant", "dean", "sue", "ray", "joy", "hope", "faith",
@@ -77,7 +81,7 @@ class DeterministicPseudonymManager:
         re.IGNORECASE,
     )
     _ALIAS_TOKEN_RE = re.compile(
-        r"^(?:PERSON|EMAIL|PHONE|ADDRESS|HOSPITAL|UNIVERSITY|ORG|LOCATION)_\d+$"
+        r"^(?:PERSON|EMAIL|PHONE|SSN|ADDRESS|HOSPITAL|UNIVERSITY|ORG|LOCATION)_\d+$"
     )
     _FP_CODE_OR_TEMPORAL_RE = re.compile(
         r"^(?:Q[1-4]|T[1-4]|L[1-5]|B\d{1,2}|"
@@ -258,6 +262,8 @@ class DeterministicPseudonymManager:
             raw_detections.append(("STREET_ADDRESS", m.start(), m.end(), 0.96))
         for m in self._PHONE_RE.finditer(text):
             raw_detections.append(("PHONE_NUMBER", m.start(), m.end(), 0.95))
+        for m in self._SSN_RE.finditer(text):
+            raw_detections.append(("US_SSN", m.start(), m.end(), 0.97))
 
         # Supplement with structural proper-noun Hospital/University spans only when non-referents are tracked
         if not self.referents_only:
